@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Filter, Download } from 'lucide-react';
+import { Calendar, Filter, Download, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const mockDailyData = [
   { day: 'Mon', aqi: 45, pm25: 12, co2: 410 },
@@ -13,8 +15,27 @@ const mockDailyData = [
   { day: 'Sun', aqi: 38, pm25: 9, co2: 400 },
 ];
 
+const logData = [
+  { timestamp: '2026-06-11 14:00:00', temp: 24.0, humidity: 50.0, co2: 480, pm25: 10, pm10: 20, aqi: 50 },
+  { timestamp: '2026-06-11 13:00:00', temp: 24.1, humidity: 50.1, co2: 481, pm25: 11, pm10: 21, aqi: 51 },
+  { timestamp: '2026-06-11 12:00:00', temp: 24.2, humidity: 50.2, co2: 482, pm25: 12, pm10: 22, aqi: 52 },
+  { timestamp: '2026-06-11 11:00:00', temp: 24.3, humidity: 50.3, co2: 483, pm25: 13, pm10: 23, aqi: 53 },
+  { timestamp: '2026-06-11 10:00:00', temp: 24.4, humidity: 50.4, co2: 484, pm25: 14, pm10: 24, aqi: 54 },
+];
+
 export function HistoryPage() {
   const [timeRange, setTimeRange] = useState('week');
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    doc.text('Historical Sensor Data', 14, 15);
+    autoTable(doc, {
+      head: [['Timestamp', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'PM2.5', 'PM10', 'AQI']],
+      body: logData.map(row => [row.timestamp, row.temp, row.humidity, row.co2, row.pm25, row.pm10, row.aqi]),
+      startY: 20,
+    });
+    doc.save('historical-data.pdf');
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -49,6 +70,14 @@ export function HistoryPage() {
           <button className="flex items-center gap-2 px-3 py-1.5 border border-system-border bg-system-panel hover:bg-system-border/50 text-system-text text-sm rounded-md transition-colors">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
+          </button>
+
+          <button 
+            onClick={downloadPDF}
+            className="flex items-center gap-2 px-3 py-1.5 border border-system-border bg-system-panel hover:bg-system-border/50 text-system-text text-sm rounded-md transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
         </div>
       </div>
