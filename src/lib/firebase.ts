@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getAuth, signInWithRedirect, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
@@ -22,7 +22,7 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(defa
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch (error) {
     console.error('Login failed:', error);
   }
