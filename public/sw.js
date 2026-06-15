@@ -33,8 +33,18 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and local scope if needed
+  // Only handle GET requests
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Handle SPA navigation requests - Fallback to /index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/index.html');
+      })
+    );
     return;
   }
 

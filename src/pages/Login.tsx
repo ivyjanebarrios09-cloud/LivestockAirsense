@@ -44,7 +44,7 @@ export function LoginPage() {
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
         <Link to="/" className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity overflow-hidden outline outline-1 outline-system-border bg-white">
-          <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
+          <img src="/logo.png" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
         </Link>
         <h2 className="text-center text-3xl font-bold tracking-tight text-system-text">
           {isSignUp ? 'Create your account' : 'Sign in to your account'}
