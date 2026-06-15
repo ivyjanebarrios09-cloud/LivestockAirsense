@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Smartphone, Monitor, ChevronRight, Check, ExternalLink, Share, MoreVertical, PlusSquare, ArrowUpSquare, Download } from 'lucide-react';
+import { X, Smartphone, Check, ExternalLink, Download } from 'lucide-react';
 
 interface InstallModalProps {
   isOpen: boolean;
@@ -10,21 +10,11 @@ interface InstallModalProps {
 }
 
 export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt = false }: InstallModalProps) {
-  const [activeTab, setActiveTab] = useState<'android' | 'ios' | 'desktop'>('android');
   const [isIframe, setIsIframe] = useState(false);
 
   useEffect(() => {
     // Detect if we are inside an iframe
     setIsIframe(window !== window.top);
-
-    const ua = navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(ua)) {
-      setActiveTab('ios');
-    } else if (/android/.test(ua)) {
-      setActiveTab('android');
-    } else {
-      setActiveTab('desktop');
-    }
   }, []);
 
   if (!isOpen) return null;
@@ -117,163 +107,38 @@ export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt
               </div>
             )}
 
-            {/* Install trigger for browsers with beforeinstallprompt */}
-            {hasNativePrompt && !isIframe && (
-              <div className="p-4 bg-system-accent/5 border border-system-accent/15 rounded-xl flex flex-col gap-3">
-                <p className="text-sm font-medium text-system-text">
-                  Your browser supports direct automatic installation!
-                </p>
-                <button
-                  onClick={() => {
-                    if (onNativeInstall) onNativeInstall();
-                    onClose();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-system-accent hover:bg-opacity-95 text-white font-semibold text-sm rounded-lg shadow-md hover:shadow-lg transition-all"
-                >
-                  <Download className="w-4 h-4" />
-                  Install App Instantly
-                </button>
+            {/* Direct PWA Action or Simple Browser Action Notice */}
+            {!isIframe && (
+              <div className="space-y-4 pt-2">
+                {hasNativePrompt ? (
+                  <div className="p-4 bg-system-accent/10 border border-system-accent/20 rounded-xl space-y-3">
+                    <p className="text-sm text-system-text font-medium leading-relaxed">
+                      Your device is ready to install the application in native full-screen PWA format.
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (onNativeInstall) onNativeInstall();
+                        onClose();
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-[0.98]"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Install Native App Now</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-system-bg border border-system-border rounded-xl space-y-3.5">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-system-accent" />
+                      <h4 className="font-semibold text-sm text-system-text">Run Natively on Your Device</h4>
+                    </div>
+                    <p className="text-xs text-system-muted leading-relaxed">
+                      To install Livestock AirSense as a standalone native program, tap the <strong className="font-semibold text-system-accent">Download/Install App icon</strong> next to your browser's address bar star, or select <strong className="font-medium text-system-text">"Add to Home Screen"</strong> / <strong className="font-medium text-system-text">"Install App"</strong> from your browser's main menu.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
-
-            {/* Tabs Selector */}
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-system-muted uppercase tracking-wider">How to Install</span>
-                <span className="text-[11px] font-medium text-system-muted px-2 py-0.5 rounded-full bg-system-bg border border-system-border">
-                  Choose your device
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-1 p-1 bg-system-bg rounded-xl border border-system-border">
-                <button
-                  onClick={() => setActiveTab('android')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-medium rounded-lg transition-all ${
-                    activeTab === 'android'
-                      ? 'bg-system-panel text-system-accent shadow-sm border border-system-border'
-                      : 'text-system-muted hover:text-system-text border border-transparent'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  Android
-                </button>
-                <button
-                  onClick={() => setActiveTab('ios')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-medium rounded-lg transition-all ${
-                    activeTab === 'ios'
-                      ? 'bg-system-panel text-system-accent shadow-sm border border-system-border'
-                      : 'text-system-muted hover:text-system-text border border-transparent'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  iOS (Apple)
-                </button>
-                <button
-                  onClick={() => setActiveTab('desktop')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 text-xs font-medium rounded-lg transition-all ${
-                    activeTab === 'desktop'
-                      ? 'bg-system-panel text-system-accent shadow-sm border border-system-border'
-                      : 'text-system-muted hover:text-system-text border border-transparent'
-                  }`}
-                >
-                  <Monitor className="w-3.5 h-3.5" />
-                  Desktop
-                </button>
-              </div>
-
-              {/* Instructions Panel */}
-              <div className="p-4 bg-system-bg/50 border border-system-border rounded-xl">
-                {activeTab === 'android' && (
-                  <ul className="space-y-3.5">
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">1</span>
-                      <div>
-                        <p className="font-semibold">Open in your browser</p>
-                        <p className="text-xs text-system-muted leading-relaxed">Make sure you are using Chrome on your Android device.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">2</span>
-                      <div>
-                        <p className="font-semibold">Tap the Install or Menu icon</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Look for the <strong className="font-semibold text-system-accent">Download/App icon</strong> (or monitor icon with down arrow <Download className="inline-block w-3.5 h-3.5 text-system-accent mx-0.5" />) next to the browser bookmark star, or tap the three dots menu (<MoreVertical className="inline w-3.5 h-3.5 mx-0.5 text-system-text" />) in Chrome.
-                        </p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">3</span>
-                      <div>
-                        <p className="font-semibold">Select "Install App"</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Tap the list option <strong className="font-medium">"Install app"</strong> or <strong className="font-medium">"Add to Home screen"</strong>. Confirm and complete your installation!
-                        </p>
-                      </div>
-                    </li>
-                  </ul>
-                )}
-
-                {activeTab === 'ios' && (
-                  <ul className="space-y-3.5">
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">1</span>
-                      <div>
-                        <p className="font-semibold">Open in Safari</p>
-                        <p className="text-xs text-system-muted leading-relaxed">Open this web link inside Apple's native Safari browser.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">2</span>
-                      <div>
-                        <p className="font-semibold">Tap the Install, Share or Bookmark bar</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Look for the <strong className="font-semibold text-system-accent">Download/App icon</strong> (or monitor icon with down arrow <Download className="inline-block w-3.5 h-3.5 text-system-accent mx-0.5" />) next to the address bookmark star, or tap the standard iOS <strong>Share</strong> button (<Share className="inline w-3.5 h-3.5 mx-0.5 text-system-accent" />) in Safari's toolbar.
-                        </p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">3</span>
-                      <div>
-                        <p className="font-semibold">Select "Add to Home Screen"</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Scroll down the menu list and tap <strong className="font-medium">"Add to Home Screen"</strong> (<PlusSquare className="inline w-3.5 h-3.5 mx-0.5 text-system-text" />), then tap <strong className="font-medium">"Add"</strong> in the top-right corner.
-                        </p>
-                      </div>
-                    </li>
-                  </ul>
-                )}
-
-                {activeTab === 'desktop' && (
-                  <ul className="space-y-3.5">
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">1</span>
-                      <div>
-                        <p className="font-semibold">Look at address bar</p>
-                        <p className="text-xs text-system-muted leading-relaxed">On modern desktop browsers (Chrome, Edge, Opera, etc.), view the right end of the URL bar.</p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">2</span>
-                      <div>
-                        <p className="font-semibold">Click the "Install" icon</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Click the download/app icon (<Download className="inline w-3.5 h-3.5 mx-0.5 text-system-accent" /> or monitor icon with down arrow) next to the bookmark star.
-                        </p>
-                      </div>
-                    </li>
-                    <li className="flex gap-3 text-sm text-system-text">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">3</span>
-                      <div>
-                        <p className="font-semibold">Confirm install option</p>
-                        <p className="text-xs text-system-muted leading-relaxed">
-                          Select the <strong className="font-medium">"Install"</strong> button inside browser notification overlay. The app now launches in its own native window!
-                        </p>
-                      </div>
-                    </li>
-                  </ul>
-                )}
-              </div>
-            </div>
           </div>
 
           <div className="p-4 border-t border-system-border bg-system-bg flex gap-2 justify-end">
