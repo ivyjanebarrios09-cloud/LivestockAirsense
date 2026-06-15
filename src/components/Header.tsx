@@ -16,19 +16,15 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0 md:bg-system-bg md:border-b-0">
+    <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0">
       <div className="flex items-center gap-4">
-        {/* Mobile branding only */}
-        <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex md:hidden items-center gap-2">
-          <img src="/logo.png" alt="LAS Logo" className="h-8 w-auto object-contain" />
-          <span className="hidden sm:inline">Livestock AirSense</span>
-          <span className="sm:hidden">LAS</span>
-        </div>
-        {/* Desktop breadcrumbs/state only */}
-        <div className="hidden md:flex items-center gap-2.5 text-sm font-medium text-system-text">
-          <span className="text-system-accent uppercase font-bold tracking-wider text-xs bg-system-accent/10 px-2.5 py-1 rounded-md">Live Care Console</span>
-          <span className="text-system-border font-light">|</span>
-          <span className="text-system-muted font-mono text-xs">secure connection verified</span>
+        {/* Unified branding for all views */}
+        <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2.5">
+          <img src="/logo.png" alt="LAS Logo" className="h-8 w-auto object-contain shrink-0" />
+          <div className="flex flex-col">
+            <span className="font-bold text-system-text text-sm uppercase tracking-wider leading-none">AirSense</span>
+            <span className="text-[9px] text-system-muted font-mono mt-0.5 whitespace-nowrap">LIVESTOCK MONITOR</span>
+          </div>
         </div>
       </div>
 
@@ -51,18 +47,18 @@ export function Header() {
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />
         ) : user ? (
-          <div className="flex md:hidden items-center gap-3">
-            <span className="text-sm font-medium text-system-text hidden sm:block">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-system-text hidden sm:block bg-system-bg border border-system-border px-2.5 py-1 rounded-md max-w-[180px] truncate leading-none">
               {user.displayName || user.email}
             </span>
             {user.photoURL ? (
-              <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-system-border" referrerPolicy="no-referrer" />
+              <img src={user.photoURL} alt="Avatar" className="w-8 h-8 rounded-full border border-system-border shrink-0" referrerPolicy="no-referrer" />
             ) : (
-              <UserCircle className="w-8 h-8 text-system-muted" />
+              <UserCircle className="w-8 h-8 text-system-muted shrink-0" />
             )}
             <button 
               onClick={handleLogout}
-              className="p-2 text-system-muted hover:text-system-text hover:bg-system-border/50 rounded-md ml-2 transition-colors"
+              className="p-1.5 text-system-muted hover:text-system-text hover:bg-system-border/50 rounded-lg transition-colors shrink-0"
               title="Logout"
             >
               <LogOut className="w-4 h-4" />
