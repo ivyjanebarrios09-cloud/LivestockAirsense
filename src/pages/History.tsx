@@ -26,6 +26,38 @@ const logData = [
 export function HistoryPage() {
   const [timeRange, setTimeRange] = useState('week');
 
+  const downloadCSV = () => {
+    // CSV Header row
+    const headers = ['Timestamp', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'PM2.5 (µg/m³)', 'PM10 (µg/m³)', 'AQI'];
+    
+    // Row mappings
+    const rows = logData.map(row => [
+      row.timestamp,
+      row.temp,
+      row.humidity,
+      row.co2,
+      row.pm25,
+      row.pm10,
+      row.aqi
+    ]);
+    
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(e => e.join(','))
+    ].join('\n');
+    
+    // Trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `historical-airsense-data-${timeRange}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const downloadPDF = () => {
     const doc = new jsPDF();
     doc.text('Historical Sensor Data', 14, 15);
@@ -34,7 +66,7 @@ export function HistoryPage() {
       body: logData.map(row => [row.timestamp, row.temp, row.humidity, row.co2, row.pm25, row.pm10, row.aqi]),
       startY: 20,
     });
-    doc.save('historical-data.pdf');
+    doc.save(`historical-airsense-data-${timeRange}.pdf`);
   };
 
   return (
@@ -67,7 +99,10 @@ export function HistoryPage() {
             <span className="hidden sm:inline">Filters</span>
           </button>
           
-          <button className="flex items-center gap-2 px-3 py-1.5 border border-system-border bg-system-panel hover:bg-system-border/50 text-system-text text-sm rounded-md transition-colors">
+          <button 
+            onClick={downloadCSV}
+            className="flex items-center gap-2 px-3 py-1.5 border border-system-border bg-system-panel hover:bg-system-border/50 text-system-text text-sm rounded-md transition-colors"
+          >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
@@ -121,15 +156,15 @@ export function HistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
-              {[...Array(5)].map((_, i) => (
+              {logData.map((row, i) => (
                 <tr key={i} className="hover:bg-system-border/20 transition-colors">
-                  <td className="px-6 py-3.5 whitespace-nowrap">2026-06-11 {14-i}:00:00</td>
-                  <td className="px-6 py-3.5">24.{i}</td>
-                  <td className="px-6 py-3.5">50.{i}</td>
-                  <td className="px-6 py-3.5 text-severity-warning">48{i}</td>
-                  <td className="px-6 py-3.5">1{i}</td>
-                  <td className="px-6 py-3.5">2{i}</td>
-                  <td className="px-6 py-3.5 font-sans font-medium text-system-accent">5{i}</td>
+                  <td className="px-6 py-3.5 whitespace-nowrap">{row.timestamp}</td>
+                  <td className="px-6 py-3.5">{row.temp.toFixed(1)}</td>
+                  <td className="px-6 py-3.5">{row.humidity.toFixed(1)}</td>
+                  <td className="px-6 py-3.5 text-severity-warning">{row.co2}</td>
+                  <td className="px-6 py-3.5">{row.pm25}</td>
+                  <td className="px-6 py-3.5">{row.pm10}</td>
+                  <td className="px-6 py-3.5 font-sans font-medium text-system-accent">{row.aqi}</td>
                 </tr>
               ))}
             </tbody>
