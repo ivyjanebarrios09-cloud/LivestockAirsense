@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon } from 'lucide-react';
+import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon, Smartphone, Download, X } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
 import { PWAPromoCard } from '../components/PWAPromoCard';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { InstallModal } from '../components/InstallModal';
 
 // Mock data generator for real-time visualization
 const generateReading = (timeStr: string) => ({
@@ -16,6 +18,22 @@ const generateReading = (timeStr: string) => ({
 
 export function Dashboard() {
   const { user } = useAuthState();
+  const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
+  const [showBanner, setShowBanner] = useState(true);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('airsense-pwa-banner-dismissed');
+    if (dismissed === 'true') {
+      setShowBanner(false);
+    }
+  }, []);
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowBanner(false);
+    localStorage.setItem('airsense-pwa-banner-dismissed', 'true');
+  };
+
   const [data, setData] = useState(Array.from({ length: 15 }, (_, i) => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - (15 - i));
@@ -45,6 +63,60 @@ export function Dashboard() {
 
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+
+      {isInstallable && showBanner && (
+        <div 
+          onClick={install}
+          className="relative overflow-hidden bg-gradient-to-r from-[#010714] via-[#0d162d] to-[#010714] border border-indigo-500/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg hover:border-indigo-500/35 transition-all cursor-pointer group"
+        >
+          {/* Decorative glowing gradient circle */}
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none group-hover:bg-indigo-500/15 transition-all" />
+          
+          <div className="flex items-start sm:items-center gap-3.5 z-10">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/15 shrink-0">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-white text-sm sm:text-base tracking-tight flex flex-wrap items-center gap-1.5">
+                Enjoy a Native-App Experience on your Device!
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase py-0.5 px-2 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-white tracking-wider">
+                  Mobile & Desktop
+                </span>
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed mt-0.5">
+                Install <strong className="text-indigo-300">Livestock AirSense</strong> directly to your home screen or desktop for a premium layout, fast launching, and full offline persistence.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 z-10 sm:self-center self-end">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                install();
+              }}
+              className="flex items-center gap-2 py-2 px-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_20px_rgba(37,99,235,0.35)] transition-all whitespace-nowrap active:scale-[0.98]"
+            >
+              <Download className="w-3.5 h-3.5 text-white" />
+              <span>One-Tap Install</span>
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent hover:border-slate-800 rounded-lg transition-all"
+              title="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <InstallModal 
+            isOpen={showModal} 
+            onClose={() => setShowModal(false)} 
+            onNativeInstall={triggerNativeInstall} 
+            hasNativePrompt={hasNativePrompt} 
+          />
+        </div>
+      )}
       
       {/* Overview Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
