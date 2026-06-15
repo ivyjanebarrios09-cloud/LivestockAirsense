@@ -11,17 +11,26 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstallable, setIsInstallable] = useState(true);
+  const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
     // Hide if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstallable(false);
+      return;
+    }
+
+    // Always show fallback instruction on iOS as they don't support beforeinstallprompt
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (isIOS || isSafari) {
+      setIsInstallable(true);
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+      setIsInstallable(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
