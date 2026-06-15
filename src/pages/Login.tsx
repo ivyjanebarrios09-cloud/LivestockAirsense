@@ -42,7 +42,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-system-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-system-accent/30">
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <Link to="/" className="w-16 h-16 rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity overflow-hidden outline outline-1 outline-system-border bg-white">
+        <Link to="/" className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity overflow-hidden outline outline-1 outline-system-border bg-white">
           <img src="/logo.png?v=2" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
         </Link>
         <h2 className="text-center text-3xl font-bold tracking-tight text-system-text">

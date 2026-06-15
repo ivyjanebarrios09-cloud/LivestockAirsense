@@ -10,7 +10,7 @@ export function LandingPage() {
       {/* Header */}
       <header className="h-16 border-b border-system-border bg-system-panel flex items-center justify-between px-6 lg:px-12 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <img src="/logo.png?v=2" alt="Livestock AirSense Logo" className="h-8 w-auto object-contain" />
+          <img src="/logo.png?v=2" alt="Livestock AirSense Logo" className="h-10 sm:h-12 w-auto object-contain" />
           <span className="font-bold text-lg tracking-tight">Livestock AirSense</span>
         </div>
         <div className="flex items-center gap-4">

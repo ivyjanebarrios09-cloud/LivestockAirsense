@@ -17,8 +17,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-system-panel border-r border-system-border hidden md:flex flex-col h-full z-10 shrink-0">
-      <div className="h-16 flex items-center px-6 border-b border-system-border bg-system-panel text-system-text font-semibold tracking-wider text-sm gap-2">
-        <img src="/logo.png?v=2" alt="LAS Logo" className="h-6 w-auto object-contain" />
+      <div className="h-20 flex items-center px-6 border-b border-system-border bg-system-panel text-system-text font-semibold tracking-wider text-sm gap-2">
+        <img src="/logo.png?v=2" alt="LAS Logo" className="h-10 w-auto object-contain" />
         Livestock AirSense
       </div>
       

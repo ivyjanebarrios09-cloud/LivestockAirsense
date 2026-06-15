@@ -29,7 +29,7 @@ export const loginWithGoogle = async () => {
   } catch (error: any) {
     console.error('Login failed:', error);
     if (error.code === 'auth/popup-blocked') {
-      alert('Sign-in popup was blocked by your browser. Please allow popups for this site.');
+      alert('Sign-in popup was blocked by your browser. Please open the app in a new tab (using the arrow icon in the top right of the preview panel) to run it natively!');
     } else if (error.code === 'auth/popup-closed-by-user') {
       // User closed the popup, do nothing
     } else {
