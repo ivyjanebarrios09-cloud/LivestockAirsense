@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing } from 'lucide-react';
+import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function AlertsPage() {
   const { user } = useAuthState();
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [popupAlert, setPopupAlert] = useState<any | null>(null);
   const [alerts, setAlerts] = useState<any[]>([
     { id: '1', timestamp: Date.now() - 1000 * 60 * 5, alertType: 'High CO2', severity: 'High Risk', message: 'CO2 levels exceeded 1000ppm in zone A.', isRead: false },
     { id: '2', timestamp: Date.now() - 1000 * 60 * 30, alertType: 'Sensor Offline', severity: 'Warning', message: 'PM2.5 sensor lost connection.', isRead: true },
@@ -18,6 +20,15 @@ export function AlertsPage() {
       setPermission(Notification.permission);
     }
   }, []);
+
+  useEffect(() => {
+    if (popupAlert) {
+      const timer = setTimeout(() => {
+        setPopupAlert(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [popupAlert]);
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {
@@ -39,12 +50,24 @@ export function AlertsPage() {
     };
     
     setAlerts(prev => [newAlert, ...prev]);
+    setPopupAlert(newAlert);
 
     if (permission === 'granted') {
-      new Notification('Livestock AirSense: ' + newAlert.alertType, {
-        body: newAlert.message,
-        icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png'
-      });
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification('Livestock AirSense: ' + newAlert.alertType, {
+            body: newAlert.message,
+            icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png',
+            vibrate: [200, 100, 200],
+            requireInteraction: true
+          });
+        });
+      } else {
+        new Notification('Livestock AirSense: ' + newAlert.alertType, {
+          body: newAlert.message,
+          icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png'
+        });
+      }
     }
   };
 
@@ -65,7 +88,39 @@ export function AlertsPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 relative">
+      {/* Pop up notification area */}
+      <AnimatePresence>
+        {popupAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-20 right-4 md:right-8 z-50 max-w-sm w-full"
+          >
+            <div className={cn(
+              "p-4 rounded-lg border shadow-lg flex items-start gap-3 relative",
+              severityStyles[popupAlert.severity] || severityStyles['Normal']
+            )}>
+              <button 
+                onClick={() => setPopupAlert(null)}
+                className="absolute top-2 right-2 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="shrink-0 mt-0.5">
+                {getIcon(popupAlert.severity)}
+              </div>
+              <div className="mr-4">
+                <h4 className="font-bold text-sm">{popupAlert.alertType}</h4>
+                <p className="text-sm opacity-90 mt-1">{popupAlert.message}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">System Alerts</h1>
