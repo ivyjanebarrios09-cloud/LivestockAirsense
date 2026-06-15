@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
+import { PWAPromoCard } from '../components/PWAPromoCard';
 
 // Mock data generator for real-time visualization
 const generateReading = (timeStr: string) => ({
@@ -139,42 +140,46 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Secondary Info / Recent Events Panel */}
-        <div className="bg-system-panel border border-system-border shadow-sm rounded-xl p-6 flex flex-col">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-medium">Live Diagnostics</h3>
-            <div className="flex items-center gap-2 text-xs font-mono text-severity-normal">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-severity-normal opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-severity-normal"></span>
-              </span>
-              Connected
-            </div>
-          </div>
-          
-          <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-            {[
-              { t: '10s ago', msg: 'Syncing MQTT broker...', st: 'info' },
-              { t: '4m ago', msg: 'Calibration offset applied', st: 'warn' },
-              { t: '12m ago', msg: 'System routine check OK', st: 'info' },
-              { t: '2hr ago', msg: 'Node A reconnected', st: 'info' },
-            ].map((log, i) => (
-              <div key={i} className="flex gap-3 text-sm">
-                <span className="font-mono text-xs text-system-muted w-16 shrink-0">{log.t}</span>
-                <span className={cn(
-                  "truncate",
-                  log.st === 'warn' ? 'text-severity-warning' : 'text-system-text' 
-                )}>{log.msg}</span>
+        {/* Secondary Info / Recent Events Panel & Install Campaign Column */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-system-panel border border-system-border shadow-sm rounded-xl p-6 flex flex-col flex-1">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-medium">Live Diagnostics</h3>
+              <div className="flex items-center gap-2 text-xs font-mono text-severity-normal">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-severity-normal opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-severity-normal"></span>
+                </span>
+                Connected
               </div>
-            ))}
+            </div>
+            
+            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+              {[
+                { t: '10s ago', msg: 'Syncing MQTT broker...', st: 'info' },
+                { t: '4m ago', msg: 'Calibration offset applied', st: 'warn' },
+                { t: '12m ago', msg: 'System routine check OK', st: 'info' },
+                { t: '2hr ago', msg: 'Node A reconnected', st: 'info' },
+              ].map((log, i) => (
+                <div key={i} className="flex gap-3 text-sm">
+                  <span className="font-mono text-xs text-system-muted w-16 shrink-0">{log.t}</span>
+                  <span className={cn(
+                    "truncate",
+                    log.st === 'warn' ? 'text-severity-warning' : 'text-system-text' 
+                  )}>{log.msg}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-system-border">
+              <div className="flex justify-between text-xs font-mono text-system-muted">
+                <span>DB Writes:</span>
+                <span className="text-system-text">~720/hr</span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-system-border">
-            <div className="flex justify-between text-xs font-mono text-system-muted">
-              <span>DB Writes:</span>
-              <span className="text-system-text">~720/hr</span>
-            </div>
-          </div>
+          <PWAPromoCard />
         </div>
 
       </div>
