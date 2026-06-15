@@ -7,6 +7,7 @@ export function LoginPage() {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -25,7 +26,7 @@ export function LoginPage() {
     }
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     setIsLoggingIn(true);
@@ -43,10 +44,10 @@ export function LoginPage() {
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
         <Link to="/" className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity overflow-hidden outline outline-1 outline-system-border bg-white">
-          <img src="/logo.png?v=2" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
+          <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
         </Link>
         <h2 className="text-center text-3xl font-bold tracking-tight text-system-text">
-          Sign in to your account
+          {isSignUp ? 'Create your account' : 'Sign in to your account'}
         </h2>
         <p className="mt-2 text-center text-sm text-system-muted">
           Or <Link to="/" className="text-system-accent hover:underline">return to the home page</Link>
@@ -56,7 +57,22 @@ export function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-system-panel py-8 px-4 shadow-sm border border-system-border sm:rounded-xl sm:px-10">
           
-          <form className="space-y-6" onSubmit={handleEmailLogin}>
+          <div className="flex justify-center border-b border-system-border mb-6">
+            <button
+              onClick={() => setIsSignUp(false)}
+              className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors ${!isSignUp ? 'border-system-accent text-system-text' : 'border-transparent text-system-muted hover:text-system-text'}`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => setIsSignUp(true)}
+              className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors ${isSignUp ? 'border-system-accent text-system-text' : 'border-transparent text-system-muted hover:text-system-text'}`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <form className="space-y-6" onSubmit={handleEmailAuth}>
             
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-system-text">
@@ -122,7 +138,7 @@ export function LoginPage() {
                 disabled={isLoggingIn || loading}
                 className="flex w-full justify-center rounded-md border border-transparent bg-system-accent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-system-accent focus:ring-offset-2 transition-colors disabled:opacity-50"
               >
-                {isLoggingIn ? 'Signing in...' : 'Sign In'}
+                {isLoggingIn ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Sign Up' : 'Sign In')}
               </button>
             </div>
             

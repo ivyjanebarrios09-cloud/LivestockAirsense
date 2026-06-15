@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithRedirect, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
@@ -25,13 +25,11 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch (error: any) {
     console.error('Login failed:', error);
-    if (error.code === 'auth/popup-blocked') {
-      alert('Sign-in popup was blocked by your browser. Please open the app in a new tab (using the arrow icon in the top right of the preview panel) to run it natively!');
-    } else if (error.code === 'auth/popup-closed-by-user') {
-      // User closed the popup, do nothing
+    if (error.code === 'auth/unauthorized-domain') {
+      alert('Domain not authorized for OAuth. Please add this URL to Firebase Console > Authentication > Settings > Authorized domains.');
     } else {
       alert('Google Sign-in failed: ' + error.message);
     }
