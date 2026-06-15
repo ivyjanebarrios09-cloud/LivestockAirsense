@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, Server, Shield, Database, Smartphone, Download } from 'lucide-react';
+import { Save, Server, Shield, Database, Smartphone, Star, MonitorDown } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -54,13 +54,19 @@ export function SettingsPage() {
                   </p>
                 </div>
                 
-                <button
-                  onClick={install}
-                  className="flex items-center justify-center gap-2.5 py-3 px-5 bg-gradient-to-r from-indigo-500 via-blue-600 to-cyan-600 hover:from-indigo-400 hover:via-blue-500 hover:to-cyan-400 text-white font-semibold text-xs uppercase tracking-wider rounded-lg shadow-sm hover:shadow-md transition-all shrink-0 active:scale-[0.98]"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>One-Tap Install</span>
-                </button>
+                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/60 border border-slate-700/50 rounded-xl shadow-inner">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+                    <div className="w-[1px] h-4 bg-slate-800" />
+                    <button
+                      onClick={install}
+                      className="flex items-center gap-1.5 py-2 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm transition-all whitespace-nowrap active:scale-[0.98]"
+                    >
+                      <MonitorDown className="w-4 h-4 text-white shrink-0" />
+                      <span>Install PWA</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <InstallModal 

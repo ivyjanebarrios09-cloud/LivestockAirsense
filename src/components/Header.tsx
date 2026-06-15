@@ -1,4 +1,4 @@
-import { UserCircle, LogOut, Download } from 'lucide-react';
+import { UserCircle, LogOut, Star, MonitorDown } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
@@ -31,15 +31,19 @@ export function Header() {
 
       <div className="flex items-center gap-4">
         {isInstallable && (
-          <button
-            onClick={install}
-            className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
-            title="Install App"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Install App</span>
-            <span className="sm:hidden">Install</span>
-          </button>
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-system-bg border border-system-border rounded-lg shadow-inner">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" title="Bookmark style indicator" />
+            <div className="w-[1px] h-4 bg-system-border" />
+            <button
+              onClick={install}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95"
+              title="Install Native App (PWA)"
+            >
+              <MonitorDown className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Install PWA</span>
+              <span className="sm:hidden">Install</span>
+            </button>
+          </div>
         )}
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />

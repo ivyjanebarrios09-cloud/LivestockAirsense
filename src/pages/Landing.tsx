@@ -1,4 +1,4 @@
-import { ArrowRight, Wind, Activity, Cloud, BarChart3, ShieldCheck, Download } from 'lucide-react';
+import { ArrowRight, Wind, Activity, Cloud, BarChart3, ShieldCheck, Star, MonitorDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -15,13 +15,18 @@ export function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           {isInstallable && (
-            <button
-              onClick={install}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Install App
-            </button>
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-system-bg border border-system-border rounded-lg shadow-inner">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" title="Bookmark style indicator" />
+              <div className="w-[1px] h-4 bg-system-border" />
+              <button
+                onClick={install}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95"
+                title="Install Native App (PWA)"
+              >
+                <MonitorDown className="w-4 h-4 shrink-0" />
+                <span>Install PWA</span>
+              </button>
+            </div>
           )}
           <Link to="/login" className="text-sm font-medium text-system-muted hover:text-system-text transition-colors">
             Log In

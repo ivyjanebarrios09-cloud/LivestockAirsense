@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon, Smartphone, Download, X } from 'lucide-react';
+import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon, Smartphone, Star, MonitorDown, X } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
 import { PWAPromoCard } from '../components/PWAPromoCard';
@@ -89,20 +89,24 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 z-10 sm:self-center self-end">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                install();
-              }}
-              className="flex items-center gap-2 py-2 px-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.2)] hover:shadow-[0_4px_20px_rgba(37,99,235,0.35)] transition-all whitespace-nowrap active:scale-[0.98]"
-            >
-              <Download className="w-3.5 h-3.5 text-white" />
-              <span>One-Tap Install</span>
-            </button>
+          <div className="flex items-center gap-2.5 z-10 sm:self-center self-end">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-900/60 border border-slate-700/50 rounded-xl shadow-inner">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+              <div className="w-[1px] h-3.5 bg-slate-800" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  install();
+                }}
+                className="flex items-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm transition-all whitespace-nowrap active:scale-[0.98]"
+              >
+                <MonitorDown className="w-3.5 h-3.5 text-white shrink-0" />
+                <span>Install PWA</span>
+              </button>
+            </div>
             <button
               onClick={handleDismiss}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent hover:border-slate-800 rounded-lg transition-all"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent hover:border-slate-800 rounded-lg transition-all self-center"
               title="Dismiss banner"
             >
               <X className="w-4 h-4" />
