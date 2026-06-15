@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithRedirect, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
@@ -25,11 +25,15 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
   try {
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (error: any) {
     console.error('Login failed:', error);
-    if (error.code === 'auth/unauthorized-domain') {
+    if (error.code === 'auth/popup-blocked') {
+      alert('Sign-in popup was blocked by your browser. Please open the app in a new tab (using the arrow icon in the top right of the preview panel) to run it natively!');
+    } else if (error.code === 'auth/unauthorized-domain') {
       alert('Domain not authorized for OAuth. Please add this URL to Firebase Console > Authentication > Settings > Authorized domains.');
+    } else if (error.code === 'auth/popup-closed-by-user') {
+      // User closed the popup, do nothing
     } else {
       alert('Google Sign-in failed: ' + error.message);
     }
@@ -37,14 +41,26 @@ export const loginWithGoogle = async () => {
   }
 };
 
-export const loginWithEmail = async (email: string, pass: string) => {
+export const loginWithEmail = async (email: string, pass: string, isSignUp: boolean = false) => {
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch (error: any) {
-    console.error('Email login failed:', error);
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-      // Auto-signup if not found
+    if (isSignUp) {
       await createUserWithEmailAndPassword(auth, email, pass);
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+  } catch (error: any) {
+    console.error('Email auth failed:', error);
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+       if (!isSignUp) {
+         // Auto-signup if not found
+         await createUserWithEmailAndPassword(auth, email, pass);
+       } else {
+         alert('Sign-in failed: ' + error.message);
+         throw error;
+       }
+    } else if (error.code === 'auth/email-already-in-use') {
+       alert('Email already in use. Please sign in instead.');
+       throw error;
     } else {
       alert('Sign-in failed: ' + error.message);
       throw error;

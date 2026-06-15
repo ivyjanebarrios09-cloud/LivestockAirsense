@@ -31,7 +31,7 @@ export function LoginPage() {
     if (!email || !password) return;
     setIsLoggingIn(true);
     try {
-      await loginWithEmail(email, password);
+      await loginWithEmail(email, password, isSignUp);
     } catch (err) {
       // Error is handled in firebase.ts
     } finally {
