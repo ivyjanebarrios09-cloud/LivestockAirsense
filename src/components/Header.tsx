@@ -1,10 +1,10 @@
-import { Menu, UserCircle, LogOut, Download } from 'lucide-react';
+import { UserCircle, LogOut, Download } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
-export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
+export function Header() {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
   const { isInstallable, install } = usePWAInstall();
@@ -17,15 +17,10 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0">
       <div className="flex items-center gap-4">
-        <button 
-          onClick={onMenuClick}
-          className="md:hidden p-2 text-system-muted hover:text-system-text hover:bg-system-border/50 rounded-md"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-        <div className="md:hidden font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2">
+        <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2">
           <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png" alt="LAS Logo" className="h-8 w-auto object-contain" />
-          LAS
+          <span className="hidden sm:inline">Livestock AirSense</span>
+          <span className="sm:hidden">LAS</span>
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm text-system-muted font-mono">
           <span>/</span>
