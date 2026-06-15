@@ -35,7 +35,11 @@ export function usePWAInstall() {
   }, []);
 
   const install = () => {
-    setShowModal(true);
+    if (deferredPrompt) {
+      triggerNativeInstall();
+    } else {
+      setShowModal(true);
+    }
   };
 
   const triggerNativeInstall = async () => {
