@@ -3,11 +3,12 @@ import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { InstallModal } from './InstallModal';
 
 export function Header() {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
-  const { isInstallable, install } = usePWAInstall();
+  const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
 
   const handleLogout = async () => {
     await logout();
@@ -29,7 +30,8 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
+        {isInstallable && (
+          <button
             onClick={install}
             className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
             title="Install App"
@@ -38,6 +40,7 @@ export function Header() {
             <span className="hidden sm:inline">Install App</span>
             <span className="sm:hidden">Install</span>
           </button>
+        )}
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />
         ) : user ? (
@@ -67,6 +70,13 @@ export function Header() {
           </button>
         )}
       </div>
+
+      <InstallModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        onNativeInstall={triggerNativeInstall} 
+        hasNativePrompt={hasNativePrompt} 
+      />
     </header>
   );
 }

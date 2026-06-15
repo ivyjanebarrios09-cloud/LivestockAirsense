@@ -60,7 +60,7 @@ export function AlertsPage() {
             icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png',
             vibrate: [200, 100, 200],
             requireInteraction: true
-          });
+          } as any);
         });
       } else {
         new Notification('Livestock AirSense: ' + newAlert.alertType, {

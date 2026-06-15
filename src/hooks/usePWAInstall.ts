@@ -11,20 +11,14 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstallable, setIsInstallable] = useState(!window.matchMedia('(display-mode: standalone)').matches);
+  const [isInstallable, setIsInstallable] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    // Hide if already installed
+    // Hide if already installed or standalone mode
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstallable(false);
       return;
-    }
-
-    // Always show fallback instruction on iOS as they don't support beforeinstallprompt
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    if (isIOS || isSafari) {
-      setIsInstallable(true);
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -40,7 +34,11 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const install = async () => {
+  const install = () => {
+    setShowModal(true);
+  };
+
+  const triggerNativeInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -48,15 +46,15 @@ export function usePWAInstall() {
         setIsInstallable(false);
       }
       setDeferredPrompt(null);
-    } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      if (isIOS) {
-        alert('To install as a app, tap the Share button in your browser and select "Add to Home Screen".');
-      } else {
-        alert('To install the app, look for the "Install" or "Add to Home Screen" option in your browser menu. This adds it to your device and provides a native app experience.');
-      }
     }
   };
 
-  return { isInstallable, install };
+  return { 
+    isInstallable, 
+    install, 
+    showModal, 
+    setShowModal, 
+    triggerNativeInstall, 
+    hasNativePrompt: !!deferredPrompt 
+  };
 }
