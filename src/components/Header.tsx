@@ -18,7 +18,7 @@ export function Header() {
     <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0">
       <div className="flex items-center gap-4">
         <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2">
-          <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png" alt="LAS Logo" className="h-8 w-auto object-contain" />
+          <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png" alt="LAS Logo" className="h-8 w-auto object-contain" />
           <span className="hidden sm:inline">Livestock AirSense</span>
           <span className="sm:hidden">LAS</span>
         </div>

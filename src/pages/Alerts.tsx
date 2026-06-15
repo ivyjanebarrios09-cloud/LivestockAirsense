@@ -43,7 +43,7 @@ export function AlertsPage() {
     if (permission === 'granted') {
       new Notification('Livestock AirSense: ' + newAlert.alertType, {
         body: newAlert.message,
-        icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png'
+        icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png'
       });
     }
   };
