@@ -29,8 +29,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        {isInstallable && (
-          <button
+        <button
             onClick={install}
             className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
             title="Install App"
@@ -39,7 +38,6 @@ export function Header() {
             <span className="hidden sm:inline">Install App</span>
             <span className="sm:hidden">Install</span>
           </button>
-        )}
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />
         ) : user ? (
