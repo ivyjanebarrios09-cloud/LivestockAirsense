@@ -48,14 +48,7 @@ export function LandingPage() {
             Continuous real-time monitoring of temperature, humidity, ammonia, and CO2. Prevent respiratory diseases and maximize yield with predictive analytics.
           </p>
 
-          <div className="flex items-center gap-4 pt-4">
-            <Link to="/app/dashboard" className="px-8 py-3 bg-system-accent text-white font-medium rounded-lg hover:bg-opacity-90 transition-all shadow-sm flex items-center gap-2">
-              View Live Dashboard <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link to="/login" className="px-8 py-3 bg-system-panel border border-system-border text-system-text font-medium rounded-lg hover:bg-system-border/50 transition-colors">
-              Sign In
-            </Link>
-          </div>
+          {/* Removed landing hero buttons per user request */}
         </section>
 
         {/* Features Section */}

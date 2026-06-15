@@ -195,9 +195,9 @@ export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt
                     <li className="flex gap-3 text-sm text-system-text">
                       <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">2</span>
                       <div>
-                        <p className="font-semibold">Tap browser menu</p>
+                        <p className="font-semibold">Tap the Install or Menu icon</p>
                         <p className="text-xs text-system-muted leading-relaxed">
-                          Tap the three dots icon (<MoreVertical className="inline w-3.5 h-3.5 mx-0.5 text-system-text" />) in the upper-right corner of Chrome.
+                          Look for the <strong className="font-semibold text-system-accent">Download/App icon</strong> (or monitor icon with down arrow <Download className="inline-block w-3.5 h-3.5 text-system-accent mx-0.5" />) next to the browser bookmark star, or tap the three dots menu (<MoreVertical className="inline w-3.5 h-3.5 mx-0.5 text-system-text" />) in Chrome.
                         </p>
                       </div>
                     </li>
@@ -206,7 +206,7 @@ export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt
                       <div>
                         <p className="font-semibold">Select "Install App"</p>
                         <p className="text-xs text-system-muted leading-relaxed">
-                          Tap list option <strong className="font-medium">"Install app"</strong> or <strong className="font-medium">"Add to Home screen"</strong>. Confirm and complete installation!
+                          Tap the list option <strong className="font-medium">"Install app"</strong> or <strong className="font-medium">"Add to Home screen"</strong>. Confirm and complete your installation!
                         </p>
                       </div>
                     </li>
@@ -225,9 +225,9 @@ export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt
                     <li className="flex gap-3 text-sm text-system-text">
                       <span className="flex items-center justify-center w-5 h-5 rounded-full bg-system-accent/15 text-system-accent text-xs font-bold shrink-0">2</span>
                       <div>
-                        <p className="font-semibold">Tap the "Share" button</p>
+                        <p className="font-semibold">Tap the Install, Share or Bookmark bar</p>
                         <p className="text-xs text-system-muted leading-relaxed">
-                          Tap the share icon (<Share className="inline w-3.5 h-3.5 mx-0.5 text-system-accent" />) in Safari's toolbar.
+                          Look for the <strong className="font-semibold text-system-accent">Download/App icon</strong> (or monitor icon with down arrow <Download className="inline-block w-3.5 h-3.5 text-system-accent mx-0.5" />) next to the address bookmark star, or tap the standard iOS <strong>Share</strong> button (<Share className="inline w-3.5 h-3.5 mx-0.5 text-system-accent" />) in Safari's toolbar.
                         </p>
                       </div>
                     </li>
