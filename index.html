@@ -14,11 +14,15 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(registration => {
-            console.log('SW registered: ', registration);
-          }).catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
-          });
+          // Unregister old ones and register new minimal one
+          navigator.serviceWorker.getRegistrations()
+            .then((registrations) => {
+              const promises = registrations.map(reg => reg.unregister());
+              return Promise.all(promises);
+            })
+            .then(() => {
+              navigator.serviceWorker.register('/sw.js');
+            });
         });
       }
     </script>

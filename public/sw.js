@@ -3,20 +3,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName === 'las-cache-v1') {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => clients.claim())
-  );
+  event.waitUntil(clients.claim());
 });
 
+// An empty fetch handler is enough to pass the Chrome PWA requirement
+// without doing any caching or intercepting
 self.addEventListener('fetch', (event) => {
-  // Pass-through fetch to avoid caching issues in development and production
-  return;
+  // Do nothing. Fall back to the network.
 });
