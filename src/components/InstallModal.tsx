@@ -43,8 +43,13 @@ export function InstallModal({ isOpen, onClose, onNativeInstall, hasNativePrompt
           {/* Header */}
           <div className="p-5 border-b border-system-border flex items-center justify-between bg-gradient-to-r from-system-bg to-system-panel">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-system-accent/10 flex items-center justify-center text-system-accent border border-system-accent/20">
-                <Download className="w-5 h-5 animate-pulse" />
+              <div className="w-10 h-10 rounded-xl bg-white border border-system-border flex items-center justify-center shrink-0 overflow-hidden">
+                <img 
+                  src="/logo.png" 
+                  alt="LAS Logo" 
+                  className="w-8 h-8 object-contain" 
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div>
                 <h3 className="font-semibold text-system-text text-base">Install AirSense App</h3>
