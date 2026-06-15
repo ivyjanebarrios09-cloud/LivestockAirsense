@@ -1,9 +1,11 @@
 {
   "name": "Livestock AirSense",
   "short_name": "LAS",
+  "description": "Continuous real-time air quality monitoring for livestock yields",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
   "theme_color": "#2563eb",
   "icons": [
     {
@@ -17,6 +19,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

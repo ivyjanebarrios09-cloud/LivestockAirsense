@@ -16,16 +16,19 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0">
+    <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10 sticky top-0 md:bg-system-bg md:border-b-0">
       <div className="flex items-center gap-4">
-        <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2">
+        {/* Mobile branding only */}
+        <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex md:hidden items-center gap-2">
           <img src="https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview%20(1).png" alt="LAS Logo" className="h-8 w-auto object-contain" />
           <span className="hidden sm:inline">Livestock AirSense</span>
           <span className="sm:hidden">LAS</span>
         </div>
-        <div className="hidden md:flex items-center gap-2 text-sm text-system-muted font-mono">
-          <span>/</span>
-          <span>dashboard</span>
+        {/* Desktop breadcrumbs/state only */}
+        <div className="hidden md:flex items-center gap-2.5 text-sm font-medium text-system-text">
+          <span className="text-system-accent uppercase font-bold tracking-wider text-xs bg-system-accent/10 px-2.5 py-1 rounded-md">Live Care Console</span>
+          <span className="text-system-border font-light">|</span>
+          <span className="text-system-muted font-mono text-xs">secure connection verified</span>
         </div>
       </div>
 
@@ -48,7 +51,7 @@ export function Header() {
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />
         ) : user ? (
-          <div className="flex items-center gap-3">
+          <div className="flex md:hidden items-center gap-3">
             <span className="text-sm font-medium text-system-text hidden sm:block">
               {user.displayName || user.email}
             </span>

@@ -13,7 +13,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 w-full bg-system-panel border-t border-system-border flex items-center justify-around h-16 px-2 z-50 md:px-8 max-w-full">
+    <nav className="fixed bottom-0 w-full bg-system-panel border-t border-system-border flex md:hidden items-center justify-around h-16 px-2 z-50 max-w-full">
       {navItems.map((item) => (
         <NavLink
           key={item.path}

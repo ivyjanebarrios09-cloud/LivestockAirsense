@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { Sidebar } from './Sidebar';
 import { useAuthState } from '../hooks/useAuthState';
 
 export function Layout() {
@@ -28,8 +29,9 @@ export function Layout() {
 
   return (
     <div className="flex bg-system-bg h-screen w-full overflow-hidden text-system-text font-sans selection:bg-system-accent/30">
+      <Sidebar />
       
-      <div className="flex-1 flex flex-col w-full min-w-0 pb-16">
+      <div className="flex-1 flex flex-col w-full min-w-0 pb-16 md:pb-0 h-full overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto w-full relative">
           <Outlet />
