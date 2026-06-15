@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, History, LineChart, BellRing, FileText, Settings, Star, MonitorDown, LogOut, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, History, LineChart, BellRing, FileText, Settings, LogOut, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
-import { InstallModal } from './InstallModal';
 
 export function Sidebar() {
   const { user } = useAuthState();
   const navigate = useNavigate();
-  const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
@@ -98,39 +95,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* PWA Promo in Sidebar */}
-      {isInstallable && (
-        <div className={cn("border-t border-system-border shrink-0", isCollapsed ? "p-2" : "p-4")}>
-          {isCollapsed ? (
-            <button
-              onClick={install}
-              className="w-full flex items-center justify-center p-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg transition-all shadow-sm active:scale-95 mx-auto"
-              title="Install Native App (PWA)"
-            >
-              <MonitorDown className="w-5 h-5 shrink-0 animate-bounce" />
-            </button>
-          ) : (
-            <div className="p-3 bg-system-bg border border-system-border rounded-xl space-y-2.5 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center gap-1.5">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" />
-                <span className="text-xs font-semibold text-system-text">Run Natively</span>
-              </div>
-              <p className="text-[11px] text-system-muted leading-relaxed">
-                Install the application in standalone format for instant native access.
-              </p>
-              <button
-                onClick={install}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95"
-                title="Install Native App"
-              >
-                <MonitorDown className="w-4 h-4 shrink-0" />
-                <span>Install App</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* User profile footer */}
       {user && (
         <div className={cn(
@@ -171,13 +135,6 @@ export function Sidebar() {
           </button>
         </div>
       )}
-
-      <InstallModal 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
-        onNativeInstall={triggerNativeInstall} 
-        hasNativePrompt={hasNativePrompt} 
-      />
     </aside>
   );
 }
