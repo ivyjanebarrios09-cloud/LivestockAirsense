@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    match /sensor_readings/{readingId} {
+      function isValidSensorReading(data) {
+        return data.keys().hasAll(['timestamp', 'temperature', 'humidity', 'ammonia', 'methane', 'co2', 'pm25', 'pm10', 'aqi']) &&
+               data.keys().size() == 9 &&
+               data.timestamp is number &&
+               data.temperature is number &&
+               data.humidity is number &&
+               data.ammonia is number &&
+               data.methane is number &&
+               data.co2 is number &&
+               data.pm25 is number &&
+               data.pm10 is number &&
+               data.aqi is number;
+      }
+      
+      // In a real application we would restrict this based on isUser / isAdmin.
+      // For this prototype, any authenticated user can read/write data.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(readingId) && isValidSensorReading(request.resource.data);
+      allow update: if isSignedIn() && isValidSensorReading(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /alerts/{alertId} {
+      function isValidAlert(data) {
+        return data.keys().hasAll(['timestamp', 'alertType', 'severity', 'message', 'isRead']) &&
+               data.keys().size() == 5 &&
+               data.timestamp is number &&
+               data.alertType is string && data.alertType.size() <= 100 &&
+               data.severity is string && data.severity.size() <= 50 &&
+               data.message is string && data.message.size() <= 500 &&
+               data.isRead is bool;
+      }
+      
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(request.resource.data);
+      allow update: if isSignedIn() && isValidAlert(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /system_settings/{settingId} {
+      function isValidSettings(data) {
+        return data.keys().hasAll(['refreshInterval', 'tempThreshold', 'co2Threshold', 'aqiThreshold']) &&
+               data.keys().size() == 4 &&
+               data.refreshInterval is number &&
+               data.tempThreshold is number &&
+               data.co2Threshold is number &&
+               data.aqiThreshold is number;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(settingId) && isValidSettings(request.resource.data);
+      allow update: if isSignedIn() && isValidSettings(request.resource.data);
+      allow delete: if isSignedIn(); // allow system resets for prototype
+    }
+  }
+}

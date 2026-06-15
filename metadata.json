@@ -1,0 +1,6 @@
+{
+  "name": "Livestock AirSense (LAS)",
+  "description": "A professional capstone-level web application for real-time monitoring of air quality sensors, including temperature, humidity, various gases, and particulate matter.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
