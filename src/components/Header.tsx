@@ -32,10 +32,12 @@ export function Header() {
         {isInstallable && (
           <button
             onClick={install}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
+            className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
+            title="Install App"
           >
             <Download className="w-4 h-4" />
-            Install App
+            <span className="hidden sm:inline">Install App</span>
+            <span className="sm:hidden">Install</span>
           </button>
         )}
         {loading ? (

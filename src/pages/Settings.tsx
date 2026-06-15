@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { Save, Server, Shield, Database, Download } from 'lucide-react';
+import { Save, Server, Shield, Database } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
-import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export function SettingsPage() {
   const { user } = useAuthState();
   const [saving, setSaving] = useState(false);
-  const { isInstallable, install } = usePWAInstall();
 
   const handleSave = () => {
     setSaving(true);
@@ -32,29 +30,6 @@ export function SettingsPage() {
       ) : (
         <div className="space-y-6">
           
-          <section className="bg-system-panel border border-system-border shadow-sm rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-system-border flex items-center gap-2">
-              <Download className="w-4 h-4 text-system-muted" />
-              <h3 className="font-medium text-sm">Application</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">Install App</h4>
-                  <p className="text-sm text-system-muted mt-1">Install Livestock AirSense for a native experience and faster access.</p>
-                </div>
-                <button
-                  onClick={install}
-                  disabled={!isInstallable}
-                  className="flex shrink-0 items-center gap-2 px-4 py-2 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="w-4 h-4" />
-                  Install App
-                </button>
-              </div>
-            </div>
-          </section>
-
           <section className="bg-system-panel border border-system-border shadow-sm rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-system-border flex items-center gap-2">
               <Server className="w-4 h-4 text-system-muted" />
