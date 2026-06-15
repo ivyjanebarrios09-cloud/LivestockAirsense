@@ -1,4 +1,4 @@
-import { UserCircle, LogOut, Star, MonitorDown } from 'lucide-react';
+import { UserCircle, LogOut, Star, MonitorDown, Smartphone } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,20 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Always visible mobile & desktop prompt to ensure mobile compatibility */}
+        {!window.matchMedia('(display-mode: standalone)').matches && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95 hover:shadow-md"
+            title="Download Natively / Install Mobile App"
+            id="header-mobile-install-btn"
+          >
+            <Smartphone className="w-4 h-4 shrink-0 animate-pulse" />
+            <span className="hidden md:inline">Get Mobile App</span>
+            <span className="md:hidden">Get App</span>
+          </button>
+        )}
+
         {isInstallable && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-system-bg border border-system-border rounded-lg shadow-inner">
             <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" title="Bookmark style indicator" />
