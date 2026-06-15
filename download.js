@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const url = "https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png";
+const url = "https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/Logo.png";
 
 async function downloadLogo() {
   try {

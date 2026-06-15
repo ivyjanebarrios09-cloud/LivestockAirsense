@@ -57,7 +57,7 @@ export function AlertsPage() {
         navigator.serviceWorker.ready.then((registration) => {
           registration.showNotification('Livestock AirSense: ' + newAlert.alertType, {
             body: newAlert.message,
-            icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png',
+            icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/Logo.png',
             vibrate: [200, 100, 200],
             requireInteraction: true
           } as any);
@@ -65,7 +65,7 @@ export function AlertsPage() {
       } else {
         new Notification('Livestock AirSense: ' + newAlert.alertType, {
           body: newAlert.message,
-          icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/1000005269-removebg-preview.png'
+          icon: 'https://fzugmubaqmfjuxdvfnur.supabase.co/storage/v1/object/public/products/Logo.png'
         });
       }
     }
