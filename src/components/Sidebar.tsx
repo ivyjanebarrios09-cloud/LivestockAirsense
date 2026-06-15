@@ -17,9 +17,9 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-system-panel border-r border-system-border hidden md:flex flex-col h-full z-10 shrink-0">
-      <div className="h-16 flex items-center px-6 border-b border-system-border bg-system-panel text-system-text font-semibold uppercase tracking-wider text-sm gap-2">
-        <Activity className="w-5 h-5 text-system-accent" />
-        LAS Core
+      <div className="h-16 flex items-center px-6 border-b border-system-border bg-system-panel text-system-text font-semibold tracking-wider text-sm gap-2">
+        <img src="/logo.png?v=2" alt="LAS Logo" className="h-6 w-auto object-contain" />
+        Livestock AirSense
       </div>
       
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">

@@ -24,6 +24,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="w-5 h-5" />
         </button>
         <div className="md:hidden font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2">
+          <img src="/logo.png?v=2" alt="LAS Logo" className="h-6 w-auto object-contain" />
           LAS
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm text-system-muted font-mono">

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Wind } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { loginWithGoogle } from '../lib/firebase';
+import { loginWithGoogle, loginWithEmail } from '../lib/firebase';
 import { useAuthState } from '../hooks/useAuthState';
 
 export function LoginPage() {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     if (user && !loading) {
@@ -17,16 +18,32 @@ export function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
-    await loginWithGoogle();
-    setIsLoggingIn(false);
+    try {
+      await loginWithGoogle();
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setIsLoggingIn(true);
+    try {
+      await loginWithEmail(email, password);
+    } catch (err) {
+      // Error is handled in firebase.ts
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-system-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-system-accent/30">
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <Link to="/" className="w-12 h-12 bg-system-accent rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity">
-          <Wind className="w-7 h-7 text-white" />
+        <Link to="/" className="w-16 h-16 rounded-xl flex items-center justify-center mb-6 shadow-sm hover:opacity-90 transition-opacity overflow-hidden outline outline-1 outline-system-border bg-white">
+          <img src="/logo.png?v=2" alt="Livestock AirSense Logo" className="w-full h-full object-contain p-2" />
         </Link>
         <h2 className="text-center text-3xl font-bold tracking-tight text-system-text">
           Sign in to your account
@@ -39,7 +56,7 @@ export function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-system-panel py-8 px-4 shadow-sm border border-system-border sm:rounded-xl sm:px-10">
           
-          <div className="space-y-6">
+          <form className="space-y-6" onSubmit={handleEmailLogin}>
             
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-system-text">
@@ -52,6 +69,8 @@ export function LoginPage() {
                   type="email"
                   autoComplete="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@example.com"
                   className="block w-full appearance-none rounded-md border border-system-border px-3 py-2 placeholder-system-muted shadow-sm focus:border-system-accent focus:outline-none focus:ring-1 focus:ring-system-accent sm:text-sm bg-system-bg text-system-text"
                 />
@@ -69,6 +88,8 @@ export function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="block w-full appearance-none rounded-md border border-system-border px-3 py-2 placeholder-system-muted shadow-sm focus:border-system-accent focus:outline-none focus:ring-1 focus:ring-system-accent sm:text-sm bg-system-bg text-system-text"
                 />
@@ -97,11 +118,11 @@ export function LoginPage() {
 
             <div>
               <button
-                type="button"
-                onClick={() => navigate('/app/dashboard')}
+                type="submit"
+                disabled={isLoggingIn || loading}
                 className="flex w-full justify-center rounded-md border border-transparent bg-system-accent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-system-accent focus:ring-offset-2 transition-colors disabled:opacity-50"
               >
-                Sign In
+                {isLoggingIn ? 'Signing in...' : 'Sign In'}
               </button>
             </div>
             
@@ -116,6 +137,7 @@ export function LoginPage() {
 
             <div>
               <button
+                type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoggingIn || loading}
                 className="flex w-full justify-center items-center gap-2 rounded-md border border-system-border bg-system-panel px-4 py-2 text-sm font-medium text-system-text shadow-sm hover:bg-system-bg focus:outline-none focus:ring-2 focus:ring-system-accent focus:ring-offset-2 transition-colors disabled:opacity-50"
@@ -130,7 +152,7 @@ export function LoginPage() {
               </button>
             </div>
 
-          </div>
+          </form>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
@@ -26,8 +26,31 @@ export const loginWithGoogle = async () => {
   });
   try {
     await signInWithPopup(auth, provider);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login failed:', error);
+    if (error.code === 'auth/popup-blocked') {
+      alert('Sign-in popup was blocked by your browser. Please allow popups for this site.');
+    } else if (error.code === 'auth/popup-closed-by-user') {
+      // User closed the popup, do nothing
+    } else {
+      alert('Google Sign-in failed: ' + error.message);
+    }
+    throw error;
+  }
+};
+
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (error: any) {
+    console.error('Email login failed:', error);
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      // Auto-signup if not found
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } else {
+      alert('Sign-in failed: ' + error.message);
+      throw error;
+    }
   }
 };
 
