@@ -1,8 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, History, LineChart, BellRing, FileText, Settings, Activity } from 'lucide-react';
+import { LayoutDashboard, History, LineChart, BellRing, FileText, Settings, Activity, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export function Sidebar() {
+  const { isInstallable, install } = usePWAInstall();
+
   const navItems = [
     { name: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
     { name: 'History', path: '/app/history', icon: History },
@@ -35,6 +38,15 @@ export function Sidebar() {
             {item.name}
           </NavLink>
         ))}
+        {isInstallable && (
+          <button
+            onClick={install}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-system-accent hover:bg-system-bg/50 mt-4 border border-system-accent/20"
+          >
+            <Download className="w-4 h-4" />
+            Install App
+          </button>
+        )}
       </nav>
 
       <div className="p-4 border-t border-system-border text-xs text-system-muted font-mono">

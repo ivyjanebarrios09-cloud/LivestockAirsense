@@ -1,11 +1,13 @@
-import { Menu, UserCircle, LogOut } from 'lucide-react';
+import { Menu, UserCircle, LogOut, Download } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { logout } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
+  const { isInstallable, install } = usePWAInstall();
 
   const handleLogout = async () => {
     await logout();
@@ -31,6 +33,15 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
 
       <div className="flex items-center gap-4">
+        {isInstallable && (
+          <button
+            onClick={install}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Install App
+          </button>
+        )}
         {loading ? (
           <div className="w-8 h-8 rounded-full border-2 border-system-border border-t-system-accent animate-spin" />
         ) : user ? (

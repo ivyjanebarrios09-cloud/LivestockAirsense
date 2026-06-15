@@ -1,7 +1,10 @@
-import { ArrowRight, Wind, Activity, Cloud, BarChart3, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Wind, Activity, Cloud, BarChart3, ShieldCheck, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export function LandingPage() {
+  const { isInstallable, install } = usePWAInstall();
+
   return (
     <div className="min-h-screen bg-system-bg text-system-text flex flex-col font-sans selection:bg-system-accent/30">
       {/* Header */}
@@ -13,6 +16,15 @@ export function LandingPage() {
           <span className="font-bold text-lg tracking-tight">Livestock AirSense</span>
         </div>
         <div className="flex items-center gap-4">
+          {isInstallable && (
+            <button
+              onClick={install}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-system-bg border border-system-border text-system-text text-sm font-medium rounded-md hover:bg-system-border/50 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Install App
+            </button>
+          )}
           <Link to="/login" className="text-sm font-medium text-system-muted hover:text-system-text transition-colors">
             Log In
           </Link>
