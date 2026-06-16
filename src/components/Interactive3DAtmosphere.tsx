@@ -37,50 +37,8 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
   // Smooth perspective tilt coordinates
   const [worldAngle, setWorldAngle] = useState({ x: 0, y: 0 });
 
-  // Staggered cloud layer configuration - crafted to distribute clouds organically
-  const clouds: CloudLayer[] = useMemo(() => {
-    const rawLayers = [
-      { z: -700, y: 15, scale: 0.9, opacity: 0.5, driftDur: 140, driftDel: -45, bobAmt: 12, bobDur: 26, bobDel: -5, rot: -5 },
-      { z: -450, y: 40, scale: 1.15, opacity: 0.7, driftDur: 110, driftDel: -18, bobAmt: 18, bobDur: 21, bobDel: -9, rot: 8 },
-      { z: -250, y: 20, scale: 1.35, opacity: 0.85, driftDur: 85, driftDel: -65, bobAmt: 24, bobDur: 17, bobDel: -14, rot: -12 },
-      { z: -50,  y: 65, scale: 1.6, opacity: 0.9, driftDur: 68, driftDel: -32, bobAmt: 30, bobDur: 14, bobDel: -4, rot: 15 },
-      { z: 120,  y: 10, scale: 2.1, opacity: 0.8, driftDur: 48, driftDel: -8, bobAmt: 42, bobDur: 11, bobDel: -17, rot: -6 },
-      { z: -550, y: 75, scale: 1.0, opacity: 0.55, driftDur: 125, driftDel: -88, bobAmt: 15, bobDur: 23, bobDel: -2, rot: 20 },
-      { z: -350, y: -10, scale: 1.25, opacity: 0.72, driftDur: 98, driftDel: -52, bobAmt: 21, bobDur: 19, bobDel: -11, rot: -18 },
-      { z: 50,   y: 85, scale: 1.8, opacity: 0.75, driftDur: 55, driftDel: -25, bobAmt: 35, bobDur: 15, bobDel: -10, rot: 10 }
-    ];
-
-    return rawLayers.map((layer, index) => {
-      // Deterministic offsets to build soft organic puff outlines without randomization flashes
-      const puffCount = 4 + (index % 3);
-      const puffs: SubPuff[] = Array.from({ length: puffCount }, (_, i) => {
-        const theta = (i / puffCount) * Math.PI * 2;
-        return {
-          offsetX: Math.round(Math.cos(theta) * 35 + (i * 8 % 15) - 7),
-          offsetY: Math.round(Math.sin(theta) * 20 + (i * 12 % 15) - 7),
-          scaleX: 1.1 + (i * 3 % 5) * 0.15,
-          scaleY: 0.8 + (i * 2 % 4) * 0.12,
-          rotationZ: (i * 45) % 360,
-          opacity: 0.85 - (i * 0.05)
-        };
-      });
-
-      return {
-        id: `stable-cloud-${index}`,
-        z: layer.z,
-        y: layer.y,
-        scale: layer.scale,
-        opacity: layer.opacity,
-        driftDuration: layer.driftDur,
-        driftDelay: layer.driftDel,
-        bobAmount: layer.bobAmt,
-        bobDuration: layer.bobDur,
-        bobDelay: layer.bobDel,
-        rotationZ: layer.rot,
-        puffs
-      };
-    });
-  }, []);
+  // Staggered cloud layer configuration - empty to remove moving clouds as requested
+  const clouds: CloudLayer[] = useMemo(() => [], []);
 
   // Soft atmospheric responsive interactive tracking
   useEffect(() => {
@@ -191,10 +149,10 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
           }
         }
         .animate-air-flow-1 {
-          animation: air-flow-wave 28s linear infinite;
+          /* static air flow */
         }
         .animate-air-flow-2 {
-          animation: air-flow-wave 42s linear infinite;
+          /* static air flow */
         }
         .perspective-container {
           transition: transform 1.2s cubic-bezier(0.12, 0.8, 0.22, 1);
