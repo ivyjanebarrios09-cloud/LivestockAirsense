@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -10,29 +10,39 @@ export function HistoryPage() {
   const { activeLocation } = useAppContext();
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
+  
+  // Pagination & Display limit states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
+
+  // Reset page position back to page 1 whenever filters shift
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [timeRange, activeLocation]);
 
   // Generate dynamic logging logs tailored around the selected location's traits
   const historicalLogs = useMemo(() => {
-    const recordsCount = timeRange === 'today' ? 6 : timeRange === 'week' ? 7 : 12;
+    // Extensive records set representation to demonstrate enterprise storage depth
+    const recordsCount = timeRange === 'today' ? 24 : timeRange === 'week' ? 42 : 60;
     const items = [];
     
     for (let i = 0; i < recordsCount; i++) {
       const date = new Date();
       if (timeRange === 'today') {
-        date.setHours(date.getHours() - (i * 3));
+        date.setHours(date.getHours() - i);
       } else if (timeRange === 'week') {
-        date.setDate(date.getDate() - i);
+        date.setHours(date.getHours() - (i * 4));
       } else {
-        date.setDate(date.getDate() - (i * 2.5));
+        date.setHours(date.getHours() - (i * 12));
       }
 
       // Add controlled noise
-      const tempDelta = Math.sin(i) * 1.5;
-      const co2Delta = (i % 2 === 0 ? 35 : -25);
+      const tempDelta = Math.sin(i * 0.8) * 2.2;
+      const co2Delta = (i % 3 === 0 ? 45 : (i % 2 === 0 ? -15 : 20));
       const tempVal = Number((activeLocation.baseTemp + tempDelta).toFixed(1));
-      const humidityVal = Math.round(activeLocation.baseHumidity + (Math.cos(i) * 5));
-      const co2Val = Math.round(activeLocation.baseCo2 + co2Delta + (i * 8));
-      const ammoniaVal = Number((activeLocation.baseAmmonia + (Math.sin(i * 1.5) * 0.4)).toFixed(2));
+      const humidityVal = Math.round(activeLocation.baseHumidity + (Math.cos(i * 0.7) * 6));
+      const co2Val = Math.round(activeLocation.baseCo2 + co2Delta + (Math.sin(i * 0.4) * 35));
+      const ammoniaVal = Number((activeLocation.baseAmmonia + (Math.sin(i * 0.9) * 0.55)).toFixed(2));
       const calculatedAqi = Math.round((co2Val / 11) + (ammoniaVal * 5.5));
 
       const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -42,7 +52,7 @@ export function HistoryPage() {
       if (timeRange === 'today') {
         label = `${date.getHours().toString().padStart(2, '0')}:00`;
       } else if (timeRange === 'week') {
-        label = daysOfWeek[date.getDay()];
+        label = `${daysOfWeek[date.getDay()]} ${date.getHours().toString().padStart(2, '0')}:00`;
       } else {
         label = `${monthsOfYear[date.getMonth()]} ${date.getDate()}`;
       }
@@ -69,10 +79,31 @@ export function HistoryPage() {
     return items;
   }, [activeLocation, timeRange]);
 
-  // For Recharts display (reverse chronologically so chart draws left-to-right)
+  // For Recharts display (reverse chronologically so chart draws left-to-right, downsampled for visual layout spacing)
   const chartData = useMemo(() => {
-    return [...historicalLogs].reverse();
-  }, [historicalLogs]);
+    const reversed = [...historicalLogs].reverse();
+    if (timeRange === 'today') {
+      return reversed.filter((_, idx) => idx % 2 === 0);
+    } else if (timeRange === 'week') {
+      return reversed.filter((_, idx) => idx % 4 === 0);
+    } else {
+      return reversed.filter((_, idx) => idx % 5 === 0);
+    }
+  }, [historicalLogs, timeRange]);
+
+  // Calculate items displaying inside current page view
+  const paginatedLogs = useMemo(() => {
+    if (rowsPerPage === 'all') {
+      return historicalLogs;
+    }
+    const start = (currentPage - 1) * rowsPerPage;
+    return historicalLogs.slice(start, start + rowsPerPage);
+  }, [historicalLogs, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    if (rowsPerPage === 'all') return 1;
+    return Math.ceil(historicalLogs.length / rowsPerPage);
+  }, [historicalLogs, rowsPerPage]);
 
   const triggerFeedback = (msg: string) => {
     setExportSuccessText(msg);
@@ -244,33 +275,39 @@ export function HistoryPage() {
 
       {/* Structured Telemetry Data List Table */}
       <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-system-border bg-system-bg flex justify-between items-center">
-          <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Live Datastore Ledger Details</h3>
+        <div className="px-5 py-4 border-b border-system-border bg-system-bg flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Live Datastore Ledger Details</h3>
+            <p className="text-[11px] text-system-muted font-mono mt-0.5">Secure ledgers synchronized with local PWA cache buffers.</p>
+          </div>
           <span className="text-[10px] bg-system-accent/15 text-system-accent font-bold px-2.5 py-0.5 rounded-full font-mono">
             {historicalLogs.length} SECURE RECORDS
           </span>
         </div>
+        
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border">
               <tr>
-                <th className="px-6 py-3.5">Calibrated Timestamp</th>
-                <th className="px-6 py-3.5">Temp</th>
-                <th className="px-6 py-3.5">Humidity</th>
-                <th className="px-6 py-3.5">CO2 (Carbon Dioxide)</th>
-                <th className="px-6 py-3.5">NH3 (Ammonia)</th>
-                <th className="px-6 py-3.5">Calculated AQI</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Calibrated Timestamp</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Facility Location</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Temp</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Humidity</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">CO2 (Carbon Dioxide)</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">NH3 (Ammonia)</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Calculated AQI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
-              {historicalLogs.map((row, i) => (
+              {paginatedLogs.map((row, i) => (
                 <tr key={i} className="hover:bg-system-bg/40 transition-colors">
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                  <td className="px-6 py-3.5 text-orange-500 font-bold">{row.temp.toFixed(1)} °C</td>
-                  <td className="px-6 py-3.5 text-purple-500 font-bold">{row.humidity} %</td>
-                  <td className="px-6 py-3.5 text-emerald-500 font-bold">{row.co2} ppm</td>
-                  <td className="px-6 py-3.5 text-indigo-500 font-bold">{row.ammonia.toFixed(2)} ppm</td>
-                  <td className="px-6 py-3.5">
+                  <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{activeLocation.name}</td>
+                  <td className="px-6 py-3.5 text-orange-500 font-bold whitespace-nowrap">{row.temp.toFixed(1)} °C</td>
+                  <td className="px-6 py-3.5 text-purple-500 font-bold whitespace-nowrap">{row.humidity} %</td>
+                  <td className="px-6 py-3.5 text-emerald-500 font-bold whitespace-nowrap">{row.co2} ppm</td>
+                  <td className="px-6 py-3.5 text-indigo-500 font-bold whitespace-nowrap">{row.ammonia.toFixed(2)} ppm</td>
+                  <td className="px-6 py-3.5 whitespace-nowrap">
                     <span className="px-2 py-0.5 rounded-md bg-system-accent/10 border border-system-accent/20 text-system-accent font-bold">
                       {row.aqi} AQI
                     </span>
@@ -279,6 +316,50 @@ export function HistoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Dynamic Pagination Footer Control Hub */}
+        <div className="px-6 py-4 border-t border-system-border bg-system-bg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 text-xs text-system-muted font-mono">
+            <span>Rows per page:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                const val = e.target.value;
+                setRowsPerPage(val === 'all' ? 'all' : Number(val));
+                setCurrentPage(1);
+              }}
+              className="bg-system-panel border border-system-border rounded-lg px-2 py-1 text-xs font-bold text-system-text focus:outline-none focus:border-system-accent font-mono cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value="all">All Records</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-system-muted font-mono">
+              Page <strong className="text-system-text font-bold">{currentPage}</strong> of <strong className="text-system-text font-bold">{totalPages}</strong>
+            </span>
+            
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-2.5 py-1.5 rounded-lg border border-system-border bg-system-panel text-system-text disabled:opacity-40 disabled:cursor-not-allowed hover:bg-system-bg transition-colors cursor-pointer text-xs font-bold font-mono"
+              >
+                PREV
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-2.5 py-1.5 rounded-lg border border-system-border bg-system-panel text-system-text disabled:opacity-40 disabled:cursor-not-allowed hover:bg-system-bg transition-colors cursor-pointer text-xs font-bold font-mono"
+              >
+                NEXT
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

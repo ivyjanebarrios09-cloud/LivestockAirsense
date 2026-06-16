@@ -164,7 +164,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Animated Air/Wind Current 1 */}
       <svg
         className={cn(
-          "absolute right-2 bottom-6 w-20 h-6 opacity-20 group-hover:opacity-50 transition-all duration-500 animate-air-flow-1",
+          "absolute right-2 bottom-6 w-20 h-6 opacity-20 group-hover:opacity-45 transition-all duration-500 animate-air-flow-1",
           colorClass
         )}
         viewBox="0 0 100 30"
@@ -178,7 +178,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Animated Air/Wind Current 2 */}
       <svg
         className={cn(
-          "absolute right-4 bottom-12 w-16 h-4 opacity-15 group-hover:opacity-40 transition-all duration-500 animate-air-flow-2",
+          "absolute right-4 bottom-12 w-16 h-4 opacity-15 group-hover:opacity-35 transition-all duration-500 animate-air-flow-2",
           colorClass
         )}
         viewBox="0 0 100 20"
@@ -190,10 +190,49 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       >
         <path d="M5 10c20 5 40-5 55 0s25 8 35 2" />
       </svg>
-      {/* Cloud (Drifting Background Cloud) */}
+      {/* Animated Air/Wind Current 3 */}
       <svg
         className={cn(
-          "absolute -right-2 -bottom-2 w-20 h-16 opacity-15 group-hover:opacity-35 transition-all duration-500 animate-cloud-drift",
+          "absolute left-4 top-8 w-24 h-5 opacity-10 group-hover:opacity-30 transition-all duration-500 animate-air-flow-3",
+          colorClass
+        )}
+        viewBox="0 0 100 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      >
+        <path d="M5 8c25-3 45 5 65-1s20-6 25-2" />
+      </svg>
+
+      {/* Cloud 1 (Drifting Background Cloud - Bottom Right) */}
+      <svg
+        className={cn(
+          "absolute -right-2 -bottom-2 w-20 h-16 opacity-15 group-hover:opacity-30 transition-all duration-500 animate-cloud-drift",
+          colorClass
+        )}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+      </svg>
+
+      {/* Cloud 2 (Drifting Background Cloud - Top Right) */}
+      <svg
+        className={cn(
+          "absolute right-8 top-1 w-16 h-12 opacity-[0.08] group-hover:opacity-[0.18] transition-all duration-500 animate-cloud-drift-slow",
+          colorClass
+        )}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+      </svg>
+
+      {/* Cloud 3 (Drifting Background Cloud - Middle Left) */}
+      <svg
+        className={cn(
+          "absolute -left-3 bottom-4 w-12 h-10 opacity-[0.06] group-hover:opacity-[0.14] transition-all duration-500 animate-cloud-drift-fast",
           colorClass
         )}
         viewBox="0 0 24 24"
@@ -206,7 +245,34 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 };
 
 export function Dashboard() {
-  const { activeLocation, thresholds, isSyncing, triggerSync, alertsList } = useAppContext();
+  const { activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId } = useAppContext();
+
+  // Load registered devices to show them linked to the monitoring zone
+  const [registeredDevices, setRegisteredDevices] = useState<any[]>(() => {
+    const saved = localStorage.getItem('las_devices');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [
+      { id: 'EP-ESP32-LAS99X', name: 'AirSense Station Alpha', locationId: 'barn-a' },
+      { id: 'EP-ESP32-BRD30A', name: 'Brooder House 3 Sentinel', locationId: 'brooder-3' },
+      { id: 'EP-ESP32-MLK32F', name: 'Milking Parlor Controller', locationId: 'milking-parlor' }
+    ];
+  });
+
+  // Keep devices state refreshed if they navigate back and forth
+  useEffect(() => {
+    const saved = localStorage.getItem('las_devices');
+    if (saved) {
+      try {
+        setRegisteredDevices(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, [activeLocation]);
+
+  const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation.id);
 
   const [data, setData] = useState(() => {
     return Array.from({ length: 15 }, (_, i) => {
@@ -357,13 +423,40 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative space-y-3 z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-400 text-xs font-semibold tracking-wide border border-white/5 uppercase">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-            </span>
-            Live Node: Active
+        <div className="relative space-y-3.5 z-10">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-450 text-[10px] font-bold tracking-wide border border-white/5 uppercase select-none">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              </span>
+              Live Node Connected
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] text-slate-300 font-mono uppercase tracking-widest block font-bold select-none">Selected Monitoring Zone</label>
+            <div className="relative inline-block">
+              <select
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-xl px-3 py-2 text-base font-black tracking-tight text-white focus:outline-none pr-9 appearance-none transition-colors leading-none"
+              >
+                {locations?.map((loc) => (
+                  <option key={loc.id} value={loc.id} className="text-slate-900 font-semibold bg-white">
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-white">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed font-sans mt-0.5">
+              Sector holds <span className="font-bold text-white">{activeLocation.animalCount}</span> items of <span className="text-emerald-400 font-bold">{activeLocation.type}</span>.
+            </p>
           </div>
         </div>
 
@@ -500,45 +593,76 @@ export function Dashboard() {
         </div>
 
         {/* Recent Node Logs & Status Diagnostics */}
-        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col justify-between h-[400px]">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-system-border pb-3">
-              <h3 className="text-sm font-bold tracking-tight uppercase font-mono">Live Node Diagnostics</h3>
+        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px] overflow-hidden select-none">
+          <div className="space-y-4 flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between border-b border-system-border pb-3 shrink-0">
+              <h3 className="text-sm font-bold tracking-tight uppercase font-mono">Telemetry Receivers</h3>
               <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
-                ONLINE
+                {locationDevices.length} ACTIVE
               </div>
             </div>
-            
-            <div className="space-y-3.5 overflow-y-auto pr-1 max-h-[220px] scrollbar-thin">
-              {alertsList.slice(0, 5).map((log, i) => (
-                <div key={log.id || i} className="flex gap-2.5 text-xs pb-3 border-b border-system-bg last:border-0">
-                  <span className="font-mono text-[10px] text-system-muted w-14 shrink-0 mt-0.5">{log.time}</span>
-                  <div className="flex-1 space-y-0.5 min-w-0">
-                    <p className={cn(
-                      "font-semibold break-words whitespace-normal",
-                      log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-600" : "text-yellow-600"
-                    )}>
-                      {log.alertType}
-                    </p>
-                    <p className="text-system-muted text-[11px] leading-relaxed break-words whitespace-normal">{log.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="pt-4 border-t border-system-border space-y-2">
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-system-muted">Storage:</span>
-              <span className="text-system-text font-bold">SQL Light / Cloud Run</span>
+            {/* List of hardware nodes matching current location */}
+            <div className="space-y-2 shrink-0">
+              <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
+                Zone Hardware Node Devices
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
+                {locationDevices.length === 0 ? (
+                  <div className="p-2 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono">
+                    No hardware mapped. Register a node in settings page.
+                  </div>
+                ) : (
+                  locationDevices.map((dev: any) => (
+                    <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-bold truncate text-system-text">{dev.name}</p>
+                        <p className="font-mono text-[9px] text-system-muted truncate">{dev.id}</p>
+                      </div>
+                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-550/20 text-[8px] font-mono font-bold uppercase rounded">
+                        CONNECTED
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-system-muted">Node Sensor Health:</span>
-              <span className="text-emerald-600 font-bold">100% Calibrated</span>
+
+            <div className="border-t border-system-border/40 my-1 shrink-0" />
+
+            <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold shrink-0">
+              Microclimate Feed Stream
+            </div>
+
+            {/* Warn/Telemetry Events */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
+              {alertsList.filter(l => l.location.toLowerCase().includes(activeLocation.name.split(' (')[0].toLowerCase()) || l.location.toLowerCase() === activeLocation.name.toLowerCase()).length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                  <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal for this zone.</p>
+                </div>
+              ) : (
+                alertsList
+                  .filter(l => l.location.toLowerCase().includes(activeLocation.name.split(' (')[0].toLowerCase()) || l.location.toLowerCase() === activeLocation.name.toLowerCase())
+                  .slice(0, 4)
+                  .map((log, i) => (
+                    <div key={log.id || i} className="flex gap-2.5 text-xs pb-2 border-b border-system-bg last:border-0">
+                      <span className="font-mono text-[9px] text-system-muted w-12 shrink-0 mt-0.5">{log.time}</span>
+                      <div className="flex-1 space-y-0.5 min-w-0">
+                        <p className={cn(
+                          "font-semibold break-words whitespace-normal text-[11px]",
+                          log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-500" : "text-yellow-600"
+                        )}>
+                          {log.alertType}
+                        </p>
+                        <p className="text-system-muted text-[10px] leading-normal break-words whitespace-normal">{log.message}</p>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </div>

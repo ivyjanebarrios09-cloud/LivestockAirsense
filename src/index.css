@@ -52,14 +52,26 @@
 }
 
 .animate-air-flow-1 {
-  animation: air-flow 5s ease-in-out infinite;
+  animation: air-flow 6s ease-in-out infinite;
 }
 
 .animate-air-flow-2 {
-  animation: air-flow 7s ease-in-out infinite 2s;
+  animation: air-flow 8s ease-in-out infinite 2s;
+}
+
+.animate-air-flow-3 {
+  animation: air-flow 10s ease-in-out infinite 4s;
 }
 
 .animate-cloud-drift {
-  animation: cloud-drift 10s ease-in-out infinite;
+  animation: cloud-drift 12s ease-in-out infinite;
+}
+
+.animate-cloud-drift-slow {
+  animation: cloud-drift 18s ease-in-out infinite 3s;
+}
+
+.animate-cloud-drift-fast {
+  animation: cloud-drift 9s ease-in-out infinite 1s;
 }
 

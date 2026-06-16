@@ -37,6 +37,8 @@ const LOCATIONS: LocationDetail[] = [
 
 interface AppContextType {
   locations: LocationDetail[];
+  addLocation: (loc: LocationDetail) => void;
+  deleteLocation: (id: string) => void;
   selectedLocationId: string;
   setSelectedLocationId: (id: string) => void;
   activeLocation: LocationDetail;
@@ -55,16 +57,47 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children }: { children: React.ReactNode }) {
   // Load location list and current selection
+  const [locations, setLocations] = useState<LocationDetail[]>(() => {
+    const saved = localStorage.getItem('las_locations');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return LOCATIONS;
+  });
+
   const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
     return localStorage.getItem('las_selected_location') || 'barn-a';
   });
 
-  const activeLocation = LOCATIONS.find(l => l.id === selectedLocationId) || LOCATIONS[0];
+  const activeLocation = locations.find(l => l.id === selectedLocationId) || locations[0] || LOCATIONS[0];
 
   // Save selection
   useEffect(() => {
     localStorage.setItem('las_selected_location', selectedLocationId);
   }, [selectedLocationId]);
+
+  // Save locations list
+  useEffect(() => {
+    localStorage.setItem('las_locations', JSON.stringify(locations));
+  }, [locations]);
+
+  const addLocation = (loc: LocationDetail) => {
+    setLocations(prev => [...prev, loc]);
+  };
+
+  const deleteLocation = (id: string) => {
+    setLocations(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      if (selectedLocationId === id) {
+        if (updated.length > 0) {
+          setSelectedLocationId(updated[0].id);
+        }
+      }
+      return updated;
+    });
+  };
 
   // Load alert thresholds
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
@@ -208,7 +241,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <AppContext.Provider value={{
-      locations: LOCATIONS,
+      locations,
+      addLocation,
+      deleteLocation,
       selectedLocationId,
       setSelectedLocationId,
       activeLocation,
