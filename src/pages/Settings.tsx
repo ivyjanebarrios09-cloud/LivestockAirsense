@@ -89,7 +89,7 @@ export function SettingsPage() {
             navigator.serviceWorker.ready.then(reg => {
               reg.showNotification('AirSense Notifications Enabled', {
                 body: 'You will now receive alerts even when the app is in the background.',
-                icon: '/icon.svg',
+                icon: '/logo.png',
                 vibrate: [100, 50, 100]
               });
             });

@@ -203,8 +203,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           const title = `LAS ${newAlert.severity.toUpperCase()}: ${newAlert.alertType}`;
           const options = {
             body: `${newAlert.location} - ${newAlert.message}`,
-            icon: '/icon.svg',
-            badge: '/icon.svg',
+            icon: '/logo.png',
+            badge: '/logo.png',
             vibrate: severity === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100],
             requireInteraction: severity === 'critical',
             tag: newAlert.id
