@@ -28,9 +28,10 @@ interface CloudLayer {
 interface Interactive3DAtmosphereProps {
   hasAlerts?: boolean;
   variant?: 'emerald' | 'rose' | 'sky';
+  roundedClass?: string;
 }
 
-export function Interactive3DAtmosphere({ hasAlerts = false, variant }: Interactive3DAtmosphereProps) {
+export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedClass = "rounded-2xl" }: Interactive3DAtmosphereProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Smooth perspective tilt coordinates
@@ -146,7 +147,7 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant }: Interact
   return (
     <div 
       ref={containerRef}
-      className="absolute inset-0 overflow-hidden pointer-events-auto cursor-all-scroll select-none z-0 rounded-2xl"
+      className={cn("absolute inset-0 overflow-hidden pointer-events-auto cursor-all-scroll select-none z-0", roundedClass)}
       style={{
         perspective: '900px',
         WebkitPerspective: '900px',
