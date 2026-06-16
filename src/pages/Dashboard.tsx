@@ -491,34 +491,35 @@ export function Dashboard() {
       )}
 
       {/* Grid of Micro-Environmental Sensoring Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
           return (
             <div 
               key={idx} 
               className={cn(
-                "rounded-2xl p-3 sm:p-4 flex flex-col justify-between h-[8.5rem] sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
+                "rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col justify-between h-28 sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
                 metric.cardStyle
               )}
             >
-              <div className="relative z-10 flex justify-between items-start gap-1.5 sm:gap-2">
-                <span className="font-mono text-[9px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-1 line-clamp-2 pr-0.5">{metric.label}</span>
-                <div className={cn("p-1 sm:p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
-                  <IconComponent className={cn("w-4 h-4 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
+              <div className="relative z-10 flex justify-between items-start gap-1 sm:gap-2">
+                <span className="font-mono text-[8.5px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 sm:mt-1 line-clamp-2 pr-0.5">{metric.label}</span>
+                <div className={cn("p-1 sm:p-1.5 rounded-lg sm:rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
+                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
                 </div>
               </div>
 
-              <div className="relative z-10 space-y-1 sm:space-y-1.5 mt-2 sm:mt-0">
+              <div className="relative z-10 space-y-0.5 sm:space-y-1.5 mt-1 sm:mt-0">
                 <div className={cn(
                   "text-lg sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
                   metric.isWarning && "text-red-600"
                 )}>
                   {metric.value}
                 </div>
-                <div className="flex items-center justify-end text-[8px] sm:text-[9px] font-mono text-system-muted min-h-[0.875rem]">
+                <div className="flex items-center justify-between text-[7px] sm:text-[9px] font-mono text-system-muted min-h-[0.75rem] sm:min-h-[0.875rem]">
+                  <span className="truncate pr-1 hidden sm:inline-block">{metric.limitInfo}</span>
                   {metric.isWarning && (
-                    <span className="text-red-500 font-bold animate-pulse">CRITICAL</span>
+                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
                   )}
                 </div>
               </div>
