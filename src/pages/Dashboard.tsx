@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
+import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 
 // Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -347,8 +348,12 @@ export function Dashboard() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300 pb-28">
       
-      {/* Dynamic Header Barn Description & Pull Indicator */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl rounded-2xl p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Dynamic Header Barn Description & Pull Indicator with Immersive 3D Atmosphere */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl rounded-2xl p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 min-h-[140px] group transition-all duration-300">
+        
+        {/* Interactive 3D perspective Atmosphere & Billboarding Clouds Layer */}
+        <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
+
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
@@ -385,9 +390,6 @@ export function Dashboard() {
               {activeIssueCount > 0 ? 'Exceeds safety thresholds!' : 'Ventilation operates efficiently.'}
             </p>
           </div>
-
-          {/* Animated Cloud & Air Wind background layer */}
-          <CloudWindAnimation colorClass={activeIssueCount > 0 ? 'text-rose-400' : 'text-emerald-400'} />
         </div>
       </div>
 
@@ -424,8 +426,7 @@ export function Dashboard() {
                 )}>
                   {metric.value}
                 </div>
-                <div className="flex items-center justify-between text-[9px] font-mono text-system-muted">
-                  <span>{metric.limitInfo}</span>
+                <div className="flex items-center justify-end text-[9px] font-mono text-system-muted">
                   {metric.isWarning && (
                     <span className="text-red-500 font-bold animate-pulse">CRITICAL</span>
                   )}

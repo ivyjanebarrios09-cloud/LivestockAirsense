@@ -1,6 +1,8 @@
 import { ArrowRight, Wind, Activity, Cloud, BarChart3, ShieldCheck, Star, MonitorDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
+import { cn } from '../lib/utils';
 
 export function LandingPage() {
   const { isInstallable, install } = usePWAInstall();
@@ -39,60 +41,36 @@ export function LandingPage() {
 
       {/* Hero Section */}
       <main className="flex-1">
-        <section className="py-24 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col items-center text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-system-accent/10 text-system-accent text-xs font-semibold tracking-wide uppercase border border-system-accent/20">
-            <Activity className="w-3 h-3" />
-            <span className="mt-0.5">Next-Gen Agricultural Monitoring</span>
-          </div>
+        <div className="relative overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-system-bg border-b border-system-border min-h-[500px]">
+          {/* Detailed 3D perspective Atmosphere & Billboarding Clouds Layer */}
+          <Interactive3DAtmosphere variant="sky" />
           
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight max-w-4xl text-system-text leading-tight">
-            Optimize Livestock Health with Precision Air Quality
-          </h1>
-          
-          <p className="text-lg md:text-xl text-system-muted max-w-2xl leading-relaxed">
-            Continuous real-time monitoring of temperature, humidity, ammonia, and CO2. Prevent respiratory diseases and maximize yield with predictive analytics.
-          </p>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none animate-pulse duration-10000" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -ml-40 -mb-40 pointer-events-none animate-pulse duration-10000" />
 
-          {/* Removed landing hero buttons per user request */}
-        </section>
-
-        {/* Features Section */}
-        <section className="py-24 bg-system-panel border-t border-system-border px-6 lg:px-12">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-semibold tracking-tight">Enterprise-Grade Monitoring</h2>
-              <p className="text-system-muted mt-4">Built for modern agricultural facilities.</p>
+          <section className="relative z-10 py-24 md:py-32 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col items-center text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-system-accent/10 border border-system-accent/20 backdrop-blur-md">
+              <Activity className="w-3.5 h-3.5 text-sky-400" />
+              <span className="mt-0.5 text-xs font-bold uppercase tracking-wide text-white/90">Next-Gen Agricultural Monitoring</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                {
-                  icon: Cloud,
-                  title: 'Comprehensive Sensors',
-                  desc: 'Detect accurate levels of Ammonia, Methane, particulate matter (PM2.5/PM10), and more.'
-                },
-                {
-                  icon: BarChart3,
-                  title: 'Predictive Analytics',
-                  desc: 'Identify unhealthy trends before they impact livestock with historical pattern analysis.'
-                },
-                {
-                  icon: ShieldCheck,
-                  title: 'Automated Alerts',
-                  desc: 'Get instant notifications for critical environmental shifts, preventing irreversible damage.'
-                }
-              ].map((feature, i) => (
-                <div key={i} className="bg-system-bg border border-system-border rounded-xl p-8 hover:border-system-accent/50 transition-colors">
-                  <div className="w-12 h-12 bg-system-panel rounded-lg border border-system-border flex items-center justify-center mb-6">
-                    <feature.icon className="w-6 h-6 text-system-accent" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                  <p className="text-system-muted leading-relaxed">{feature.desc}</p>
-                </div>
-              ))}
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight max-w-4xl text-white leading-tight drop-shadow-sm select-none">
+              Optimize Livestock Health with <span className="bg-gradient-to-r from-sky-400 via-blue-300 to-indigo-400 bg-clip-text text-transparent">Precision Air Quality</span>
+            </h1>
+            
+            <p className="text-base sm:text-lg md:text-xl text-slate-300 max-w-2xl leading-relaxed drop-shadow-sm select-none">
+              Continuous real-time monitoring of temperature, humidity, ammonia, and CO2. Prevent respiratory diseases and maximize yield with predictive analytics.
+            </p>
+
+            <div className="pt-4 flex flex-wrap justify-center gap-4">
+              <Link to="/login" className="px-6 py-3 bg-system-accent text-white text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-opacity-95 transition-all shadow-lg shadow-system-accent/20 border border-white/10 flex items-center gap-2 transform active:scale-95">
+                <span>Enter Live Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
+
       </main>
 
       {/* Footer */}
