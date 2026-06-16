@@ -37,8 +37,13 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
   // Smooth perspective tilt coordinates
   const [worldAngle, setWorldAngle] = useState({ x: 0, y: 0 });
 
-  // Staggered cloud layer configuration - empty to remove moving clouds as requested
-  const clouds: CloudLayer[] = useMemo(() => [], []);
+  // Staggered cloud layer configuration - simplified to ensure visibility without glitching
+  const clouds: CloudLayer[] = useMemo(() => {
+    return [
+      { id: 'cloud-1', z: -100, y: 30, scale: 1.2, opacity: 0.4, driftDuration: 60, driftDelay: 0, bobAmount: 10, bobDuration: 10, bobDelay: 0, rotationZ: 0, puffs: [] },
+      { id: 'cloud-2', z: 0, y: 60, scale: 1.5, opacity: 0.6, driftDuration: 40, driftDelay: -15, bobAmount: 15, bobDuration: 8, bobDelay: -5, rotationZ: 5, puffs: [] },
+    ];
+  }, []);
 
   // Soft atmospheric responsive interactive tracking
   useEffect(() => {
@@ -149,10 +154,10 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
           }
         }
         .animate-air-flow-1 {
-          /* static air flow */
+          animation: air-flow-wave 28s linear infinite;
         }
         .animate-air-flow-2 {
-          /* static air flow */
+          animation: air-flow-wave 42s linear infinite;
         }
         .perspective-container {
           transition: transform 1.2s cubic-bezier(0.12, 0.8, 0.22, 1);
