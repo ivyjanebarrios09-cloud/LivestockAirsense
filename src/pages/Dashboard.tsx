@@ -342,8 +342,8 @@ export function Dashboard() {
         ? 'bg-red-500/15 border-red-500/30' 
         : 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
       cardStyle: isTempAlert 
-        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'bg-[rgba(249,115,22,0.02)] border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
       isWarning: isTempAlert,
       limitInfo: `Max ${thresholds.tempMax}°C`
     },
@@ -356,8 +356,8 @@ export function Dashboard() {
         ? 'bg-red-500/15 border-red-500/30' 
         : 'bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/15',
       cardStyle: isHumAlert 
-        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'bg-[rgba(59,130,246,0.02)] border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
       isWarning: isHumAlert,
       limitInfo: `Max ${thresholds.humidityMax}%`
     },
@@ -370,8 +370,8 @@ export function Dashboard() {
         ? 'bg-red-500/15 border-red-500/30' 
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
       cardStyle: isCo2Alert 
-        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'bg-[rgba(16,185,129,0.02)] border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
       isWarning: isCo2Alert,
       limitInfo: `Max ${thresholds.co2Max} ppm`
     },
@@ -384,8 +384,8 @@ export function Dashboard() {
         ? 'bg-red-500/15 border-red-500/30' 
         : 'bg-yellow-600/10 border border-yellow-600/15 group-hover:bg-yellow-650/15',
       cardStyle: isAmmoniaAlert 
-        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'bg-[rgba(217,119,6,0.02)] border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
       isWarning: isAmmoniaAlert,
       limitInfo: `Max ${thresholds.ammoniaMax} ppm`
     },
@@ -395,7 +395,7 @@ export function Dashboard() {
       icon: PM25Svg, 
       color: 'text-purple-500', 
       bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
-      cardStyle: 'bg-[rgba(168,85,247,0.02)] border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
+      cardStyle: 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
       isWarning: false,
       limitInfo: 'Max 35 µg'
     },
@@ -405,7 +405,7 @@ export function Dashboard() {
       icon: MethaneSvg, 
       color: 'text-gray-500', 
       bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
-      cardStyle: 'bg-[rgba(71,85,105,0.02)] border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
+      cardStyle: 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
       isWarning: false,
       limitInfo: `Max ${thresholds.methaneMax} ppm`
     },
@@ -498,20 +498,20 @@ export function Dashboard() {
             <div 
               key={idx} 
               className={cn(
-                "rounded-2xl p-4 flex flex-col justify-between h-36 relative overflow-hidden transition-all duration-300 group select-none border backdrop-blur-sm",
+                "rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between h-auto min-h-[8.5rem] sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
                 metric.cardStyle
               )}
             >
               <div className="flex justify-between items-start gap-2">
-                <span className="font-mono text-[9px] md:text-[10px] text-system-muted uppercase tracking-widest leading-none mt-1">{metric.label}</span>
+                <span className="font-mono text-[9px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-1 line-clamp-2 pr-1">{metric.label}</span>
                 <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
-                  <IconComponent className={cn("w-5 h-5", metric.color)} isWarning={metric.isWarning} />
+                  <IconComponent className={cn("w-4 h-4 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 mt-2 sm:mt-0">
                 <div className={cn(
-                  "text-2xl font-black tracking-tight tabular-nums text-system-text",
+                  "text-xl sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
                   metric.isWarning && "text-red-600"
                 )}>
                   {metric.value}

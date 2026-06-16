@@ -35,32 +35,32 @@ export function LandingPage() {
 
       {/* Hero Section */}
       <main className="flex-1">
-        <div className="relative overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-system-bg border-b border-system-border min-h-[500px]">
+        <div className="relative overflow-hidden bg-gradient-to-b from-sky-300 via-sky-100 to-system-bg border-b border-system-border min-h-[500px]">
           {/* Detailed 3D perspective Atmosphere & Billboarding Clouds Layer */}
           <Interactive3DAtmosphere variant="sky" roundedClass="rounded-none" />
           
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none animate-pulse duration-10000" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -ml-40 -mb-40 pointer-events-none animate-pulse duration-10000" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/40 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none animate-pulse duration-10000" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl -ml-40 -mb-40 pointer-events-none animate-pulse duration-10000" />
 
           <section className="relative z-10 py-24 md:py-32 px-6 lg:px-12 max-w-7xl mx-auto flex flex-col items-center text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-system-accent/10 border border-system-accent/20 backdrop-blur-md">
-              <Activity className="w-3.5 h-3.5 text-sky-400" />
-              <span className="mt-0.5 text-xs font-bold uppercase tracking-wide text-white/90">Next-Gen Agricultural Monitoring</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/60 border border-white/80 backdrop-blur-md shadow-sm">
+              <Activity className="w-3.5 h-3.5 text-blue-600" />
+              <span className="mt-0.5 text-xs font-bold uppercase tracking-wide text-slate-800">Next-Gen Agricultural Monitoring</span>
             </div>
             
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight max-w-4xl text-white leading-tight drop-shadow-sm select-none">
-              Optimize Livestock Health with <span className="bg-gradient-to-r from-sky-400 via-blue-300 to-indigo-400 bg-clip-text text-transparent">Precision Air Quality</span>
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight max-w-4xl text-slate-900 leading-tight drop-shadow-sm select-none">
+              Optimize Livestock Health with <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 bg-clip-text text-transparent">Precision Air Quality</span>
             </h1>
             
-            <p className="text-base sm:text-lg md:text-xl text-slate-300 max-w-2xl leading-relaxed drop-shadow-sm select-none">
+            <p className="text-base sm:text-lg md:text-xl text-slate-700 max-w-2xl leading-relaxed drop-shadow-sm select-none">
               Continuous real-time monitoring of temperature, humidity, ammonia, and CO2. Prevent respiratory diseases and maximize yield with predictive analytics.
             </p>
 
             <div className="pt-4 flex flex-wrap justify-center gap-4">
-              <Link to="/login" className="px-6 py-3 bg-system-accent text-white text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-opacity-95 transition-all shadow-lg shadow-system-accent/20 border border-white/10 flex items-center gap-2 transform active:scale-95">
+              <Link to="/login" className="px-6 py-3 bg-system-accent text-white text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-opacity-95 transition-all shadow-lg shadow-system-accent/20 border border-transparent flex items-center gap-2 transform active:scale-95">
                 <span>Sign Up</span>
               </Link>
-              <Link to="/login" className="px-6 py-3 bg-white/15 hover:bg-white/25 text-white text-sm font-bold uppercase tracking-wider rounded-xl transition-all border border-white/20 flex items-center gap-2 transform active:scale-95 backdrop-blur-sm">
+              <Link to="/login" className="px-6 py-3 bg-white/60 hover:bg-white/80 text-system-accent text-sm font-bold uppercase tracking-wider rounded-xl transition-all border border-white flex items-center gap-2 transform active:scale-95 backdrop-blur-sm shadow-sm">
                 <span>Log In</span>
               </Link>
             </div>
