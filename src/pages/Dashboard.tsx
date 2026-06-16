@@ -498,25 +498,25 @@ export function Dashboard() {
             <div 
               key={idx} 
               className={cn(
-                "rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between h-auto min-h-[8.5rem] sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
+                "rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between h-36 sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
                 metric.cardStyle
               )}
             >
-              <div className="flex justify-between items-start gap-2">
+              <div className="relative z-10 flex justify-between items-start gap-2">
                 <span className="font-mono text-[9px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-1 line-clamp-2 pr-1">{metric.label}</span>
                 <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
                   <IconComponent className={cn("w-4 h-4 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
                 </div>
               </div>
 
-              <div className="space-y-1.5 mt-2 sm:mt-0">
+              <div className="relative z-10 space-y-1.5 mt-2 sm:mt-0">
                 <div className={cn(
                   "text-xl sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
                   metric.isWarning && "text-red-600"
                 )}>
                   {metric.value}
                 </div>
-                <div className="flex items-center justify-end text-[9px] font-mono text-system-muted">
+                <div className="flex items-center justify-end text-[9px] font-mono text-system-muted min-h-[0.875rem]">
                   {metric.isWarning && (
                     <span className="text-red-500 font-bold animate-pulse">CRITICAL</span>
                   )}
@@ -527,7 +527,7 @@ export function Dashboard() {
               <CloudWindAnimation colorClass={metric.color} />
 
               {/* Decorative subtle visual glow backgrounds */}
-              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current", metric.color)} />
+              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
             </div>
           );
         })}
