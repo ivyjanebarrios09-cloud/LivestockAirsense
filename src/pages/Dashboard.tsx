@@ -512,18 +512,18 @@ export function Dashboard() {
               </div>
             </div>
             
-            <div className="space-y-3.5 overflow-y-auto pr-1 max-h-[250px] scrollbar-thin">
+            <div className="space-y-3.5 overflow-y-auto pr-1 max-h-[220px] scrollbar-thin">
               {alertsList.slice(0, 5).map((log, i) => (
                 <div key={log.id || i} className="flex gap-2.5 text-xs pb-3 border-b border-system-bg last:border-0">
                   <span className="font-mono text-[10px] text-system-muted w-14 shrink-0 mt-0.5">{log.time}</span>
                   <div className="flex-1 space-y-0.5 min-w-0">
                     <p className={cn(
-                      "font-semibold truncate",
+                      "font-semibold break-words whitespace-normal",
                       log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-600" : "text-yellow-600"
                     )}>
                       {log.alertType}
                     </p>
-                    <p className="text-system-muted text-[11px] leading-relaxed truncate">{log.message}</p>
+                    <p className="text-system-muted text-[11px] leading-relaxed break-words whitespace-normal">{log.message}</p>
                   </div>
                 </div>
               ))}
