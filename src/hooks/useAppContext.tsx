@@ -198,11 +198,27 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         setAlertsList(prev => [newAlert, ...prev]);
 
         // Push Web Notifications if permitted
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(`LAS ${newAlert.severity.toUpperCase()}: ${newAlert.alertType}`, {
+        if (localStorage.getItem('las_push_enabled') === 'true' && 'Notification' in window && Notification.permission === 'granted') {
+          const title = `LAS ${newAlert.severity.toUpperCase()}: ${newAlert.alertType}`;
+          const options = {
             body: `${newAlert.location} - ${newAlert.message}`,
-            icon: '/logo.png'
-          });
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            vibrate: severity === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100],
+            requireInteraction: severity === 'critical',
+            tag: newAlert.id
+          };
+          
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+              registration.showNotification(title, options);
+            }).catch(err => {
+              console.error('Service Worker showNotification failed, fallback to standard Notification', err);
+              new Notification(title, options);
+            });
+          } else {
+             new Notification(title, options);
+          }
         }
       }
     }, 15000); // Check every 15 seconds

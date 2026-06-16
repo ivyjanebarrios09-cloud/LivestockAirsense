@@ -71,6 +71,41 @@ export function SettingsPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationToDelete, setLocationToDelete] = useState<any | null>(null);
 
+  const [pushEnabled, setPushEnabled] = useState(() => {
+    return localStorage.getItem('las_push_enabled') === 'true';
+  });
+
+  const handlePushToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isEnabled = e.target.checked;
+    if (isEnabled) {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          setPushEnabled(true);
+          localStorage.setItem('las_push_enabled', 'true');
+          
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification('AirSense Notifications Enabled', {
+                body: 'You will now receive alerts even when the app is in the background.',
+                icon: '/icon.svg',
+                vibrate: [100, 50, 100]
+              });
+            });
+          }
+        } else {
+          setPushEnabled(false);
+          alert('Notification permission was denied. Please update your browser settings.');
+        }
+      } else {
+        alert('Your browser does not support notifications.');
+      }
+    } else {
+      setPushEnabled(false);
+      localStorage.setItem('las_push_enabled', 'false');
+    }
+  };
+
   // Sync state with active selection
   useEffect(() => {
     if (!isEditingNew) {
@@ -576,9 +611,34 @@ export function SettingsPage() {
               </div>
               <div className="space-y-1 pt-2">
                 <label className="flex items-center gap-3 cursor-pointer group">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded-lg border-system-border bg-system-bg text-system-accent focus:ring-system-accent focus:ring-offset-system-panel cursor-pointer" />
+                  <input 
+                    type="checkbox" 
+                    checked={pushEnabled} 
+                    onChange={handlePushToggle}
+                    className="w-4 h-4 rounded-lg border-system-border bg-system-bg text-system-accent focus:ring-system-accent focus:ring-offset-system-panel cursor-pointer" 
+                  />
                   <span className="text-sm font-medium group-hover:text-system-accent transition-colors">Send Push Notifications for Critical Alerts</span>
                 </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-system-border/40 mt-6">
+                {showSavedFeedback && (
+                  <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-xl animate-bounce">
+                    <CheckCircle className="w-4 h-4" />
+                    Settings saved successfully!
+                  </span>
+                )}
+
+                <button 
+                  onClick={handleSave}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95",
+                    saving ? "bg-system-border text-system-muted" : "bg-system-accent text-white hover:bg-opacity-90 inline-flex"
+                  )}
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </button>
               </div>
             </div>
           </section>
@@ -609,26 +669,6 @@ export function SettingsPage() {
               </button>
             </div>
           </section>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            {showSavedFeedback && (
-              <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-xl animate-bounce">
-                <CheckCircle className="w-4 h-4" />
-                Settings saved successfully!
-              </span>
-            )}
-
-            <button 
-              onClick={handleSave}
-              className={cn(
-                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95",
-                saving ? "bg-system-border text-system-muted" : "bg-system-accent text-white hover:bg-opacity-90 inline-flex"
-              )}
-            >
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Configuration'}
-            </button>
-          </div>
 
         </div>
       )}
