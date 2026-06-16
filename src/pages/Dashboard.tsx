@@ -245,11 +245,11 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 };
 
 export function Dashboard() {
-  const { activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId } = useAppContext();
+  const { uid, activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId } = useAppContext();
 
   // Load registered devices to show them linked to the monitoring zone
   const [registeredDevices, setRegisteredDevices] = useState<any[]>(() => {
-    const saved = localStorage.getItem('las_devices');
+    const saved = localStorage.getItem(`las_${uid}_devices`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -264,13 +264,13 @@ export function Dashboard() {
 
   // Keep devices state refreshed if they navigate back and forth
   useEffect(() => {
-    const saved = localStorage.getItem('las_devices');
+    const saved = localStorage.getItem(`las_${uid}_devices`);
     if (saved) {
       try {
         setRegisteredDevices(JSON.parse(saved));
       } catch (e) {}
     }
-  }, [activeLocation]);
+  }, [activeLocation, uid]);
 
   const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation.id);
 
@@ -454,9 +454,6 @@ export function Dashboard() {
                 </svg>
               </div>
             </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed font-sans mt-0.5">
-              Sector holds <span className="font-bold text-white">{activeLocation.animalCount}</span> items of <span className="text-emerald-400 font-bold">{activeLocation.type}</span>.
-            </p>
           </div>
         </div>
 

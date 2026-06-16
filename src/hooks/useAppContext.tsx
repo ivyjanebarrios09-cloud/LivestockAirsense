@@ -36,6 +36,7 @@ const LOCATIONS: LocationDetail[] = [
 ];
 
 interface AppContextType {
+  uid: string;
   locations: LocationDetail[];
   addLocation: (loc: LocationDetail) => void;
   deleteLocation: (id: string) => void;
@@ -55,10 +56,10 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppContextProvider({ children }: { children: React.ReactNode }) {
+export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
   // Load location list and current selection
   const [locations, setLocations] = useState<LocationDetail[]>(() => {
-    const saved = localStorage.getItem('las_locations');
+    const saved = localStorage.getItem(`las_${uid}_locations`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -68,20 +69,20 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   });
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
-    return localStorage.getItem('las_selected_location') || 'barn-a';
+    return localStorage.getItem(`las_${uid}_selected_location`) || 'barn-a';
   });
 
   const activeLocation = locations.find(l => l.id === selectedLocationId) || locations[0] || LOCATIONS[0];
 
   // Save selection
   useEffect(() => {
-    localStorage.setItem('las_selected_location', selectedLocationId);
-  }, [selectedLocationId]);
+    localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
+  }, [selectedLocationId, uid]);
 
   // Save locations list
   useEffect(() => {
-    localStorage.setItem('las_locations', JSON.stringify(locations));
-  }, [locations]);
+    localStorage.setItem(`las_${uid}_locations`, JSON.stringify(locations));
+  }, [locations, uid]);
 
   const addLocation = (loc: LocationDetail) => {
     setLocations(prev => [...prev, loc]);
@@ -101,7 +102,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
   // Load alert thresholds
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
-    const saved = localStorage.getItem('las_thresholds');
+    const saved = localStorage.getItem(`las_${uid}_thresholds`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -120,12 +121,12 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
   const saveThresholds = (newThreshold: Thresholds) => {
     setThresholds(newThreshold);
-    localStorage.setItem('las_thresholds', JSON.stringify(newThreshold));
+    localStorage.setItem(`las_${uid}_thresholds`, JSON.stringify(newThreshold));
   };
 
   // Mock static initial list of historical alerts
   const [alertsList, setAlertsList] = useState<Alert[]>(() => {
-    const saved = localStorage.getItem('las_alerts_list');
+    const saved = localStorage.getItem(`las_${uid}_alerts_list`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -163,8 +164,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   });
 
   useEffect(() => {
-    localStorage.setItem('las_alerts_list', JSON.stringify(alertsList));
-  }, [alertsList]);
+    localStorage.setItem(`las_${uid}_alerts_list`, JSON.stringify(alertsList));
+  }, [alertsList, uid]);
 
   // Handle live automatic threshold telemetry trigger simulation
   useEffect(() => {
@@ -198,7 +199,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         setAlertsList(prev => [newAlert, ...prev]);
 
         // Push Web Notifications if permitted
-        if (localStorage.getItem('las_push_enabled') === 'true' && 'Notification' in window && Notification.permission === 'granted') {
+        if (localStorage.getItem(`las_${uid}_push_enabled`) === 'true' && 'Notification' in window && Notification.permission === 'granted') {
           const title = `LAS ${newAlert.severity.toUpperCase()}: ${newAlert.alertType}`;
           const options = {
             body: `${newAlert.location} - ${newAlert.message}`,
@@ -257,6 +258,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <AppContext.Provider value={{
+      uid,
       locations,
       addLocation,
       deleteLocation,

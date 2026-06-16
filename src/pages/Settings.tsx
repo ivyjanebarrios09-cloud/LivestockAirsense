@@ -30,9 +30,10 @@ export function SettingsPage() {
   const [localCo2Max, setLocalCo2Max] = useState(thresholds.co2Max);
   const [localAmmoniaMax, setLocalAmmoniaMax] = useState(thresholds.ammoniaMax);
 
+  const uid = user?.uid || 'guest';
   // Device List & State Management loaded from localStorage with default placeholders
   const [devices, setDevices] = useState<Device[]>(() => {
-    const saved = localStorage.getItem('las_devices');
+    const saved = localStorage.getItem(`las_${uid}_devices`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -72,7 +73,7 @@ export function SettingsPage() {
   const [locationToDelete, setLocationToDelete] = useState<any | null>(null);
 
   const [pushEnabled, setPushEnabled] = useState(() => {
-    return localStorage.getItem('las_push_enabled') === 'true';
+    return localStorage.getItem(`las_${uid}_push_enabled`) === 'true';
   });
 
   const handlePushToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +83,7 @@ export function SettingsPage() {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           setPushEnabled(true);
-          localStorage.setItem('las_push_enabled', 'true');
+          localStorage.setItem(`las_${uid}_push_enabled`, 'true');
           
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then(reg => {
@@ -102,7 +103,7 @@ export function SettingsPage() {
       }
     } else {
       setPushEnabled(false);
-      localStorage.setItem('las_push_enabled', 'false');
+      localStorage.setItem(`las_${uid}_push_enabled`, 'false');
     }
   };
 
@@ -151,7 +152,7 @@ export function SettingsPage() {
       const updated = [...devices, newD];
       setDevices(updated);
       try {
-        localStorage.setItem('las_devices', JSON.stringify(updated));
+        localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
       } catch (e) {}
       setSelectedDeviceId(newD.id);
       setIsEditingNew(false);
@@ -169,7 +170,7 @@ export function SettingsPage() {
       });
       setDevices(updated);
       try {
-        localStorage.setItem('las_devices', JSON.stringify(updated));
+        localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
       } catch (e) {}
       setDeviceFeedbackText('Device properties updated!');
     }
@@ -192,7 +193,7 @@ export function SettingsPage() {
     const updated = devices.filter(d => d.id !== deviceToDelete.id);
     setDevices(updated);
     try {
-      localStorage.setItem('las_devices', JSON.stringify(updated));
+      localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
     } catch (e) {}
 
     const nextActive = updated[0]?.id || '';
@@ -506,9 +507,6 @@ export function SettingsPage() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold font-sans text-system-text truncate">{loc.name}</p>
-                          <p className="text-[9px] font-mono text-system-muted uppercase tracking-wider mt-0.5">
-                            {loc.type} • {loc.animalCount} head
-                          </p>
                         </div>
                         <button
                           onClick={(e) => {
