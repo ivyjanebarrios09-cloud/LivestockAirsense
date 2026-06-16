@@ -491,7 +491,7 @@ export function Dashboard() {
       )}
 
       {/* Grid of Micro-Environmental Sensoring Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
+      <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
           return (
