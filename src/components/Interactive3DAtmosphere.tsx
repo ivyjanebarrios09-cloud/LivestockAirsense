@@ -147,7 +147,7 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
   return (
     <div 
       ref={containerRef}
-      className={cn("absolute inset-0 overflow-hidden pointer-events-auto cursor-all-scroll select-none z-0", roundedClass)}
+      className={cn("absolute inset-0 overflow-hidden pointer-events-none sm:pointer-events-auto sm:cursor-all-scroll select-none z-0", roundedClass)}
       style={{
         perspective: '900px',
         WebkitPerspective: '900px',

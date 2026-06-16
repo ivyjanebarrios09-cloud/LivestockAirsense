@@ -412,10 +412,10 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300 pb-28">
+    <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
       {/* Dynamic Header Barn Description & Pull Indicator with Immersive 3D Atmosphere */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl rounded-2xl p-4 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
         {/* Interactive 3D perspective Atmosphere & Billboarding Clouds Layer */}
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
@@ -423,9 +423,9 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative space-y-3 z-10 w-full md:w-auto">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1 rounded-full bg-white/10 text-emerald-450 text-[9px] md:text-[10px] font-bold tracking-wide border border-white/5 uppercase select-none">
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-white/10 text-emerald-450 text-[8px] md:text-[10px] font-bold tracking-wide border border-white/5 uppercase select-none">
               <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-emerald-400"></span>
@@ -434,13 +434,13 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[9px] text-slate-300 font-mono uppercase tracking-widest block font-bold select-none">Selected Zone</label>
-            <div className="relative inline-block w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap hidden sm:block">Zone</label>
+            <div className="relative inline-block w-full sm:w-auto flex-1">
               <select
                 value={selectedLocationId}
                 onChange={(e) => setSelectedLocationId(e.target.value)}
-                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg md:rounded-xl px-2.5 md:px-3 py-1.5 md:py-2 text-sm md:text-base font-black tracking-tight text-white focus:outline-none pr-8 md:pr-9 appearance-none transition-colors leading-none w-full sm:w-auto"
+                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg px-2 md:px-3 py-1 md:py-2 text-xs md:text-base font-black tracking-tight text-white focus:outline-none pr-7 md:pr-9 appearance-none transition-colors leading-none w-full sm:w-auto"
               >
                 {locations?.map((loc) => (
                   <option key={loc.id} value={loc.id} className="text-slate-900 font-semibold bg-white">
@@ -448,8 +448,8 @@ export function Dashboard() {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 md:pr-3.5 text-white">
-                <svg className="fill-current h-3.5 w-3.5 md:h-4 md:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 md:pr-3.5 text-white">
+                <svg className="fill-current h-3 w-3 md:h-4 md:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
@@ -458,26 +458,26 @@ export function Dashboard() {
         </div>
 
         {/* Unified AQI & State Gauge */}
-        <div className="relative shrink-0 w-full sm:w-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-3 md:gap-5 z-10 select-none min-w-0 sm:min-w-[200px] md:min-w-[240px] overflow-hidden group">
-          <div className="flex flex-col items-center justify-center bg-white/5 w-12 h-12 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
-            <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
-            <span className="text-xl md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{currentAqi}</span>
+        <div className="relative shrink-0 w-full md:w-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-lg md:rounded-2xl p-2 md:p-4 flex items-center gap-2 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group">
+          <div className="flex flex-col items-center justify-center bg-white/5 w-10 h-10 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
+            <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
+            <span className="text-lg md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{currentAqi}</span>
           </div>
-          <div className="w-[1px] h-10 md:h-12 bg-white/10 z-10" />
-          <div className="space-y-0.5 md:space-y-1 z-10 min-w-0">
-            <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate">Microclimate Status</p>
+          <div className="w-[1px] h-8 md:h-12 bg-white/10 z-10" />
+          <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
+            <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate">Microclimate</p>
             <div className="flex items-center gap-1.5 md:gap-2">
               <span className={cn(
-                "px-2 md:px-2.5 py-0.5 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold shrink-0 uppercase tracking-wider",
+                "px-1.5 md:px-2.5 py-0.5 rounded md:rounded-lg text-[9px] md:text-xs font-bold shrink-0 uppercase tracking-wider",
                 activeIssueCount > 0 
                   ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
                   : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
               )}>
-                {activeIssueCount > 0 ? `${activeIssueCount} Hazards` : 'Safe Level'}
+                {activeIssueCount > 0 ? `${activeIssueCount} Hazards` : 'Safe'}
               </span>
             </div>
-            <p className="text-[9px] md:text-[10px] text-slate-300 truncate">
-              {activeIssueCount > 0 ? 'Exceeds safety thresholds!' : 'Ventilation operates efficiently.'}
+            <p className="text-[8px] md:text-[10px] text-slate-300 truncate hidden xs:block">
+              {activeIssueCount > 0 ? 'Exceeds thresholds!' : 'Ventilation operates efficiently.'}
             </p>
           </div>
         </div>
