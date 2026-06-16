@@ -211,8 +211,12 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           };
           
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(registration => {
-              registration.showNotification(title, options);
+            navigator.serviceWorker.getRegistration().then(reg => {
+              if (reg) {
+                reg.showNotification(title, options);
+              } else {
+                new Notification(title, options);
+              }
             }).catch(err => {
               console.error('Service Worker showNotification failed, fallback to standard Notification', err);
               new Notification(title, options);

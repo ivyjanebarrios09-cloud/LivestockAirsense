@@ -86,13 +86,22 @@ export function SettingsPage() {
           localStorage.setItem(`las_${uid}_push_enabled`, 'true');
           
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(reg => {
-              reg.showNotification('AirSense Notifications Enabled', {
-                body: 'You will now receive alerts even when the app is in the background.',
-                icon: '/logo.png',
-                vibrate: [100, 50, 100]
-              });
+            navigator.serviceWorker.getRegistration().then(reg => {
+              if (reg) {
+                reg.showNotification('AirSense Notifications Enabled', {
+                  body: 'You will now receive alerts for microclimate hazards.',
+                  icon: '/logo.png',
+                  badge: '/logo.png',
+                  vibrate: [100, 50, 100]
+                });
+              } else {
+                new Notification('AirSense Notifications Enabled', { body: 'Alerts are enabled.', icon: '/logo.png' });
+              }
+            }).catch(e => {
+              new Notification('AirSense Notifications Enabled', { body: 'Alerts are enabled.', icon: '/logo.png' });
             });
+          } else {
+            new Notification('AirSense', { body: 'Enabled', icon: '/logo.png' });
           }
         } else {
           setPushEnabled(false);

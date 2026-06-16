@@ -16,13 +16,15 @@ import { LandingPage } from './pages/Landing';
 import { LoginPage } from './pages/Login';
 import { useAuthState } from './hooks/useAuthState';
 
+import { AirLoading } from './components/AirLoading';
+
 export default function App() {
   const { user, loading } = useAuthState();
 
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-system-bg">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-system-accent" />
+        <AirLoading />
       </div>
     );
   }

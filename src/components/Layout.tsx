@@ -4,6 +4,8 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { useAuthState } from '../hooks/useAuthState';
 
+import { AirLoading } from './AirLoading';
+
 export function Layout() {
   const { user, loading } = useAuthState();
   const navigate = useNavigate();
@@ -17,7 +19,7 @@ export function Layout() {
   if (loading) {
     return (
       <div className="flex bg-system-bg h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-system-accent"></div>
+        <AirLoading />
       </div>
     );
   }

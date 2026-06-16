@@ -56,10 +56,27 @@ export function AlertsPage() {
     setPopupAlert(popupValue);
 
     if (permission === 'granted') {
-      new Notification(`Livestock AirSense: ${freshAlert.alertType}`, {
+      const title = `Livestock AirSense: ${freshAlert.alertType}`;
+      const options = {
         body: freshAlert.message,
-        icon: '/logo.png'
-      });
+        icon: '/logo.png',
+        badge: '/logo.png',
+        vibrate: freshAlert.severity === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100]
+      };
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          if (reg) {
+            reg.showNotification(title, options);
+          } else {
+            new Notification(title, options);
+          }
+        }).catch(() => {
+          new Notification(title, options);
+        });
+      } else {
+        new Notification(title, options);
+      }
     }
   };
 
