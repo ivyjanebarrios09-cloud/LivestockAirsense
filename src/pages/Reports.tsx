@@ -1,46 +1,75 @@
-import { FileText, DownloadCloud, Printer, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
-// Mock report data values
-const sampleReportData = [
-  { parameter: 'Temp Average', value: '24.2 °C', status: 'Optimal' },
-  { parameter: 'Humidity Average', value: '50.2%', status: 'Optimal' },
-  { parameter: 'CO2 Average', value: '482 ppm', status: 'Moderate' },
-  { parameter: 'PM2.5 Average', value: '12 µg/m³', status: 'Excellent' },
-  { parameter: 'PM10 Average', value: '22 µg/m³', status: 'Excellent' },
-  { parameter: 'AQI Average', value: '52', status: 'Excellent' },
-];
+import { useAppContext } from '../hooks/useAppContext';
+import { cn } from '../lib/utils';
 
 export function ReportsPage() {
+  const { activeLocation } = useAppContext();
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Dynamically compile active location environmental parameters
+  const compiledReportProps = useMemo(() => {
+    return [
+      { parameter: 'Average Heat Index', value: `${(activeLocation.baseTemp + 0.4).toFixed(1)} °C`, status: activeLocation.baseTemp > 28 ? 'Caution' : 'Optimal' },
+      { parameter: 'Average Humidity Level', value: `${activeLocation.baseHumidity} %`, status: 'Optimal' },
+      { parameter: 'Average CO2 gas rating', value: `${activeLocation.baseCo2} ppm`, status: activeLocation.baseCo2 > 900 ? 'Extreme Warning' : 'Optimal' },
+      { parameter: 'Average Ammonia (NH3) trace', value: `${activeLocation.baseAmmonia} ppm`, status: activeLocation.baseAmmonia > 4.5 ? 'Moderate Risk' : 'Excellent' },
+      { parameter: 'Safety Threshold Limit', value: 'Active Compliance Check', status: 'Compliant' },
+    ];
+  }, [activeLocation]);
+
+  const triggerNotify = (msg: string) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(null), 2200);
+  };
+
   const downloadCSVReport = (title: string) => {
-    const headers = ['Parameter', 'Average Value', 'Status'];
-    const rows = sampleReportData.map(row => [row.parameter, row.value, row.status]);
-    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const headers = ['Parameter / Characteristic', 'Average Value', 'Compliance Status'];
+    const rows = compiledReportProps.map(row => [row.parameter, row.value, row.status]);
+    const csvContent = [
+      [`Active Facility Report: ${activeLocation.name} - Breed Type: ${activeLocation.type}`],
+      headers.join(','), 
+      ...rows.map(e => e.map(v => `"${v}"`).join(','))
+    ].join('\n');
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${title.toLowerCase().replace(/\s+/g, '-')}.csv`);
+    link.setAttribute('download', `${activeLocation.id}_compliance_${title.toLowerCase().replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    triggerNotify(`Saved CSV Report: ${title}`);
   };
 
   const downloadPDFReport = (title: string) => {
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text(`AirSense Report: ${title}`, 14, 20);
-    doc.setFontSize(11);
-    doc.text(`Generated on: 2026-06-15`, 14, 28);
-    doc.text(`Organization: AirSense Monitoring Systems`, 14, 34);
-    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(`Livestock AirSense: Compliance Audit`, 14, 20);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Report Level: ${title}`, 14, 26);
+    doc.text(`Monitored Facility: ${activeLocation.name}`, 14, 31);
+    doc.text(`Livestock Breed Type: ${activeLocation.type} | Censored Census: ${activeLocation.animalCount}`, 14, 36);
+    doc.text(`Generated Standard: 2026-06-16 (UTC)`, 14, 41);
+    doc.setLineWidth(0.5);
+    doc.line(14, 45, 196, 45);
+
     autoTable(doc, {
-      head: [['Metric / Parameter', 'Reported Average', 'Health Status']],
-      body: sampleReportData.map(row => [row.parameter, row.value, row.status]),
-      startY: 40,
+      head: [['System Parameter Under Audit', 'Representative Value', 'Compliance Status']],
+      body: compiledReportProps.map(row => [row.parameter, row.value, row.status]),
+      startY: 50,
+      theme: 'grid',
+      styles: { fontSize: 9, font: 'courier' },
+      headStyles: { fillColor: [79, 70, 229] }
     });
-    doc.save(`${title.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+
+    doc.save(`${activeLocation.id}_assessment_${title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+    triggerNotify(`Saved PDF Compliance: ${title}`);
   };
 
   const handleDownload = (title: string, type: string) => {
@@ -51,46 +80,71 @@ export function ReportsPage() {
     }
   };
 
-  const handlePrint = (title: string) => {
+  const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
+      
+      {/* Title segment */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">System Reports</h1>
-          <p className="text-sm text-system-muted mt-1">Generate and export official air quality documentation.</p>
+          <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
+          <p className="text-sm text-system-muted mt-1 leading-relaxed">
+            Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeLocation.name}</span>.
+          </p>
         </div>
         
         <button 
-          onClick={() => downloadPDFReport('Custom AirSense Report')}
-          className="flex items-center gap-2 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+          onClick={() => downloadPDFReport('Custom Microclimate Report')}
+          className="flex items-center gap-2 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Create Custom Report
         </button>
       </div>
 
+      {/* Action Notification Alert Toast */}
+      {successMsg && (
+        <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-4 py-2.5 rounded-xl font-bold uppercase font-mono text-[10px] animate-pulse">
+          <CheckCircle className="w-4 h-4" />
+          {successMsg}
+        </div>
+      )}
+
+      {/* Context info banner */}
+      <div className="bg-system-panel border border-system-border rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Layers className="w-5 h-5 text-indigo-500 shrink-0" />
+          <div>
+            <h4 className="font-bold text-xs text-system-text uppercase font-mono">Calibrating Reports Generator context</h4>
+            <p className="text-xs text-system-muted mt-0.5">
+              All files downloaded below will pull dynamic sensor characteristics matched with active barn: <span className="font-bold text-system-text">{activeLocation.name} ({activeLocation.type})</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { title: 'Daily Summary', desc: 'Auto-generated aggregate from the last 24 hours.', type: 'CSV / PDF' },
-          { title: 'Weekly Assessment', desc: 'Comprehensive breakdown of weekly trends.', type: 'PDF' },
-          { title: 'Monthly Audit', desc: 'Compliance-ready documentation for standard procedures.', type: 'PDF' },
+          { title: 'Daily Summary', desc: 'Automatic 24h aggregate report including hazard safety thresholds analysis.', type: 'CSV / PDF' },
+          { title: 'Weekly Assessment', desc: 'Veterinary assessment trends detailing microclimate stability scores.', type: 'PDF' },
+          { title: 'Monthly Compliance Audit', desc: 'Regulatory compliance documentation formatted for farming standards checklists.', type: 'PDF' },
         ].map((report, i) => (
           <div 
             key={i} 
             onClick={() => handleDownload(report.title, report.type)}
-            className="bg-system-panel border border-system-border shadow-sm rounded-xl p-5 hover:border-system-accent/50 transition-colors group cursor-pointer flex flex-col h-full"
+            className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 hover:border-system-accent/50 transition-colors group cursor-pointer flex flex-col h-full"
           >
-            <div className="w-10 h-10 rounded-lg bg-system-border/50 flex items-center justify-center text-system-text mb-4 group-hover:text-system-accent transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-system-bg border border-system-border flex items-center justify-center text-system-text mb-4 group-hover:text-system-accent transition-colors">
               <FileText className="w-5 h-5" />
             </div>
-            <h3 className="font-medium text-lg mb-2">{report.title}</h3>
-            <p className="text-sm text-system-muted mb-6 flex-1">{report.desc}</p>
+            <h3 className="font-bold text-base tracking-tight mb-2 uppercase font-mono text-system-text">{report.title}</h3>
+            <p className="text-xs text-system-muted mb-6 flex-1 leading-relaxed">{report.desc}</p>
             
-            <div className="border-t border-system-border pt-4 mt-auto flex items-center justify-between text-xs font-mono">
-              <span className="text-system-muted">{report.type}</span>
+            <div className="border-t border-system-border pt-4 mt-auto flex items-center justify-between text-[10px] font-mono leading-none">
+              <span className="text-system-muted font-bold uppercase">{report.type}</span>
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-system-accent">
                 <button 
                   title="Download File"
@@ -98,7 +152,7 @@ export function ReportsPage() {
                     e.stopPropagation();
                     handleDownload(report.title, report.type);
                   }}
-                  className="p-1 hover:bg-system-bg rounded transition-colors"
+                  className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer"
                 >
                   <DownloadCloud className="w-4 h-4 hover:scale-110" />
                 </button>
@@ -106,9 +160,9 @@ export function ReportsPage() {
                   title="Print Report"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePrint(report.title);
+                    handlePrint();
                   }}
-                  className="p-1 hover:bg-system-bg rounded transition-colors"
+                  className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4 hover:scale-110" />
                 </button>
@@ -118,21 +172,21 @@ export function ReportsPage() {
         ))}
       </div>
 
-      <div className="mt-8 bg-system-panel border border-system-border shadow-sm rounded-xl p-6">
-        <h3 className="font-medium text-sm mb-4 border-b border-system-border pb-4">Recent Archives</h3>
+      <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5">
+        <h3 className="font-bold text-sm tracking-tight mb-4 uppercase font-mono border-b border-system-border pb-4 text-system-text">Recent Automated Archives</h3>
         <ul className="space-y-3">
           {[1, 2, 3].map(i => (
-            <li key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg hover:bg-system-border/30 transition-colors gap-4">
+            <li key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl hover:bg-system-bg/50 border border-transparent hover:border-system-border transition-colors gap-4">
               <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-system-muted" />
-                <span className="text-sm font-medium">Weekly Assessment - June Week {i}</span>
+                <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
+                <span className="text-xs font-bold uppercase font-mono text-system-text">Weekly Assessment - Week 0{i}</span>
               </div>
-              <div className="flex items-center gap-6 text-xs text-system-muted font-mono">
+              <div className="flex items-center gap-6 text-[10px] text-system-muted font-mono">
                 <span>Created: 2026-06-0{i}</span>
-                <span className="w-12 text-right">2.4 MB</span>
+                <span className="w-12 text-right">2.8 MB</span>
                 <button 
-                  onClick={() => downloadPDFReport(`Weekly Assessment - June Week ${i}`)}
-                  className="text-system-accent hover:underline lowercase font-medium"
+                  onClick={() => downloadPDFReport(`Weekly Assessment - Week 0${i}`)}
+                  className="text-system-accent hover:underline lowercase font-bold"
                 >
                   Download
                 </button>
@@ -145,4 +199,3 @@ export function ReportsPage() {
     </div>
   );
 }
-

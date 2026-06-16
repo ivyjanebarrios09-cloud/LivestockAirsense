@@ -24,3 +24,42 @@
     color: var(--color-system-text);
   }
 }
+
+@keyframes air-flow {
+  0% {
+    transform: translateX(-35px) translateY(2px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.35;
+  }
+  80% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(45px) translateY(-4px);
+    opacity: 0;
+  }
+}
+
+@keyframes cloud-drift {
+  0%, 100% {
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  50% {
+    transform: translateX(14px) translateY(-5px) scale(1.12);
+  }
+}
+
+.animate-air-flow-1 {
+  animation: air-flow 5s ease-in-out infinite;
+}
+
+.animate-air-flow-2 {
+  animation: air-flow 7s ease-in-out infinite 2s;
+}
+
+.animate-cloud-drift {
+  animation: cloud-drift 10s ease-in-out infinite;
+}
+

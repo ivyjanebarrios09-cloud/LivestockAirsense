@@ -1,138 +1,496 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Thermometer, Droplets, Wind, Activity, CloudFog, AlertOctagon } from 'lucide-react';
-import { useAuthState } from '../hooks/useAuthState';
 import { cn } from '../lib/utils';
+import { useAppContext } from '../hooks/useAppContext';
 
-// Mock data generator for real-time visualization
-const generateReading = (timeStr: string) => ({
-  time: timeStr,
-  temp: 22 + Math.random() * 5,
-  humidity: 45 + Math.random() * 10,
-  aqi: 30 + Math.random() * 50,
-  co2: 400 + Math.random() * 100
-});
+// Custom robust vector SVGs for the dashboard metrics
+const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
+  const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
+  const colorStart = isWarning ? "#ef4444" : "#f97316";
+  const colorEnd = isWarning ? "#b91c1c" : "#ea580c";
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={colorStart} />
+          <stop offset="100%" stopColor={colorEnd} />
+        </linearGradient>
+      </defs>
+      <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 9v6" stroke={`url(#${gradientId})`} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="12" cy="17" r="2" fill={`url(#${gradientId})`} />
+    </svg>
+  );
+};
+
+const HumiditySvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
+  const gradientId = isWarning ? "humGradWarning" : "humGradNormal";
+  const colorStart = isWarning ? "#ef4444" : "#3b82f6";
+  const colorEnd = isWarning ? "#b91c1c" : "#1d4ed8";
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={colorStart} />
+          <stop offset="100%" stopColor={colorEnd} />
+        </linearGradient>
+      </defs>
+      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill={`url(#${gradientId})`} fillOpacity="0.2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 8c2 2 3.5 4 3.5 5.5a3.5 3.5 0 1 1-7 0C8.5 12 10 10 12 8z" fill={`url(#${gradientId})`} />
+    </svg>
+  );
+};
+
+const Co2Svg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
+  const gradientId = isWarning ? "co2GradWarning" : "co2GradNormal";
+  const colorStart = isWarning ? "#ef4444" : "#10b981";
+  const colorEnd = isWarning ? "#b91c1c" : "#047857";
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={colorStart} />
+          <stop offset="100%" stopColor={colorEnd} />
+        </linearGradient>
+      </defs>
+      <path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-1.8-1.4-3.3-3.2-3.5C17.3 9.4 15 7.5 12 7.5s-5.3 1.9-5.8 4.5C4.4 12.2 3 13.7 3 15.5A3.5 3.5 0 0 0 6.5 19h11z" fill={`url(#${gradientId})`} fillOpacity="0.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9.5" cy="14" r="1.5" fill="currentColor" />
+      <circle cx="14.5" cy="14" r="1.5" fill="currentColor" />
+      <line x1="11" y1="14" x2="13" y2="14" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+};
+
+const AmmoniaSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
+  const gradientId = isWarning ? "nh3GradWarning" : "nh3GradNormal";
+  const colorStart = isWarning ? "#ef4444" : "#ca8a04";
+  const colorEnd = isWarning ? "#b91c1c" : "#a16207";
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={colorStart} />
+          <stop offset="100%" stopColor={colorEnd} />
+        </linearGradient>
+      </defs>
+      <line x1="12" y1="7" x2="6" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="7" x2="18" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="7" x2="12" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="7" r="3.5" fill={`url(#${gradientId})`} stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="6" cy="16" r="2.5" fill="currentColor" />
+      <circle cx="18" cy="16" r="2.5" fill="currentColor" />
+      <circle cx="12" cy="18" r="2.5" fill="currentColor" />
+    </svg>
+  );
+};
+
+const PM25Svg = ({ className }: { className?: string }) => {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id="dustGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#7e22ce" />
+        </linearGradient>
+      </defs>
+      <path d="M2.5 7.5h14a2.5 2.5 0 0 0 2.5-2.5h0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 12h11a2 2 0 0 1 2 2h0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3.5 16.5h8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="19" cy="11.5" r="1.5" fill="url(#dustGrad)" />
+      <circle cx="14" cy="19" r="1" fill="url(#dustGrad)" />
+      <circle cx="10" cy="4" r="1.2" fill="url(#dustGrad)" />
+    </svg>
+  );
+};
+
+const MethaneSvg = ({ className }: { className?: string }) => {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id="methaneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#64748b" />
+          <stop offset="100%" stopColor="#475569" />
+        </linearGradient>
+      </defs>
+      <line x1="12" y1="12" x2="12" y2="5" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="12" y1="12" x2="6" y2="17" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="12" y1="12" x2="18" y2="17" stroke="currentColor" strokeWidth="1.5" />
+      <line x1="12" y1="12" x2="15" y2="10" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="4" fill="url(#methaneGrad)" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="5" r="2" fill="currentColor" />
+      <circle cx="6" cy="17" r="2" fill="currentColor" />
+      <circle cx="18" cy="17" r="2" fill="currentColor" />
+      <circle cx="15" cy="10" r="1.8" fill="currentColor" />
+    </svg>
+  );
+};
+
+// Helper to generate dynamic fluctuations based on barn baseline properties
+const generateReading = (
+  timeStr: string,
+  baseTemp: number,
+  baseHumidity: number,
+  baseCo2: number,
+  baseAmmonia: number
+) => {
+  const tempOffset = (Math.random() - 0.5) * 1.5;
+  const humOffset = (Math.random() - 0.5) * 4;
+  const co2Offset = (Math.random() - 0.5) * 50;
+  const ammOffset = (Math.random() - 0.5) * 0.15;
+
+  const finalTemp = Math.max(10, baseTemp + tempOffset);
+  const finalHum = Math.max(20, Math.min(99, baseHumidity + humOffset));
+  const finalCo2 = Math.max(300, baseCo2 + co2Offset);
+  const finalAmm = Math.max(0, baseAmmonia + ammOffset);
+
+  // Derive simple AQI formula
+  const calculatedAqi = Math.round((finalCo2 / 10) + (finalAmm * 15) + Math.random() * 8);
+
+  return {
+    time: timeStr,
+    temp: finalTemp,
+    humidity: finalHum,
+    co2: finalCo2,
+    ammonia: finalAmm,
+    aqi: calculatedAqi,
+  };
+};
+
+// Animated background showcasing soft drifting clouds and flowing wind/air streams
+const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+      {/* Animated Air/Wind Current 1 */}
+      <svg
+        className={cn(
+          "absolute right-2 bottom-6 w-20 h-6 opacity-20 group-hover:opacity-50 transition-all duration-500 animate-air-flow-1",
+          colorClass
+        )}
+        viewBox="0 0 100 30"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      >
+        <path d="M10 15c15-5 30 5 45 0s25-10 35-5" />
+      </svg>
+      {/* Animated Air/Wind Current 2 */}
+      <svg
+        className={cn(
+          "absolute right-4 bottom-12 w-16 h-4 opacity-15 group-hover:opacity-40 transition-all duration-500 animate-air-flow-2",
+          colorClass
+        )}
+        viewBox="0 0 100 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        <path d="M5 10c20 5 40-5 55 0s25 8 35 2" />
+      </svg>
+      {/* Cloud (Drifting Background Cloud) */}
+      <svg
+        className={cn(
+          "absolute -right-2 -bottom-2 w-20 h-16 opacity-15 group-hover:opacity-35 transition-all duration-500 animate-cloud-drift",
+          colorClass
+        )}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+      </svg>
+    </div>
+  );
+};
 
 export function Dashboard() {
-  const { user } = useAuthState();
+  const { activeLocation, thresholds, isSyncing, triggerSync, alertsList } = useAppContext();
 
-  const [data, setData] = useState(Array.from({ length: 15 }, (_, i) => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - (15 - i));
-    return generateReading(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  }));
+  const [data, setData] = useState(() => {
+    return Array.from({ length: 15 }, (_, i) => {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - (15 - i));
+      return generateReading(
+        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        activeLocation.baseTemp,
+        activeLocation.baseHumidity,
+        activeLocation.baseCo2,
+        activeLocation.baseAmmonia
+      );
+    });
+  });
+
   const [currentAqi, setCurrentAqi] = useState(54);
 
+  // Reset or fluctuate data when selected location changes
   useEffect(() => {
-    // Simulate real-time updates every 5 seconds
+    setData(Array.from({ length: 15 }, (_, i) => {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - (15 - i));
+      return generateReading(
+        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        activeLocation.baseTemp,
+        activeLocation.baseHumidity,
+        activeLocation.baseCo2,
+        activeLocation.baseAmmonia
+      );
+    }));
+  }, [activeLocation]);
+
+  useEffect(() => {
+    // Live update simulator every 6 seconds
     const interval = setInterval(() => {
       const d = new Date();
-      const newReading = generateReading(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      const newReading = generateReading(
+        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        activeLocation.baseTemp,
+        activeLocation.baseHumidity,
+        activeLocation.baseCo2,
+        activeLocation.baseAmmonia
+      );
       setCurrentAqi(Math.round(newReading.aqi));
       setData(prev => [...prev.slice(1), newReading]);
-    }, 5000);
+    }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeLocation]);
+
+  const lastReading = data[data.length - 1] || { temp: 22, humidity: 50, co2: 450, ammonia: 0.5, aqi: 45 };
+
+  // Evaluate state alerts
+  const isTempAlert = lastReading.temp > thresholds.tempMax;
+  const isHumAlert = lastReading.humidity > thresholds.humidityMax;
+  const isCo2Alert = lastReading.co2 > thresholds.co2Max;
+  const isAmmoniaAlert = lastReading.ammonia > thresholds.ammoniaMax;
+
+  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0);
 
   const metrics = [
-    { label: 'Temperature', value: data[data.length - 1].temp.toFixed(1) + ' °C', icon: Thermometer, color: 'text-orange-500' },
-    { label: 'Humidity', value: data[data.length - 1].humidity.toFixed(1) + ' %', icon: Droplets, color: 'text-blue-500' },
-    { label: 'CO2 Level', value: Math.round(data[data.length - 1].co2) + ' ppm', icon: CloudFog, color: 'text-gray-400' },
-    { label: 'PM2.5', value: '12 µg/m³', icon: Wind, color: 'text-purple-500' },
-    { label: 'Ammonia', value: '0.5 ppm', icon: Activity, color: 'text-yellow-500' },
-    { label: 'Methane', value: '0.1 ppm', icon: AlertOctagon, color: 'text-red-500' },
+    { 
+      label: 'Temperature', 
+      value: lastReading.temp.toFixed(1) + ' °C', 
+      icon: TempSvg, 
+      color: isTempAlert ? 'text-red-500' : 'text-orange-500', 
+      bg: isTempAlert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
+      cardStyle: isTempAlert 
+        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'bg-[rgba(249,115,22,0.02)] border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
+      isWarning: isTempAlert,
+      limitInfo: `Max ${thresholds.tempMax}°C`
+    },
+    { 
+      label: 'Humidity', 
+      value: lastReading.humidity.toFixed(1) + ' %', 
+      icon: HumiditySvg, 
+      color: isHumAlert ? 'text-red-500' : 'text-blue-500', 
+      bg: isHumAlert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/15',
+      cardStyle: isHumAlert 
+        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'bg-[rgba(59,130,246,0.02)] border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
+      isWarning: isHumAlert,
+      limitInfo: `Max ${thresholds.humidityMax}%`
+    },
+    { 
+      label: 'CO2 Level', 
+      value: Math.round(lastReading.co2) + ' ppm', 
+      icon: Co2Svg, 
+      color: isCo2Alert ? 'text-red-500' : 'text-emerald-500', 
+      bg: isCo2Alert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
+      cardStyle: isCo2Alert 
+        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'bg-[rgba(16,185,129,0.02)] border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
+      isWarning: isCo2Alert,
+      limitInfo: `Max ${thresholds.co2Max} ppm`
+    },
+    { 
+      label: 'Ammonia NH3', 
+      value: lastReading.ammonia.toFixed(2) + ' ppm', 
+      icon: AmmoniaSvg, 
+      color: isAmmoniaAlert ? 'text-red-500' : 'text-yellow-600', 
+      bg: isAmmoniaAlert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-yellow-600/10 border border-yellow-600/15 group-hover:bg-yellow-650/15',
+      cardStyle: isAmmoniaAlert 
+        ? 'bg-[rgba(239,68,68,0.06)] border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'bg-[rgba(217,119,6,0.02)] border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
+      isWarning: isAmmoniaAlert,
+      limitInfo: `Max ${thresholds.ammoniaMax} ppm`
+    },
+    { 
+      label: 'PM2.5 Feed Dust', 
+      value: '12.4 µg/m³', 
+      icon: PM25Svg, 
+      color: 'text-purple-500', 
+      bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
+      cardStyle: 'bg-[rgba(168,85,247,0.02)] border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
+      isWarning: false,
+      limitInfo: 'Max 35 µg'
+    },
+    { 
+      label: 'Methane CH4', 
+      value: '0.04 ppm', 
+      icon: MethaneSvg, 
+      color: 'text-gray-500', 
+      bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
+      cardStyle: 'bg-[rgba(71,85,105,0.02)] border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
+      isWarning: false,
+      limitInfo: `Max ${thresholds.methaneMax} ppm`
+    },
   ];
 
   return (
-    <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300 pb-28">
       
-      {/* Overview Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Real-Time Monitoring</h1>
-          <p className="text-sm text-system-muted mt-1">Live data feed from LAS edge nodes.</p>
+      {/* Dynamic Header Barn Description & Pull Indicator */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl rounded-2xl p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
+
+        <div className="relative space-y-3 z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-400 text-xs font-semibold tracking-wide border border-white/5 uppercase">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            </span>
+            Live Node: Active
+          </div>
         </div>
-        
-        {/* AQI Gauge Display */}
-        <div className="flex items-center gap-4 bg-system-panel border border-system-border shadow-sm rounded-lg px-6 py-3">
-          <div className="flex flex-col">
-            <span className="text-xs font-mono uppercase tracking-widest text-system-muted">Overall AQI</span>
-            <span className="text-3xl font-semibold tracking-tight tabular-nums">
-              {currentAqi}
-            </span>
+
+        {/* Unified AQI & State Gauge */}
+        <div className="relative shrink-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center gap-5 z-10 select-none min-w-[240px] overflow-hidden group">
+          <div className="flex flex-col items-center justify-center bg-white/5 w-16 h-16 rounded-full border border-white/10 shrink-0 z-10">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
+            <span className="text-2xl font-black mt-1 tracking-tight leading-none tabular-nums">{currentAqi}</span>
           </div>
-          <div className="w-[2px] h-10 bg-system-border mx-2" />
-          <div className="flex flex-col">
-            <span className="text-xs uppercase tracking-widest text-system-muted">Status</span>
-            <span className={cn(
-              "text-sm font-medium",
-              currentAqi <= 50 ? "text-severity-normal" : currentAqi <= 100 ? "text-severity-warning" : "text-severity-critical"
-            )}>
-              {currentAqi <= 50 ? 'Good' : currentAqi <= 100 ? 'Moderate' : 'Unhealthy'}
-            </span>
+          <div className="w-[1px] h-12 bg-white/10 z-10" />
+          <div className="space-y-1 z-10">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-mono">Microclimate Status</p>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "px-2.5 py-0.5 rounded-lg text-xs font-bold shrink-0 uppercase tracking-wider",
+                activeIssueCount > 0 
+                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
+                  : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              )}>
+                {activeIssueCount > 0 ? `${activeIssueCount} Hazards` : 'Safe Level'}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-300">
+              {activeIssueCount > 0 ? 'Exceeds safety thresholds!' : 'Ventilation operates efficiently.'}
+            </p>
           </div>
+
+          {/* Animated Cloud & Air Wind background layer */}
+          <CloudWindAnimation colorClass={activeIssueCount > 0 ? 'text-rose-400' : 'text-emerald-400'} />
         </div>
       </div>
 
-      {/* Real-time Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {metrics.map((metric, idx) => (
-          <div key={idx} className="bg-system-panel border border-system-border shadow-sm rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden group">
-            <div className="flex justify-between items-start">
-              <span className="font-mono text-xs text-system-muted uppercase">{metric.label}</span>
-              <metric.icon className={cn("w-4 h-4 opacity-70", metric.color)} />
+      {/* Syncing Simulator feedback Overlay Banner */}
+      {isSyncing && (
+        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm">
+          Synchronizing air quality data streams with cloud database...
+        </div>
+      )}
+
+      {/* Grid of Micro-Environmental Sensoring Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {metrics.map((metric, idx) => {
+          const IconComponent = metric.icon;
+          return (
+            <div 
+              key={idx} 
+              className={cn(
+                "rounded-2xl p-4 flex flex-col justify-between h-36 relative overflow-hidden transition-all duration-300 group select-none border backdrop-blur-sm",
+                metric.cardStyle
+              )}
+            >
+              <div className="flex justify-between items-start gap-2">
+                <span className="font-mono text-[9px] md:text-[10px] text-system-muted uppercase tracking-widest leading-none mt-1">{metric.label}</span>
+                <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
+                  <IconComponent className={cn("w-5 h-5", metric.color)} isWarning={metric.isWarning} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className={cn(
+                  "text-2xl font-black tracking-tight tabular-nums text-system-text",
+                  metric.isWarning && "text-red-600"
+                )}>
+                  {metric.value}
+                </div>
+                <div className="flex items-center justify-between text-[9px] font-mono text-system-muted">
+                  <span>{metric.limitInfo}</span>
+                  {metric.isWarning && (
+                    <span className="text-red-500 font-bold animate-pulse">CRITICAL</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Animated Cloud & Air Wind background layer */}
+              <CloudWindAnimation colorClass={metric.color} />
+
+              {/* Decorative subtle visual glow backgrounds */}
+              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current", metric.color)} />
             </div>
-            <div className="text-2xl font-semibold tracking-tight tabular-nums">
-              {metric.value}
-            </div>
-            {/* Soft decorative glow */}
-            <div className={cn("absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-10 blur-xl group-hover:opacity-20 transition-opacity flex-shrink-0 bg-current", metric.color)} />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Main Charts Area */}
+      {/* Live Graph Analytics & Diagnostics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* AQI Trend Chart */}
-        <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm flex flex-col rounded-xl p-6 h-[400px]">
-          <div className="mb-4">
-            <h3 className="text-sm font-medium">Air Quality Index Trend</h3>
-            <p className="text-xs text-system-muted">5 second polling interval</p>
+        {/* Air Quality Index Area Chart */}
+        <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px]">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Microclimate Graph (CO2 / AQI Trend)</h3>
+              <p className="text-xs text-system-muted">Real-time edge telemetry tracking (6s interval)</p>
+            </div>
+            <span className="text-[10px] font-mono bg-system-bg border border-system-border px-2.5 py-1 rounded-lg text-system-muted">
+              Live Feed
+            </span>
           </div>
-          <div className="flex-1 min-h-0 w-full">
+
+          <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+              <AreaChart data={data} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorAqi" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  <linearGradient id="colorAqiDashboard" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-system-accent)" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="var(--color-system-accent)" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eaf0f6" />
                 <XAxis 
                   dataKey="time" 
-                  tick={{ fontSize: 11, fill: '#64748b' }} 
+                  tick={{ fontSize: 10, fill: '#64748b' }} 
                   axisLine={false} 
                   tickLine={false}
-                  minTickGap={30}
+                  minTickGap={25}
                 />
                 <YAxis 
-                  tick={{ fontSize: 11, fill: '#64748b', fontFamily: 'var(--font-mono)' }} 
+                  tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'var(--font-mono)' }} 
                   axisLine={false} 
                   tickLine={false}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', fontSize: '12px' }}
+                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   itemStyle={{ color: '#0f172a' }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="aqi" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
+                  name="Air Quality Index"
+                  stroke="var(--color-system-accent)" 
+                  strokeWidth={2.5}
                   fillOpacity={1} 
-                  fill="url(#colorAqi)" 
+                  fill="url(#colorAqiDashboard)" 
                   isAnimationActive={false}
                 />
               </AreaChart>
@@ -140,42 +498,46 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Secondary Info / Recent Events Panel & Install Campaign Column */}
-        <div className="flex flex-col gap-6">
-          <div className="bg-system-panel border border-system-border shadow-sm rounded-xl p-6 flex flex-col flex-1">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium">Live Diagnostics</h3>
-              <div className="flex items-center gap-2 text-xs font-mono text-severity-normal">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-severity-normal opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-severity-normal"></span>
+        {/* Recent Node Logs & Status Diagnostics */}
+        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col justify-between h-[400px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-system-border pb-3">
+              <h3 className="text-sm font-bold tracking-tight uppercase font-mono">Live Node Diagnostics</h3>
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
-                Connected
+                ONLINE
               </div>
             </div>
             
-            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-              {[
-                { t: '10s ago', msg: 'Syncing MQTT broker...', st: 'info' },
-                { t: '4m ago', msg: 'Calibration offset applied', st: 'warn' },
-                { t: '12m ago', msg: 'System routine check OK', st: 'info' },
-                { t: '2hr ago', msg: 'Node A reconnected', st: 'info' },
-              ].map((log, i) => (
-                <div key={i} className="flex gap-3 text-sm">
-                  <span className="font-mono text-xs text-system-muted w-16 shrink-0">{log.t}</span>
-                  <span className={cn(
-                    "truncate",
-                    log.st === 'warn' ? 'text-severity-warning' : 'text-system-text' 
-                  )}>{log.msg}</span>
+            <div className="space-y-3.5 overflow-y-auto pr-1 max-h-[250px] scrollbar-thin">
+              {alertsList.slice(0, 5).map((log, i) => (
+                <div key={log.id || i} className="flex gap-2.5 text-xs pb-3 border-b border-system-bg last:border-0">
+                  <span className="font-mono text-[10px] text-system-muted w-14 shrink-0 mt-0.5">{log.time}</span>
+                  <div className="flex-1 space-y-0.5 min-w-0">
+                    <p className={cn(
+                      "font-semibold truncate",
+                      log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-600" : "text-yellow-600"
+                    )}>
+                      {log.alertType}
+                    </p>
+                    <p className="text-system-muted text-[11px] leading-relaxed truncate">{log.message}</p>
+                  </div>
                 </div>
               ))}
             </div>
+          </div>
 
-            <div className="mt-4 pt-4 border-t border-system-border">
-              <div className="flex justify-between text-xs font-mono text-system-muted">
-                <span>DB Writes:</span>
-                <span className="text-system-text">~720/hr</span>
-              </div>
+          <div className="pt-4 border-t border-system-border space-y-2">
+            <div className="flex justify-between items-center text-xs font-mono">
+              <span className="text-system-muted">Storage:</span>
+              <span className="text-system-text font-bold">SQL Light / Cloud Run</span>
+            </div>
+            <div className="flex justify-between items-center text-xs font-mono">
+              <span className="text-system-muted">Node Sensor Health:</span>
+              <span className="text-emerald-600 font-bold">100% Calibrated</span>
             </div>
           </div>
         </div>
