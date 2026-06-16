@@ -414,8 +414,59 @@ export function Dashboard() {
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
+      {/* Grid of Micro-Environmental Sensoring Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
+        {metrics.map((metric, idx) => {
+          const IconComponent = metric.icon;
+          return (
+            <div 
+              key={idx} 
+              className={cn(
+                "rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col justify-between h-28 sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
+                metric.cardStyle
+              )}
+            >
+              <div className="relative z-10 flex justify-between items-start gap-1 sm:gap-2">
+                <span className="font-mono text-[8.5px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 sm:mt-1 line-clamp-2 pr-0.5">{metric.label}</span>
+                <div className={cn("p-1 sm:p-1.5 rounded-lg sm:rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
+                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
+                </div>
+              </div>
+
+              <div className="relative z-10 space-y-0.5 sm:space-y-1.5 mt-1 sm:mt-0">
+                <div className={cn(
+                  "text-lg sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
+                  metric.isWarning && "text-red-600"
+                )}>
+                  {metric.value}
+                </div>
+                <div className="flex items-center justify-between text-[7px] sm:text-[9px] font-mono text-system-muted min-h-[0.75rem] sm:min-h-[0.875rem]">
+                  <span className="truncate pr-1 hidden sm:inline-block">{metric.limitInfo}</span>
+                  {metric.isWarning && (
+                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Animated Cloud & Air Wind background layer */}
+              <CloudWindAnimation colorClass={metric.color} />
+
+              {/* Decorative subtle visual glow backgrounds */}
+              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Syncing Simulator feedback Overlay Banner */}
+      {isSyncing && (
+        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm mt-4 md:mt-8">
+          Synchronizing air quality data streams with cloud database...
+        </div>
+      )}
+
       {/* Dynamic Header Barn Description & Pull Indicator with Immersive 3D Atmosphere */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
+      <div className="mt-4 md:mt-8 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
         {/* Interactive 3D perspective Atmosphere & Billboarding Clouds Layer */}
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
@@ -481,57 +532,6 @@ export function Dashboard() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Syncing Simulator feedback Overlay Banner */}
-      {isSyncing && (
-        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm">
-          Synchronizing air quality data streams with cloud database...
-        </div>
-      )}
-
-      {/* Grid of Micro-Environmental Sensoring Cards */}
-      <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
-        {metrics.map((metric, idx) => {
-          const IconComponent = metric.icon;
-          return (
-            <div 
-              key={idx} 
-              className={cn(
-                "rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col justify-between h-28 sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
-                metric.cardStyle
-              )}
-            >
-              <div className="relative z-10 flex justify-between items-start gap-1 sm:gap-2">
-                <span className="font-mono text-[8.5px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 sm:mt-1 line-clamp-2 pr-0.5">{metric.label}</span>
-                <div className={cn("p-1 sm:p-1.5 rounded-lg sm:rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
-                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
-                </div>
-              </div>
-
-              <div className="relative z-10 space-y-0.5 sm:space-y-1.5 mt-1 sm:mt-0">
-                <div className={cn(
-                  "text-lg sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
-                  metric.isWarning && "text-red-600"
-                )}>
-                  {metric.value}
-                </div>
-                <div className="flex items-center justify-between text-[7px] sm:text-[9px] font-mono text-system-muted min-h-[0.75rem] sm:min-h-[0.875rem]">
-                  <span className="truncate pr-1 hidden sm:inline-block">{metric.limitInfo}</span>
-                  {metric.isWarning && (
-                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Animated Cloud & Air Wind background layer */}
-              <CloudWindAnimation colorClass={metric.color} />
-
-              {/* Decorative subtle visual glow backgrounds */}
-              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
-            </div>
-          );
-        })}
       </div>
 
       {/* Live Graph Analytics & Diagnostics */}
