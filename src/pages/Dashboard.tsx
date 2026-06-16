@@ -345,7 +345,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
       isWarning: isTempAlert,
-      limitInfo: `Max ${thresholds.tempMax}°C`
+      limitInfo: `${thresholds.tempMax}°C`
     },
     { 
       label: 'Humidity', 
@@ -359,7 +359,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
       isWarning: isHumAlert,
-      limitInfo: `Max ${thresholds.humidityMax}%`
+      limitInfo: `${thresholds.humidityMax}%`
     },
     { 
       label: 'CO2 Level', 
@@ -373,7 +373,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
       isWarning: isCo2Alert,
-      limitInfo: `Max ${thresholds.co2Max} ppm`
+      limitInfo: `${thresholds.co2Max} ppm`
     },
     { 
       label: 'Ammonia NH3', 
@@ -387,7 +387,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
       isWarning: isAmmoniaAlert,
-      limitInfo: `Max ${thresholds.ammoniaMax} ppm`
+      limitInfo: `${thresholds.ammoniaMax} ppm`
     },
     { 
       label: 'PM2.5 Feed Dust', 
@@ -397,7 +397,7 @@ export function Dashboard() {
       bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
       cardStyle: 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
       isWarning: false,
-      limitInfo: 'Max 35 µg'
+      limitInfo: '35 µg'
     },
     { 
       label: 'Methane CH4', 
@@ -407,66 +407,15 @@ export function Dashboard() {
       bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
       cardStyle: 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
       isWarning: false,
-      limitInfo: `Max ${thresholds.methaneMax} ppm`
+      limitInfo: `${thresholds.methaneMax} ppm`
     },
   ];
 
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
-      {/* Grid of Micro-Environmental Sensoring Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
-        {metrics.map((metric, idx) => {
-          const IconComponent = metric.icon;
-          return (
-            <div 
-              key={idx} 
-              className={cn(
-                "rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col justify-between h-28 sm:h-36 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm",
-                metric.cardStyle
-              )}
-            >
-              <div className="relative z-10 flex justify-between items-start gap-1 sm:gap-2">
-                <span className="font-mono text-[8.5px] md:text-[10px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 sm:mt-1 line-clamp-2 pr-0.5">{metric.label}</span>
-                <div className={cn("p-1 sm:p-1.5 rounded-lg sm:rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
-                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-5 sm:h-5", metric.color)} isWarning={metric.isWarning} />
-                </div>
-              </div>
-
-              <div className="relative z-10 space-y-0.5 sm:space-y-1.5 mt-1 sm:mt-0">
-                <div className={cn(
-                  "text-lg sm:text-2xl font-black tracking-tight tabular-nums text-system-text",
-                  metric.isWarning && "text-red-600"
-                )}>
-                  {metric.value}
-                </div>
-                <div className="flex items-center justify-between text-[7px] sm:text-[9px] font-mono text-system-muted min-h-[0.75rem] sm:min-h-[0.875rem]">
-                  <span className="truncate pr-1 hidden sm:inline-block">{metric.limitInfo}</span>
-                  {metric.isWarning && (
-                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Animated Cloud & Air Wind background layer */}
-              <CloudWindAnimation colorClass={metric.color} />
-
-              {/* Decorative subtle visual glow backgrounds */}
-              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Syncing Simulator feedback Overlay Banner */}
-      {isSyncing && (
-        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm mt-4 md:mt-8">
-          Synchronizing air quality data streams with cloud database...
-        </div>
-      )}
-
       {/* Dynamic Header Barn Description & Pull Indicator with Immersive 3D Atmosphere */}
-      <div className="mt-4 md:mt-8 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
         {/* Interactive 3D perspective Atmosphere & Billboarding Clouds Layer */}
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
@@ -532,6 +481,56 @@ export function Dashboard() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Syncing Simulator feedback Overlay Banner */}
+      {isSyncing && (
+        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm">
+          Synchronizing air quality data streams with cloud database...
+        </div>
+      )}
+
+      {/* Grid of Micro-Environmental Sensoring Cards */}
+      <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
+        {metrics.map((metric, idx) => {
+          const IconComponent = metric.icon;
+          return (
+            <div 
+              key={idx} 
+              className={cn(
+                "rounded-[1.25rem] p-3 sm:p-3.5 flex flex-col justify-between h-24 sm:h-28 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm hover:-translate-y-1 hover:shadow-md",
+                metric.cardStyle
+              )}
+            >
+              <div className="relative z-10 flex justify-between items-start gap-2">
+                <span className="font-mono text-[8px] md:text-[9px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 line-clamp-2 pr-0.5">{metric.label}</span>
+                <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
+                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", metric.color)} isWarning={metric.isWarning} />
+                </div>
+              </div>
+
+              <div className="relative z-10 space-y-0.5 mt-1 sm:mt-0">
+                <div className={cn(
+                  "text-sm sm:text-base md:text-lg font-black tracking-tight tabular-nums text-system-text",
+                  metric.isWarning && "text-red-600"
+                )}>
+                  {metric.value}
+                </div>
+                <div className="flex items-center justify-end text-[7px] sm:text-[8px] font-mono text-system-muted min-h-[0.75rem]">
+                  {metric.isWarning && (
+                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Animated Cloud & Air Wind background layer */}
+              <CloudWindAnimation colorClass={metric.color} />
+
+              {/* Decorative subtle visual glow backgrounds */}
+              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
+            </div>
+          );
+        })}
       </div>
 
       {/* Live Graph Analytics & Diagnostics */}
