@@ -306,7 +306,7 @@ export function Dashboard() {
   }, [activeLocation]);
 
   useEffect(() => {
-    // Live update simulator every 6 seconds
+    // Live update simulator every 2 seconds
     const interval = setInterval(() => {
       const d = new Date();
       const newReading = generateReading(
@@ -318,7 +318,7 @@ export function Dashboard() {
       );
       setCurrentAqi(Math.round(newReading.aqi));
       setData(prev => [...prev.slice(1), newReading]);
-    }, 6000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [activeLocation]);
 

@@ -23,6 +23,14 @@
     background-color: var(--color-system-bg);
     color: var(--color-system-text);
   }
+  .dark {
+    --color-system-bg: #0f172a;
+    --color-system-panel: #1e293b;
+    --color-system-border: #334155;
+    --color-system-text: #f8fafc;
+    --color-system-muted: #94a3b8;
+    --color-system-accent: #3b82f6;
+  }
 }
 
 @keyframes air-flow {

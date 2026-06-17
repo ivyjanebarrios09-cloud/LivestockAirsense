@@ -23,27 +23,19 @@ export function HistoryPage() {
   // Generate dynamic logging logs tailored around the selected location's traits
   const historicalLogs = useMemo(() => {
     // Extensive records set representation to demonstrate enterprise storage depth
-    const recordsCount = timeRange === 'today' ? 24 : timeRange === 'week' ? 42 : 60;
+    const recordsCount = timeRange === 'today' ? 360 : timeRange === 'week' ? 2520 : 10080; // 10 second intervals
     const items = [];
     
     for (let i = 0; i < recordsCount; i++) {
-      const date = new Date();
-      if (timeRange === 'today') {
-        date.setHours(date.getHours() - i);
-      } else if (timeRange === 'week') {
-        date.setHours(date.getHours() - (i * 4));
-      } else {
-        date.setHours(date.getHours() - (i * 12));
-      }
+        const date = new Date();
+        date.setSeconds(date.getSeconds() - (i * 10));
 
-      // Add controlled noise
-      const tempDelta = Math.sin(i * 0.8) * 2.2;
-      const co2Delta = (i % 3 === 0 ? 45 : (i % 2 === 0 ? -15 : 20));
-      const tempVal = Number((activeLocation.baseTemp + tempDelta).toFixed(1));
-      const humidityVal = Math.round(activeLocation.baseHumidity + (Math.cos(i * 0.7) * 6));
-      const co2Val = Math.round(activeLocation.baseCo2 + co2Delta + (Math.sin(i * 0.4) * 35));
-      const ammoniaVal = Number((activeLocation.baseAmmonia + (Math.sin(i * 0.9) * 0.55)).toFixed(2));
-      const calculatedAqi = Math.round((co2Val / 11) + (ammoniaVal * 5.5));
+        // Use base values + slight raw noise
+        const tempVal = Number((activeLocation.baseTemp + (Math.random() - 0.5) * 0.5).toFixed(1));
+        const humidityVal = Math.round(activeLocation.baseHumidity + (Math.random() - 0.5) * 2);
+        const co2Val = Math.round(activeLocation.baseCo2 + (Math.random() - 0.5) * 10);
+        const ammoniaVal = Number((activeLocation.baseAmmonia + (Math.random() - 0.5) * 0.1).toFixed(2));
+        const calculatedAqi = Math.round((co2Val / 11) + (ammoniaVal * 5.5));
 
       const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const monthsOfYear = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

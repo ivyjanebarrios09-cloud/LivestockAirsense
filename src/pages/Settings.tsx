@@ -1,5 +1,5 @@
 import { useState, useEffect, ChangeEvent } from 'react';
-import { Save, Server, Shield, Database, Sliders, CheckCircle, User, LogOut, Plus, Trash2, Cpu, MapPin } from 'lucide-react';
+import { Save, Server, Shield, Database, Sliders, CheckCircle, User, LogOut, Plus, Trash2, Cpu, MapPin, Sun, Moon } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
@@ -117,6 +117,20 @@ export function SettingsPage() {
       localStorage.setItem(`las_${uid}_push_enabled`, 'false');
     }
   };
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('app_theme') === 'dark';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('app_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('app_theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Sync state with active selection
   useEffect(() => {
@@ -510,6 +524,18 @@ export function SettingsPage() {
                   <option>10000 (10 seconds)</option>
                 </select>
               </div>
+              <div className="space-y-1 pt-2">
+                <label className="flex items-center justify-between cursor-pointer group">
+                  <span className="text-sm font-medium group-hover:text-system-accent transition-colors">Dark Mode</span>
+                  <button
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="p-2 bg-system-bg border border-system-border rounded-xl transition-all hover:border-system-accent"
+                  >
+                    {isDarkMode ? <Sun className="w-5 h-5 text-system-accent" /> : <Moon className="w-5 h-5 text-system-muted" />}
+                  </button>
+                </label>
+              </div>
+
               <div className="space-y-1 pt-2">
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <input type="checkbox" defaultChecked className="w-4 h-4 rounded-lg border-system-border bg-system-bg text-system-accent focus:ring-system-accent focus:ring-offset-system-panel cursor-pointer" />
