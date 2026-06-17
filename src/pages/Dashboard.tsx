@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
+import { recordStatusChange } from '../lib/firebase';
 
 // Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -289,6 +290,7 @@ export function Dashboard() {
   });
 
   const [currentAqi, setCurrentAqi] = useState(54);
+  const prevStatusesRef = useRef<{ [key: string]: string }>({});
 
   // Reset or fluctuate data when selected location changes
   useEffect(() => {
@@ -316,6 +318,24 @@ export function Dashboard() {
         activeLocation.baseCo2,
         activeLocation.baseAmmonia
       );
+
+      // Detect status changes
+      const sensorMap: { [key: string]: { label: string, val: number } } = {
+        'Temperature': { label: 'Temperature', val: newReading.temp },
+        'Humidity': { label: 'Humidity', val: newReading.humidity },
+        'CO2': { label: 'CO2 Level', val: newReading.co2 },
+        'Ammonia': { label: 'Ammonia NH3', val: newReading.ammonia },
+      };
+
+      for (const key in sensorMap) {
+        const { label, val } = sensorMap[key];
+        const currentStatus = getStatus(label, val).label;
+        if (prevStatusesRef.current[key] && prevStatusesRef.current[key] !== currentStatus) {
+          recordStatusChange(key, currentStatus, val);
+        }
+        prevStatusesRef.current[key] = currentStatus;
+      }
+
       setCurrentAqi(Math.round(newReading.aqi));
       setData(prev => [...prev.slice(1), newReading]);
     }, 2000);
@@ -332,6 +352,56 @@ export function Dashboard() {
 
   const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0);
 
+  const getStatus = (label: string, val: number) => {
+    switch (label) {
+      case 'Temperature':
+        if (val > 40) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 36) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if (val >= 31) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= 27) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'Humidity':
+        if (val < 10 || val > 90) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if ((val >= 10 && val < 20) || (val > 80 && val <= 90)) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if ((val >= 20 && val < 30) || (val > 70 && val <= 80)) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if ((val >= 30 && val < 40) || (val > 60 && val <= 70)) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'CO2 Level':
+        if (val > 5000) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 2001) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if (val >= 1201) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= 801) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'Ammonia NH3':
+        if (val > 100) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 51) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if (val >= 26) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= 11) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'PM2.5 Feed Dust':
+        if (val > 150.4) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 55.5) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if (val >= 35.5) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= 12.1) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'AQI':
+        if (val > 900) return { label: 'Hazardous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 801) return { label: 'Very Poor', icon: '🔴', color: 'text-red-500' };
+        if (val >= 601) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= 401) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        if (val >= 201) return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+        return { label: 'Excellent', icon: '🟢', color: 'text-emerald-500' };
+      default:
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+    }
+  };
+
+  const tempStatus = getStatus('Temperature', lastReading.temp);
+  const humStatus = getStatus('Humidity', lastReading.humidity);
+  const co2Status = getStatus('CO2 Level', lastReading.co2);
+  const ammoniaStatus = getStatus('Ammonia NH3', lastReading.ammonia);
+  const pmStatus = getStatus('PM2.5 Feed Dust', 12.4); // Using simulated value for PM
+
   const metrics = [
     { 
       label: 'Temperature', 
@@ -345,6 +415,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
       isWarning: isTempAlert,
+      status: tempStatus,
       limitInfo: `${thresholds.tempMax}°C`
     },
     { 
@@ -359,6 +430,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
       isWarning: isHumAlert,
+      status: humStatus,
       limitInfo: `${thresholds.humidityMax}%`
     },
     { 
@@ -373,6 +445,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
       isWarning: isCo2Alert,
+      status: co2Status,
       limitInfo: `${thresholds.co2Max} ppm`
     },
     { 
@@ -387,6 +460,7 @@ export function Dashboard() {
         ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
         : 'border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
       isWarning: isAmmoniaAlert,
+      status: ammoniaStatus,
       limitInfo: `${thresholds.ammoniaMax} ppm`
     },
     { 
@@ -397,6 +471,7 @@ export function Dashboard() {
       bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
       cardStyle: 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
       isWarning: false,
+      status: pmStatus,
       limitInfo: '35 µg'
     },
     { 
@@ -407,6 +482,7 @@ export function Dashboard() {
       bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
       cardStyle: 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
       isWarning: false,
+      status: { label: 'Good', icon: '🟢', color: 'text-emerald-500' },
       limitInfo: `${thresholds.methaneMax} ppm`
     },
   ];
@@ -462,6 +538,9 @@ export function Dashboard() {
           <div className="flex flex-col items-center justify-center bg-white/5 w-10 h-10 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
             <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
             <span className="text-lg md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{currentAqi}</span>
+            <span className={cn("text-[8px] md:text-[9px] font-bold mt-0.5", getStatus('AQI', currentAqi).color)}>
+              {getStatus('AQI', currentAqi).icon} {getStatus('AQI', currentAqi).label}
+            </span>
           </div>
           <div className="w-[1px] h-8 md:h-12 bg-white/10 z-10" />
           <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
@@ -516,10 +595,11 @@ export function Dashboard() {
                 )}>
                   {metric.value}
                 </div>
-                <div className="flex items-center justify-end text-[7px] sm:text-[8px] font-mono text-system-muted min-h-[0.75rem]">
-                  {metric.isWarning && (
-                    <span className="text-red-500 font-bold animate-pulse text-right">CRIT</span>
-                  )}
+                <div className="flex items-center justify-between text-[7px] sm:text-[8px] font-mono text-system-muted min-h-[0.75rem]">
+                  <span className={cn("flex items-center gap-1 font-bold", metric.status.color)}>
+                    <span>{metric.status.icon}</span>
+                    {metric.status.label}
+                  </span>
                 </div>
               </div>
 

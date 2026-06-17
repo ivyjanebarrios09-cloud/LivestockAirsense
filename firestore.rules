@@ -36,6 +36,21 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
+    match /status_history/{changeId} {
+      function isValidStatusChange(data) {
+        return data.keys().hasAll(['timestamp', 'sensorName', 'status', 'reading']) &&
+               data.keys().size() == 4 &&
+               data.timestamp is number &&
+               data.sensorName is string && data.sensorName.size() <= 100 &&
+               data.status is string && data.status.size() <= 100 &&
+               data.reading is number;
+      }
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(changeId) && isValidStatusChange(request.resource.data);
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /alerts/{alertId} {
       function isValidAlert(data) {
         return data.keys().hasAll(['timestamp', 'alertType', 'severity', 'message', 'isRead']) &&

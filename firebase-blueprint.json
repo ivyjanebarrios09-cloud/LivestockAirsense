@@ -17,6 +17,18 @@
       },
       "required": ["timestamp", "temperature", "humidity", "ammonia", "methane", "co2", "pm25", "pm10", "aqi"]
     },
+    "StatusChange": {
+      "title": "Status Change",
+      "description": "Sensor status change event",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "number" },
+        "sensorName": { "type": "string" },
+        "status": { "type": "string" },
+        "reading": { "type": "number" }
+      },
+      "required": ["timestamp", "sensorName", "status", "reading"]
+    },
     "Alert": {
       "title": "Alert",
       "description": "System alert for high sensor values",
@@ -47,6 +59,10 @@
     "/sensor_readings/{readingId}": {
       "schema": { "$ref": "#/entities/SensorReading" },
       "description": "Historical and real-time readings"
+    },
+    "/status_history/{changeId}": {
+      "schema": { "$ref": "#/entities/StatusChange" },
+      "description": "Sensor status change logs"
     },
     "/alerts/{alertId}": {
       "schema": { "$ref": "#/entities/Alert" },

@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
+import { getStatusHistory } from '../lib/firebase';
 
 export function HistoryPage() {
   const { activeLocation } = useAppContext();
@@ -14,74 +15,23 @@ export function HistoryPage() {
   // Pagination & Display limit states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
+  const [historicalLogs, setHistoricalLogs] = useState<any[]>([]);
 
   // Reset page position back to page 1 whenever filters shift
   useEffect(() => {
     setCurrentPage(1);
+    fetchData();
   }, [timeRange, activeLocation]);
 
-  // Generate dynamic logging logs tailored around the selected location's traits
-  const historicalLogs = useMemo(() => {
-    // Extensive records set representation to demonstrate enterprise storage depth
-    const recordsCount = timeRange === 'today' ? 360 : timeRange === 'week' ? 2520 : 10080; // 10 second intervals
-    const items = [];
-    
-    for (let i = 0; i < recordsCount; i++) {
-        const date = new Date();
-        date.setSeconds(date.getSeconds() - (i * 10));
-
-        // Use base values + slight raw noise
-        const tempVal = Number((activeLocation.baseTemp + (Math.random() - 0.5) * 0.5).toFixed(1));
-        const humidityVal = Math.round(activeLocation.baseHumidity + (Math.random() - 0.5) * 2);
-        const co2Val = Math.round(activeLocation.baseCo2 + (Math.random() - 0.5) * 10);
-        const ammoniaVal = Number((activeLocation.baseAmmonia + (Math.random() - 0.5) * 0.1).toFixed(2));
-        const calculatedAqi = Math.round((co2Val / 11) + (ammoniaVal * 5.5));
-
-      const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const monthsOfYear = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-      let label = '';
-      if (timeRange === 'today') {
-        label = `${date.getHours().toString().padStart(2, '0')}:00`;
-      } else if (timeRange === 'week') {
-        label = `${daysOfWeek[date.getDay()]} ${date.getHours().toString().padStart(2, '0')}:00`;
-      } else {
-        label = `${monthsOfYear[date.getMonth()]} ${date.getDate()}`;
-      }
-
-      items.push({
-        timestamp: date.toLocaleString('en-US', { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit',
-          hour12: false
-        }),
-        chartLabel: label,
-        temp: tempVal,
-        humidity: humidityVal,
-        co2: co2Val,
-        ammonia: ammoniaVal,
-        aqi: calculatedAqi
-      });
-    }
-
-    return items;
-  }, [activeLocation, timeRange]);
-
-  // For Recharts display (reverse chronologically so chart draws left-to-right, downsampled for visual layout spacing)
-  const chartData = useMemo(() => {
-    const reversed = [...historicalLogs].reverse();
-    if (timeRange === 'today') {
-      return reversed.filter((_, idx) => idx % 2 === 0);
-    } else if (timeRange === 'week') {
-      return reversed.filter((_, idx) => idx % 4 === 0);
-    } else {
-      return reversed.filter((_, idx) => idx % 5 === 0);
-    }
-  }, [historicalLogs, timeRange]);
+  const fetchData = async () => {
+    const logs = await getStatusHistory();
+    const formattedLogs = logs.map(log => ({
+      ...log,
+      timestamp: new Date(log.timestamp).toLocaleString(),
+      chartLabel: new Date(log.timestamp).toLocaleDateString()
+    }));
+    setHistoricalLogs(formattedLogs);
+  };
 
   // Calculate items displaying inside current page view
   const paginatedLogs = useMemo(() => {
@@ -220,48 +170,9 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Main Bar Chart Panel */}
-      <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 space-y-4">
-        <div>
-          <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Environmental Averages ({timeRange})</h3>
-          <p className="text-xs text-system-muted">Average gas indices versus particulate loads for {activeLocation.name}.</p>
-        </div>
-        
+      {/* Main Bar Chart Panel - Removed for data structure compatibility */}
+      <div className="hidden">
         <div className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.12)" />
-              <XAxis 
-                dataKey="chartLabel" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#8b949e', fontWeight: 'bold', fontFamily: 'monospace' }} 
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#8b949e', fontWeight: 'bold', fontFamily: 'monospace' }} 
-              />
-              <Tooltip 
-                cursor={{ fill: 'rgba(59, 130, 246, 0.05)', opacity: 0.8 }}
-                contentStyle={{ 
-                  backgroundColor: 'rgb(15, 23, 42)', 
-                  borderColor: 'rgba(255, 255, 255, 0.1)', 
-                  borderRadius: '12px', 
-                  color: '#ffffff',
-                  fontSize: '11px',
-                  fontFamily: 'monospace'
-                }}
-              />
-              <Legend 
-                iconType="circle" 
-                wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', textTransform: 'uppercase', paddingTop: '10px' }} 
-              />
-              <Bar dataKey="aqi" name="Overall AQI" fill="var(--color-system-accent, #3b82f6)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="humidity" name="Humidity (%)" fill="#a855f7" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="co2" name="CO2 (ppm)" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
@@ -282,28 +193,18 @@ export function HistoryPage() {
             <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border">
               <tr>
                 <th className="px-6 py-3.5 whitespace-nowrap">Timestamp</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Facility Location</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Temp</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Humidity</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">CO2 (Carbon Dioxide)</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">NH3 (Ammonia)</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Calculated AQI</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Name</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Reading</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
               {paginatedLogs.map((row, i) => (
                 <tr key={i} className="hover:bg-system-bg/40 transition-colors">
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                  <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{activeLocation.name}</td>
-                  <td className="px-6 py-3.5 text-orange-500 font-bold whitespace-nowrap">{row.temp.toFixed(1)} °C</td>
-                  <td className="px-6 py-3.5 text-purple-500 font-bold whitespace-nowrap">{row.humidity} %</td>
-                  <td className="px-6 py-3.5 text-emerald-500 font-bold whitespace-nowrap">{row.co2} ppm</td>
-                  <td className="px-6 py-3.5 text-indigo-500 font-bold whitespace-nowrap">{row.ammonia.toFixed(2)} ppm</td>
-                  <td className="px-6 py-3.5 whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded-md bg-system-accent/10 border border-system-accent/20 text-system-accent font-bold">
-                      {row.aqi} AQI
-                    </span>
-                  </td>
+                  <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
+                  <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.status}</td>
+                  <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.reading}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -76,6 +76,30 @@ export const logout = async () => {
   }
 };
 
+export const recordStatusChange = async (sensorName: string, status: string, reading: number) => {
+  try {
+    await addDoc(collection(db, 'status_history'), {
+      timestamp: Date.now(),
+      sensorName,
+      status,
+      reading
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'status_history');
+  }
+};
+
+export const getStatusHistory = async (): Promise<any[]> => {
+  try {
+    const q = query(collection(db, 'status_history'), orderBy('timestamp', 'desc'), limit(100));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.READ, 'status_history');
+    return [];
+  }
+};
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -83,6 +107,7 @@ export enum OperationType {
   LIST = 'list',
   GET = 'get',
   WRITE = 'write',
+  READ = 'read',
 }
 
 interface FirestoreErrorInfo {
