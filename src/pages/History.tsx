@@ -281,7 +281,7 @@ export function HistoryPage() {
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border">
               <tr>
-                <th className="px-6 py-3.5 whitespace-nowrap">Calibrated Timestamp</th>
+                <th className="px-6 py-3.5 whitespace-nowrap">Timestamp</th>
                 <th className="px-6 py-3.5 whitespace-nowrap">Facility Location</th>
                 <th className="px-6 py-3.5 whitespace-nowrap">Sensor Temp</th>
                 <th className="px-6 py-3.5 whitespace-nowrap">Sensor Humidity</th>

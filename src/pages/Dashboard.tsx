@@ -498,7 +498,7 @@ export function Dashboard() {
             <div 
               key={idx} 
               className={cn(
-                "rounded-[1.25rem] p-3 sm:p-3.5 flex flex-col justify-between h-24 sm:h-28 relative overflow-hidden transition-all duration-300 group select-none border bg-white shadow-sm hover:-translate-y-1 hover:shadow-md",
+                "rounded-[1.25rem] p-3 sm:p-3.5 flex flex-col justify-between h-24 sm:h-28 relative overflow-hidden transition-all duration-300 group select-none border bg-system-panel shadow-sm hover:-translate-y-1 hover:shadow-md",
                 metric.cardStyle
               )}
             >
