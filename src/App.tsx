@@ -32,6 +32,7 @@ export default function App() {
   const uid = user?.uid || 'guest';
 
   return (
+    // @ts-ignore
     <AppContextProvider key={uid} uid={uid}>
       <Router>
         <Routes>

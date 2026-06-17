@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { Save, Server, Shield, Database, Sliders, CheckCircle, User, LogOut, Plus, Trash2, Cpu, MapPin } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
@@ -66,6 +66,8 @@ export function SettingsPage() {
 
   // Facility Location Placement management states
   const [isAddingLocation, setIsAddingLocation] = useState(false);
+  const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
+  const [isAddingLocationPopup, setIsAddingLocationPopup] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
   const [newLocationType, setNewLocationType] = useState('Swine');
   const [newLocationAnimalCount, setNewLocationAnimalCount] = useState(100);
@@ -76,7 +78,7 @@ export function SettingsPage() {
     return localStorage.getItem(`las_${uid}_push_enabled`) === 'true';
   });
 
-  const handlePushToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePushToggle = async (e: ChangeEvent<HTMLInputElement>) => {
     const isEnabled = e.target.checked;
     if (isEnabled) {
       if ('Notification' in window) {
@@ -93,7 +95,7 @@ export function SettingsPage() {
                   icon: '/logo.png',
                   badge: '/logo.png',
                   vibrate: [100, 50, 100]
-                });
+                } as any);
               } else {
                 new Notification('AirSense Notifications Enabled', { body: 'Alerts are enabled.', icon: '/logo.png' });
               }
@@ -131,6 +133,7 @@ export function SettingsPage() {
   const handleAddNewDeviceClick = () => {
     setDeviceError(null);
     setIsEditingNew(true);
+    setIsAddingDevicePopup(true); // Open popup
     const randTag = Math.random().toString(36).substring(2, 7).toUpperCase();
     setDeviceIdInput(`EP-ESP32-${randTag}`);
     setDeviceNameInput('');
@@ -165,6 +168,7 @@ export function SettingsPage() {
       } catch (e) {}
       setSelectedDeviceId(newD.id);
       setIsEditingNew(false);
+      setIsAddingDevicePopup(false); // Close popup
       setDeviceFeedbackText('Device registered successfully!');
     } else {
       const updated = devices.map(d => {
@@ -218,6 +222,7 @@ export function SettingsPage() {
   const handleAddLocationClick = () => {
     setLocationError(null);
     setIsAddingLocation(true);
+    setIsAddingLocationPopup(true); // Open popup
     setNewLocationName('');
     setNewLocationType('Swine');
     setNewLocationAnimalCount(100);
@@ -374,104 +379,8 @@ export function SettingsPage() {
                 </div>
               </div>
 
-              {/* Right Column: Device Editing / Provisioning Form */}
-              <div className="md:col-span-2 p-5 md:p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-system-border/50 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-system-accent" />
-                    <span className="text-[11px] uppercase tracking-wider font-bold font-mono text-system-muted">
-                      {isEditingNew ? 'Register New Telemetry Node' : 'Edit Telemetry Node Properties'}
-                    </span>
-                  </div>
-                  {isEditingNew && (
-                    <button
-                      onClick={() => setIsEditingNew(false)}
-                      className="text-[10px] uppercase tracking-wider text-system-muted hover:text-system-text font-bold font-mono cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-
-                {deviceError && (
-                  <div className="p-3 bg-red-500/15 border border-red-500/30 text-red-500 rounded-xl text-xs font-mono font-semibold flex items-center justify-between gap-3 animate-pulse">
-                    <div className="flex items-center gap-2 leading-relaxed">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 block animate-ping shrink-0" />
-                      <span>{deviceError}</span>
-                    </div>
-                    <button 
-                      onClick={() => setDeviceError(null)}
-                      className="text-[10px] uppercase font-bold text-red-500 hover:text-red-650 cursor-pointer shrink-0"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device ID Token</label>
-                    <input
-                      type="text"
-                      disabled={!isEditingNew}
-                      value={deviceIdInput}
-                      onChange={(e) => setDeviceIdInput(e.target.value)}
-                      placeholder="e.g. EP-ESP32-LAS99X"
-                      className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono"
-                    />
-                    {isEditingNew && (
-                      <p className="text-[9px] text-system-muted font-mono leading-relaxed">
-                        Hardware network token used as MQTT Client ID. Cannot be modified after registration.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device Name</label>
-                    <input
-                      type="text"
-                      value={deviceNameInput}
-                      onChange={(e) => setDeviceNameInput(e.target.value)}
-                      placeholder="e.g. Gestation Temperature Monitor"
-                      className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Facility Location Placement</label>
-                    <select
-                      value={deviceLocationInput}
-                      onChange={(e) => setDeviceLocationInput(e.target.value)}
-                      className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
-                    >
-                      {locations?.map(loc => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.name} ({loc.type})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-system-border/40 pt-4 mt-2">
-                  <div className="flex-1">
-                    {showDeviceSavedFeedback && (
-                      <span className="text-emerald-600 text-[11px] font-bold flex items-center gap-1 animate-pulse">
-                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                        {deviceFeedbackText}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleSaveDevice}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    {isEditingNew ? 'Register Node' : 'Update Node'}
-                  </button>
-                </div>
-              </div>
+              {/* Right Column: Device Registration Overview */}
+              <div className="md:col-span-2 p-5 md:p-6" />
             </div>
           </section>
 
@@ -583,14 +492,7 @@ export function SettingsPage() {
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border border-dashed border-system-border/85 rounded-2xl text-center h-[200px]">
-                    <MapPin className="w-8 h-8 text-system-accent/80 mb-2.5 animate-bounce" />
-                    <p className="text-xs text-system-muted font-sans font-medium leading-relaxed max-w-sm">
-                      Select any placement on the left sidebar to associate with telemetry hardware, or tap <span className="font-bold text-system-accent">"Add New Location"</span> to deploy a new sector in the ventilation safety monitor.
-                    </p>
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           </section>
@@ -714,6 +616,66 @@ export function SettingsPage() {
         </div>
       )}
 
+      {/* Add New Device Popup */}
+      {isAddingDevicePopup && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-system-panel border border-system-border rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-base uppercase font-mono tracking-tight text-system-text mb-4">Register New Telemetry Node</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              {/* Form inputs copied from above */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device ID Token</label>
+                <input
+                  type="text"
+                  value={deviceIdInput}
+                  onChange={(e) => setDeviceIdInput(e.target.value)}
+                  placeholder="e.g. EP-ESP32-LAS99X"
+                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device Name</label>
+                <input
+                  type="text"
+                  value={deviceNameInput}
+                  onChange={(e) => setDeviceNameInput(e.target.value)}
+                  placeholder="e.g. Gestation Temperature Monitor"
+                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Facility Location Placement</label>
+                <select
+                  value={deviceLocationInput}
+                  onChange={(e) => setDeviceLocationInput(e.target.value)}
+                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
+                >
+                  {locations?.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} ({loc.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2.5 justify-end">
+              <button
+                onClick={() => setIsAddingDevicePopup(false)}
+                className="px-4 py-2 bg-system-bg border border-system-border hover:bg-system-panel font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDevice}
+                className="px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
+              >
+                Register
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sleek Custom Confirm Modal for deleting locations */}
       {locationToDelete && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -742,6 +704,44 @@ export function SettingsPage() {
                 className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Location Popup */}
+      {isAddingLocationPopup && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-system-panel border border-system-border rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold text-base uppercase font-mono tracking-tight text-system-text mb-4">Add New Location Placement</h3>
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Location / Barn Name</label>
+                <input
+                  type="text"
+                  value={newLocationName}
+                  onChange={(e) => setNewLocationName(e.target.value)}
+                  placeholder="e.g. Barn B (Nursery)"
+                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-sans"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2.5 justify-end">
+              <button
+                onClick={() => setIsAddingLocationPopup(false)}
+                className="px-4 py-2 bg-system-bg border border-system-border hover:bg-system-panel font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleSaveLocation();
+                  setIsAddingLocationPopup(false);
+                }}
+                className="px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
+              >
+                Create
               </button>
             </div>
           </div>
