@@ -325,9 +325,9 @@ export function SettingsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-system-border">
+            <div className="divide-y divide-system-border">
               {/* Left Column: List of Devices */}
-              <div className="md:col-span-1 p-4 bg-system-bg/30 space-y-2.5 max-h-[350px] overflow-y-auto">
+              <div className="p-4 bg-system-bg/30 space-y-2.5 max-h-[350px] overflow-y-auto">
                 <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono px-1">
                   Registered Telemetry Nodes ({devices.length})
                 </div>
@@ -380,7 +380,7 @@ export function SettingsPage() {
               </div>
 
               {/* Right Column: Device Registration Overview */}
-              <div className="md:col-span-2 p-5 md:p-6" />
+
             </div>
           </section>
 
@@ -399,9 +399,9 @@ export function SettingsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-system-border">
+            <div className="divide-y divide-system-border">
               {/* Left Column: List of Facility Locations */}
-              <div className="md:col-span-1 p-4 bg-system-bg/30 space-y-2.5 max-h-[350px] overflow-y-auto">
+              <div className="p-4 bg-system-bg/30 space-y-2.5 max-h-[350px] overflow-y-auto">
                 <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono px-1">
                   Available placements ({locations.length})
                 </div>
@@ -457,43 +457,41 @@ export function SettingsPage() {
                 )}
               </div>
 
-              {/* Right Column: Configuration form */}
-              <div className="md:col-span-2 p-5 md:p-6 space-y-4">
-                <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono">
-                  {isAddingLocation ? 'New Location Placement Parameters' : 'Placement Detail Overview'}
-                </div>
-
-                {isAddingLocation ? (
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Location / Barn Name</label>
-                      <input
-                        type="text"
-                        value={newLocationName}
-                        onChange={(e) => setNewLocationName(e.target.value)}
-                        placeholder="e.g. Barn B (Nursery)"
-                        className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-sans"
-                      />
+                {isAddingLocation && (
+                  <div className="p-5 md:p-6 space-y-4 border-t md:border-t-0 md:border-l border-system-border">
+                    <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono">
+                      New Location Placement Parameters
                     </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Location / Barn Name</label>
+                        <input
+                          type="text"
+                          value={newLocationName}
+                          onChange={(e) => setNewLocationName(e.target.value)}
+                          placeholder="e.g. Barn B (Nursery)"
+                          className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-sans"
+                        />
+                      </div>
 
-                    <div className="flex items-center justify-between border-t border-system-border/40 pt-4 mt-2">
-                      <button
-                        onClick={() => setIsAddingLocation(false)}
-                        className="px-4 py-2 border border-system-border text-system-muted hover:bg-system-bg rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveLocation}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Create Placement
-                      </button>
+                      <div className="flex items-center justify-between border-t border-system-border/40 pt-4 mt-2">
+                        <button
+                          onClick={() => setIsAddingLocation(false)}
+                          className="px-4 py-2 border border-system-border text-system-muted hover:bg-system-bg rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveLocation}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Create Placement
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ) : null}
-              </div>
+                )}
             </div>
           </section>
 
