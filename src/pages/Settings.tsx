@@ -141,10 +141,6 @@ export function SettingsPage() {
   }, [selectedDeviceId, devices, isEditingNew]);
 
   const handleAddNewDeviceClick = () => {
-    if (locations.length === 0) {
-      setDeviceError('Please add a facility location before registering a device.');
-      return;
-    }
     setDeviceError(null);
     setIsEditingNew(true);
     setIsAddingDevicePopup(true); // Open popup

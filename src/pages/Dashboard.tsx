@@ -239,7 +239,7 @@ export function Dashboard() {
     }
   }, [activeLocation, uid]);
 
-  const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation.id);
+  const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation?.id);
 
   const [deviceData, setDeviceData] = useState<any>(null);
   

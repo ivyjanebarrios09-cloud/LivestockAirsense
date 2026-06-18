@@ -53,6 +53,7 @@ export function HistoryPage() {
   };
 
   const downloadCSV = () => {
+    if (!activeLocation) return;
     // CSV Header row
     const headers = ['Timestamp', 'Facility Name', 'Breed', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'Ammonia (ppm)', 'AQI'];
     
@@ -85,6 +86,7 @@ export function HistoryPage() {
   };
 
   const downloadPDF = () => {
+    if (!activeLocation) return;
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.text(`Livestock AirSense: ${activeLocation.name} Report`, 14, 15);
@@ -114,6 +116,15 @@ export function HistoryPage() {
     doc.save(`airsense_${activeLocation.id}_historical_${timeRange}.pdf`);
     triggerFeedback(`Generated PDF for ${activeLocation.name}`);
   };
+
+  if (!activeLocation) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-bold">No facility selected</h2>
+        <p className="text-system-muted mt-2">Please select a facility location in the dashboard to generate history logs.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">

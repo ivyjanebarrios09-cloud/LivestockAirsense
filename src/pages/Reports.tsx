@@ -11,6 +11,7 @@ export function ReportsPage() {
 
   // Dynamically compile active location environmental parameters
   const compiledReportProps = useMemo(() => {
+    if (!activeLocation) return [];
     return [
       { parameter: 'Average Heat Index', value: `${(activeLocation.baseTemp + 0.4).toFixed(1)} °C`, status: activeLocation.baseTemp > 28 ? 'Caution' : 'Optimal' },
       { parameter: 'Average Humidity Level', value: `${activeLocation.baseHumidity} %`, status: 'Optimal' },
@@ -19,6 +20,15 @@ export function ReportsPage() {
       { parameter: 'Safety Threshold Limit', value: 'Active Compliance Check', status: 'Compliant' },
     ];
   }, [activeLocation]);
+
+  if (!activeLocation) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-bold">No facility selected</h2>
+        <p className="text-system-muted mt-2">Please select a facility location in the dashboard to generate reports.</p>
+      </div>
+    );
+  }
 
   const triggerNotify = (msg: string) => {
     setSuccessMsg(msg);
