@@ -103,21 +103,15 @@ export const loginWithEmail = async (email: string, pass: string, isSignUp: bool
     }
   } catch (error: any) {
     console.error('Email auth failed:', error);
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-       if (!isSignUp) {
-         // Auto-signup if not found
-         await createUserWithEmailAndPassword(auth, email, pass);
-       } else {
-         alert('Sign-in failed: ' + error.message);
-         throw error;
-       }
+    // Explicitly handle cases without auto-signup on invalid credentials for signIn
+    if (error.code === 'auth/invalid-credential') {
+        alert('Invalid email or password. Please check your credentials or click "Sign Up" to create a new account.');
     } else if (error.code === 'auth/email-already-in-use') {
        alert('Email already in use. Please sign in instead.');
-       throw error;
     } else {
       alert('Sign-in failed: ' + error.message);
-      throw error;
     }
+    throw error;
   }
 };
 

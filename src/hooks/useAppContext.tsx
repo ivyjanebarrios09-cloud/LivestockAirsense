@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { subscribeToAlerts } from '../lib/firebase';
 
 export interface Thresholds {
   tempMax: number;
@@ -29,11 +30,7 @@ export interface LocationDetail {
   baseAmmonia: number;
 }
 
-const LOCATIONS: LocationDetail[] = [
-  { id: 'barn-a', name: 'Barn A (Gestation)', type: 'Swine', animalCount: 145, baseTemp: 21, baseHumidity: 48, baseCo2: 450, baseAmmonia: 0.4 },
-  { id: 'brooder-3', name: 'Brooder House 3', type: 'Poultry', animalCount: 420, baseTemp: 27, baseHumidity: 62, baseCo2: 650, baseAmmonia: 0.8 },
-  { id: 'milking-parlor', name: 'Milking Parlor', type: 'Dairy Cattle', animalCount: 64, baseTemp: 19, baseHumidity: 45, baseCo2: 400, baseAmmonia: 0.3 }
-];
+const LOCATIONS: LocationDetail[] = [];
 
 interface AppContextType {
   uid: string;
@@ -58,21 +55,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
   // Load location list and current selection
-  const [locations, setLocations] = useState<LocationDetail[]>(() => {
-    const saved = localStorage.getItem(`las_${uid}_locations`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return LOCATIONS;
-  });
+  const [locations, setLocations] = useState<LocationDetail[]>([]);
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
-    return localStorage.getItem(`las_${uid}_selected_location`) || 'barn-a';
+    return localStorage.getItem(`las_${uid}_selected_location`) || '';
   });
 
-  const activeLocation = locations.find(l => l.id === selectedLocationId) || locations[0] || LOCATIONS[0];
+  const activeLocation = locations.find(l => l.id === selectedLocationId) || locations[0];
 
   // Save selection
   useEffect(() => {
@@ -124,112 +113,23 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     localStorage.setItem(`las_${uid}_thresholds`, JSON.stringify(newThreshold));
   };
 
-  // Mock static initial list of historical alerts
-  const [alertsList, setAlertsList] = useState<Alert[]>(() => {
-    const saved = localStorage.getItem(`las_${uid}_alerts_list`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [
-      {
-        id: '1',
-        time: '10:45 AM',
-        location: 'Brooder House 3',
-        alertType: 'Ammonia Spike',
-        message: 'Ammonia reading reached 4.1 ppm; ventilation check advised.',
-        severity: 'warning',
-        resolved: false
-      },
-      {
-        id: '2',
-        time: '08:12 AM',
-        location: 'Barn A (Gestation)',
-        alertType: 'High CO2',
-        message: 'CO2 levels surpassed 800 ppm during feeding.',
-        severity: 'warning',
-        resolved: true
-      },
-      {
-        id: '3',
-        time: 'Yesterday',
-        location: 'Milking Parlor',
-        alertType: 'High Temp Alert',
-        message: 'Temperature exceeded 26°C; heat stress mitigation active.',
-        severity: 'critical',
-        resolved: true
-      }
-    ];
-  });
+  // Alerts managed via Firestore
+  const [alertsList, setAlertsList] = useState<Alert[]>([]);
 
   useEffect(() => {
-    localStorage.setItem(`las_${uid}_alerts_list`, JSON.stringify(alertsList));
-  }, [alertsList, uid]);
-
-  // Handle live automatic threshold telemetry trigger simulation
-  useEffect(() => {
-    const checkInterval = setInterval(() => {
-      // Small randomized fluctuation to simulate potential warnings
-      const randomValue = Math.random();
-      if (randomValue > 0.95) {
-        // Trigger simulated warning!
-        const alertTriggerType = Math.random() > 0.5 ? 'CO2 Alert' : 'Temp Alert';
-        let alertMessage = '';
-        let severity: 'critical' | 'warning' = 'warning';
-
-        if (alertTriggerType === 'CO2 Alert') {
-          alertMessage = `Carbon Dioxide level reached ${Math.round(thresholds.co2Max + 120)} ppm, exceeding safe threshold.`;
-          severity = 'warning';
-        } else {
-          alertMessage = `Temperature detected at ${(thresholds.tempMax + 1.5).toFixed(1)}°C, risk of animal distress.`;
-          severity = 'critical';
-        }
-
-        const newAlert: Alert = {
-          id: Date.now().toString(),
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          location: activeLocation.name,
-          alertType: alertTriggerType,
-          message: alertMessage,
-          severity,
-          resolved: false
-        };
-
-        setAlertsList(prev => [newAlert, ...prev]);
-
-        // Push Web Notifications if permitted
-        if (localStorage.getItem(`las_${uid}_push_enabled`) === 'true' && 'Notification' in window && Notification.permission === 'granted') {
-          const title = `LAS ${newAlert.severity.toUpperCase()}: ${newAlert.alertType}`;
-          const options = {
-            body: `${newAlert.location} - ${newAlert.message}`,
-            icon: '/logo.png',
-            badge: '/logo.png',
-            vibrate: severity === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100],
-            requireInteraction: severity === 'critical',
-            tag: newAlert.id
-          };
-          
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistration().then(reg => {
-              if (reg) {
-                reg.showNotification(title, options);
-              } else {
-                new Notification(title, options);
-              }
-            }).catch(err => {
-              console.error('Service Worker showNotification failed, fallback to standard Notification', err);
-              new Notification(title, options);
-            });
-          } else {
-             new Notification(title, options);
-          }
-        }
-      }
-    }, 15000); // Check every 15 seconds
-
-    return () => clearInterval(checkInterval);
-  }, [activeLocation, thresholds]);
+    const unsubscribe = subscribeToAlerts((data) => {
+      setAlertsList(data.map(a => ({
+        id: a.id,
+        time: a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        location: a.location || 'Unknown',
+        alertType: a.alertType || 'Alert',
+        message: a.message || '',
+        severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
+        resolved: a.resolved || false
+      })));
+    });
+    return () => unsubscribe();
+  }, [uid]);
 
   // Resolve Alert action
   const addAlert = (alert: Omit<Alert, 'id' | 'time'>) => {
