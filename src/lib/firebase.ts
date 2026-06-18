@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -123,6 +123,7 @@ export const logout = async () => {
   }
 };
 
+  
 export const recordStatusChange = async (sensorName: string, status: string, reading: number) => {
   try {
     await addDoc(collection(db, 'status_history'), {
@@ -133,6 +134,34 @@ export const recordStatusChange = async (sensorName: string, status: string, rea
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'status_history');
+  }
+};
+
+export const getLocations = async (): Promise<any[]> => {
+  try {
+    const q = query(collection(db, 'locations'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.READ, 'locations');
+    return [];
+  }
+};
+
+export const addLocationToFirestore = async (location: any) => {
+  try {
+    const docRef = doc(db, 'locations', location.id);
+    await setDoc(docRef, { ...location });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'locations');
+  }
+};
+
+export const deleteLocationFromFirestore = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, 'locations', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'locations');
   }
 };
 

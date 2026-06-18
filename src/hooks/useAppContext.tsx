@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { subscribeToAlerts } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore } from '../lib/firebase';
 
 export interface Thresholds {
   tempMax: number;
@@ -57,6 +57,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   // Load location list and current selection
   const [locations, setLocations] = useState<LocationDetail[]>([]);
 
+  useEffect(() => {
+    getLocations().then(setLocations);
+  }, [uid]);
+
   const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
     return localStorage.getItem(`las_${uid}_selected_location`) || '';
   });
@@ -68,21 +72,20 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
   }, [selectedLocationId, uid]);
 
-  // Save locations list
-  useEffect(() => {
-    localStorage.setItem(`las_${uid}_locations`, JSON.stringify(locations));
-  }, [locations, uid]);
-
-  const addLocation = (loc: LocationDetail) => {
+  const addLocation = async (loc: LocationDetail) => {
+    await addLocationToFirestore(loc);
     setLocations(prev => [...prev, loc]);
   };
 
-  const deleteLocation = (id: string) => {
+  const deleteLocation = async (id: string) => {
+    await deleteLocationFromFirestore(id);
     setLocations(prev => {
       const updated = prev.filter(l => l.id !== id);
       if (selectedLocationId === id) {
         if (updated.length > 0) {
           setSelectedLocationId(updated[0].id);
+        } else {
+            setSelectedLocationId('');
         }
       }
       return updated;
