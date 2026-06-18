@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange, subscribeToSensorData } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings } from '../lib/firebase';
 
 // Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -216,40 +216,40 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 };
 
 export function Dashboard() {
-  const { uid, activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId } = useAppContext();
+  const { uid, activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId, selectedDeviceId, devices } = useAppContext();
 
   // Load registered devices to show them linked to the monitoring zone
-  const [registeredDevices, setRegisteredDevices] = useState<any[]>(() => {
-    const saved = localStorage.getItem(`las_${uid}_devices`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
-  });
-
-  // Keep devices state refreshed if they navigate back and forth
-  useEffect(() => {
-    const saved = localStorage.getItem(`las_${uid}_devices`);
-    if (saved) {
-      try {
-        setRegisteredDevices(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, [activeLocation, uid]);
+  const registeredDevices = devices;
 
   const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation?.id);
 
   const [deviceData, setDeviceData] = useState<any>(null);
+  const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
   
   useEffect(() => {
-    const deviceId = 'LAS-001';
-    const unsubscribe = subscribeToSensorData(deviceId, (data) => {
+    if (!selectedDeviceId) return;
+    const unsubscribe = subscribeToSensorData(selectedDeviceId, (data) => {
         setDeviceData(data);
     });
     return () => unsubscribe();
-  }, []);
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const logs = await getSensorReadings(selectedDeviceId, 12);
+      setTelemetryLogs(logs.reverse());
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 8050);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId]);
+
+  const chartData = telemetryLogs.map(log => ({
+    time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
+    aqi: log.aqi || 0,
+    co2: log.co2 || 0,
+    temp: log.temperature || 0
+  }));
 
   const lastReading = deviceData || { 
       temperature: 0, 
@@ -546,7 +546,7 @@ export function Dashboard() {
 
           <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[]} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAqiDashboard" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-system-accent)" stopOpacity={0.25}/>

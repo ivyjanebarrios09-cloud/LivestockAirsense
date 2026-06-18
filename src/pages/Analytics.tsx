@@ -6,18 +6,18 @@ import { cn } from '../lib/utils';
 import { getSensorReadings } from '../lib/firebase';
 
 export function AnalyticsPage() {
-  const { activeLocation } = useAppContext();
+  const { activeLocation, selectedDeviceId } = useAppContext();
   const [chartMetric, setChartMetric] = useState<'aqi' | 'temp' | 'co2' | 'ammonia'>('aqi');
 
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const logs = await getSensorReadings(12);
+      const logs = await getSensorReadings(selectedDeviceId, 12);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
-  }, []);
+  }, [selectedDeviceId]);
 
   // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {
@@ -33,12 +33,16 @@ export function AnalyticsPage() {
 
   // Compute stats on the fly
   const averageAqi = useMemo(() => {
-    const sum = dynamicTimelineData.reduce((acc, curr) => acc + curr.aqi, 0);
+    if (dynamicTimelineData.length === 0) return 0;
+    const sum = dynamicTimelineData.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
     return Math.round(sum / dynamicTimelineData.length);
   }, [dynamicTimelineData]);
 
   const maxTemp = useMemo(() => {
-    return Math.max(...dynamicTimelineData.map(item => item.temp));
+    if (dynamicTimelineData.length === 0) return 0;
+    const temps = dynamicTimelineData.map(item => item.temp).filter(t => typeof t === 'number' && !isNaN(t));
+    if (temps.length === 0) return 0;
+    return Math.max(...temps);
   }, [dynamicTimelineData]);
 
   const breedInsights = useMemo(() => {

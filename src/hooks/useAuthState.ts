@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User, getRedirectResult } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, recordUserInFirestore } from '../lib/firebase';
 
 export function useAuthState() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -15,6 +15,9 @@ export function useAuthState() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
+      if (u) {
+        recordUserInFirestore(u);
+      }
     });
     return () => unsubscribe();
   }, []);

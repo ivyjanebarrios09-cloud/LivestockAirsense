@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -27,8 +27,10 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
   });
 };
 
-export const subscribeToAlerts = (callback: (alerts: any[]) => void) => {
-  return onSnapshot(collection(db, 'alerts'), (snapshot) => {
+export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void) => {
+  const alertsRef = collection(db, 'alerts');
+  const q = uid && uid !== 'guest' ? query(alertsRef, where('userId', '==', uid)) : query(alertsRef);
+  return onSnapshot(q, (snapshot) => {
     const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     callback(alerts);
   });
@@ -61,11 +63,18 @@ export const addDevice = async (device: any) => {
   }
 };
 
-export const getSensorReadings = async (limitCount: number = 100): Promise<any[]> => {
+export const getSensorReadings = async (deviceId: string, limitCount: number = 100): Promise<any[]> => {
     try {
-        const q = query(collection(db, 'sensor_readings'), orderBy('timestamp', 'desc'), limit(limitCount));
+        const sensorReadingsRef = collection(db, 'sensor_readings');
+        let q = query(sensorReadingsRef);
+        if (deviceId) {
+          q = query(sensorReadingsRef, where('deviceId', '==', deviceId));
+        }
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort in memory by timestamp descending
+        docs.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+        return docs.slice(0, limitCount);
     } catch (error) {
         handleFirestoreError(error, OperationType.READ, 'sensor_readings');
         return [];
@@ -137,9 +146,10 @@ export const recordStatusChange = async (sensorName: string, status: string, rea
   }
 };
 
-export const getLocations = async (): Promise<any[]> => {
+export const getLocations = async (uid?: string): Promise<any[]> => {
   try {
-    const q = query(collection(db, 'locations'));
+    const locationsRef = collection(db, 'locations');
+    const q = uid && uid !== 'guest' ? query(locationsRef, where('userId', '==', uid)) : query(locationsRef);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -162,6 +172,35 @@ export const deleteLocationFromFirestore = async (id: string) => {
     await deleteDoc(doc(db, 'locations', id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, 'locations');
+  }
+};
+
+export const getDevices = async (uid?: string): Promise<any[]> => {
+  try {
+    const devicesRef = collection(db, 'devices');
+    const q = uid && uid !== 'guest' ? query(devicesRef, where('userId', '==', uid)) : query(devicesRef);
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.READ, 'devices');
+    return [];
+  }
+};
+
+export const addDeviceToFirestore = async (device: any) => {
+  try {
+    const docRef = doc(db, 'devices', device.id);
+    await setDoc(docRef, { ...device });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'devices');
+  }
+};
+
+export const deleteDeviceFromFirestore = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, 'devices', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'devices');
   }
 };
 
@@ -213,3 +252,171 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+export const postSimulatedReading = async (
+  deviceId: string,
+  deviceName: string,
+  location: any,
+  thresholds: any
+) => {
+  try {
+    // Determine base characteristics
+    const baseTemp = location?.baseTemp || 21;
+    const baseHum = location?.baseHumidity || 55;
+    const baseCo2 = location?.baseCo2 || 450;
+    const baseNh3 = location?.baseAmmonia || 1.2;
+
+    // Generate slight random adjustments to make it look alive and dynamic
+    const temperature = Number((baseTemp + (Math.random() * 2.4 - 1.2)).toFixed(1));
+    const humidity = Math.max(0, Math.min(100, Number((baseHum + (Math.random() * 6 - 3)).toFixed(1))));
+    const co2 = Math.max(0, Math.round(baseCo2 + (Math.random() * 60 - 30)));
+    const nh3 = Math.max(0, Number((baseNh3 + (Math.random() * 1.6 - 0.8)).toFixed(2)));
+    const ch4 = Math.max(0, Number((0.05 + (Math.random() * 0.08 - 0.04)).toFixed(2)));
+    const pm25 = Number((12.4 + (Math.random() * 3.2 - 1.6)).toFixed(1));
+    const pm10 = Number((22.1 + (Math.random() * 4.8 - 2.4)).toFixed(1));
+
+    // Calculate AQI realistically based on CO2 and NH3 density
+    const aqi = Math.round(Math.max(10, Math.min(500, 35 + (co2 - 350) / 8 + nh3 * 8)));
+
+    const temperatureLevel = temperature > thresholds.tempMax ? 'HIGH' : 'GOOD';
+    const humidityLevel = humidity > thresholds.humidityMax ? 'HIGH' : 'GOOD';
+    const co2Level = co2 > thresholds.co2Max ? 'HIGH' : 'GOOD';
+    const nh3Level = nh3 > thresholds.ammoniaMax ? 'HIGH' : 'GOOD';
+    const ch4Level = ch4 > thresholds.methaneMax ? 'HIGH' : 'GOOD';
+    const aqiLevel = aqi > 300 ? 'HAZARDOUS' : aqi > 150 ? 'POOR' : 'GOOD';
+
+    const timestampMs = Date.now();
+    const timestampSec = timestampMs / 1000;
+
+    const currentUid = location?.userId || auth.currentUser?.uid || '';
+
+    // POST 1: Latest Sensor State
+    const docRef = doc(db, 'sensors', deviceId);
+    await setDoc(docRef, {
+      deviceId,
+      deviceName,
+      temperature,
+      temperatureLevel,
+      humidity,
+      humidityLevel,
+      co2,
+      co2Level,
+      aqi,
+      aqiLevel,
+      nh3,
+      nh3Level,
+      ch4,
+      ch4Level,
+      timestamp: timestampSec
+    });
+
+    // POST 2: Historical series log in sensor_readings
+    await addDoc(collection(db, 'sensor_readings'), {
+      timestamp: timestampMs,
+      temperature,
+      humidity,
+      ammonia: nh3,
+      co2,
+      methane: ch4,
+      pm25,
+      pm10,
+      aqi,
+      deviceId,
+      userId: currentUid
+    });
+
+    // Check thresholds to write real alerts if they exceed limits!
+    const triggers = [];
+    if (temperature > thresholds.tempMax) triggers.push({ type: 'High Temperature', msg: `Temperature of ${temperature}°C exceeded critical threshold limit.` });
+    if (humidity > thresholds.humidityMax) triggers.push({ type: 'High Humidity', msg: `Humidity of ${humidity}% exceeded comfort zone limits.` });
+    if (co2 > thresholds.co2Max) triggers.push({ type: 'Elevated CO2', msg: `CO2 level reached ${co2} ppm - ventilation adjustment necessary.` });
+    if (nh3 > thresholds.ammoniaMax) triggers.push({ type: 'Ammonia Spike', msg: `Ammonia density spiked to ${nh3} ppm - hazard to animal airways.` });
+
+    for (const trigger of triggers) {
+      await addDoc(collection(db, 'alerts'), {
+        timestamp: timestampSec,
+        alertType: trigger.type,
+        severity: 'critical',
+        message: trigger.msg,
+        location: location?.name || 'Unknown Zone',
+        resolved: false,
+        isRead: false,
+        userId: currentUid
+      });
+    }
+
+  } catch (err) {
+    console.error('Failed to post simulated reading:', err);
+  }
+};
+
+export const saveUserSettingsToFirestore = async (uid: string, settings: { selectedLocationId?: string; selectedDeviceId?: string; thresholds?: any }) => {
+  if (!uid || uid === 'guest') return;
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, settings, { merge: true });
+  } catch (error) {
+    console.error('Failed to save user settings:', error);
+  }
+};
+
+export const recordUserInFirestore = async (user: any) => {
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    await setDoc(userDocRef, {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+      lastLogin: Date.now(),
+      updatedAt: Date.now()
+    }, { merge: true });
+
+    // Ensure we seed default structures if they do not exist
+    const locationsColl = collection(db, 'locations');
+    const locSnap = await getDocs(query(locationsColl, where('userId', '==', user.uid)));
+    if (locSnap.empty) {
+      const defaultLocations = [
+        {
+          id: `${user.uid}_loc-001`,
+          name: 'Main Broiler Barn',
+          type: 'Poultry',
+          animalCount: 4200,
+          baseTemp: 22.5,
+          baseHumidity: 60,
+          baseCo2: 500,
+          baseAmmonia: 2.1,
+          userId: user.uid
+        },
+        {
+          id: `${user.uid}_loc-002`,
+          name: 'North Swine Nursery',
+          type: 'Swine',
+          animalCount: 350,
+          baseTemp: 24.0,
+          baseHumidity: 55,
+          baseCo2: 600,
+          baseAmmonia: 1.5,
+          userId: user.uid
+        }
+      ];
+      for (const loc of defaultLocations) {
+        await setDoc(doc(db, 'locations', loc.id), loc);
+      }
+    }
+
+    const devicesColl = collection(db, 'devices');
+    const devSnap = await getDocs(query(devicesColl, where('userId', '==', user.uid)));
+    if (devSnap.empty) {
+      const defaultDevices = [
+        { id: `${user.uid}_LAS-001`, name: 'ESP32 Main Node', locationId: `${user.uid}_loc-001`, userId: user.uid },
+        { id: `${user.uid}_LAS-002`, name: 'ESP32 Secondary Node', locationId: `${user.uid}_loc-002`, userId: user.uid }
+      ];
+      for (const dev of defaultDevices) {
+        await setDoc(doc(db, 'devices', dev.id), dev);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to record user sign-in event:', error);
+  }
+};

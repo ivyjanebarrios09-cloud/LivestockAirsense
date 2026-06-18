@@ -4,7 +4,7 @@ import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { logout, addDevice } from '../lib/firebase';
+import { logout } from '../lib/firebase';
 
 interface Device {
   id: string;
@@ -14,7 +14,7 @@ interface Device {
 
 export function SettingsPage() {
   const { user } = useAuthState();
-  const { thresholds, saveThresholds, locations, addLocation, deleteLocation } = useAppContext();
+  const { thresholds, saveThresholds, locations, addLocation, deleteLocation, selectedDeviceId, setSelectedDeviceId, devices, addDevice, deleteDevice } = useAppContext();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
@@ -31,20 +31,8 @@ export function SettingsPage() {
   const [localAmmoniaMax, setLocalAmmoniaMax] = useState(thresholds.ammoniaMax);
 
   const uid = user?.uid || 'guest';
-  // Device List & State Management loaded from localStorage with default placeholders
-  const [devices, setDevices] = useState<Device[]>(() => {
-    const saved = localStorage.getItem(`las_${uid}_devices`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
-  });
+// ...
 
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
-    return devices[0]?.id || 'EP-ESP32-LAS99X';
-  });
   const [isEditingNew, setIsEditingNew] = useState(false);
 
   // Form input states
@@ -165,49 +153,49 @@ export function SettingsPage() {
       return;
     }
 
-    if (isEditingNew) {
-      if (devices.some(d => d.id.toLowerCase() === deviceIdInput.trim().toLowerCase())) {
-        setDeviceError('A device with this Device ID Token already exists. Please choose a unique token.');
-        return;
-      }
-      const newD: Device = {
-        id: deviceIdInput.trim(),
-        name: deviceNameInput.trim(),
-        locationId: deviceLocationInput
-      };
-      
-      // Save to Firestore
-      await addDevice(newD);
-      
-      const updated = [...devices, newD];
-      setDevices(updated);
-      try {
-        localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
-      } catch (e) {}
-      setSelectedDeviceId(newD.id);
-      setIsEditingNew(false);
-      setIsAddingDevicePopup(false); // Close popup
-      setDeviceFeedbackText('Device registered successfully!');
-    } else {
-      const updated = devices.map(d => {
-        if (d.id === selectedDeviceId) {
-          return {
-            ...d,
-            name: deviceNameInput.trim(),
-            locationId: deviceLocationInput
-          };
+    try {
+      if (isEditingNew) {
+        if (devices.some(d => d.id.toLowerCase() === deviceIdInput.trim().toLowerCase())) {
+          setDeviceError('A device with this Device ID Token already exists. Please choose a unique token.');
+          return;
         }
-        return d;
-      });
-      setDevices(updated);
-      try {
-        localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
-      } catch (e) {}
-      setDeviceFeedbackText('Device properties updated!');
-    }
+        const newD: Device = {
+          id: deviceIdInput.trim(),
+          name: deviceNameInput.trim(),
+          locationId: deviceLocationInput
+        };
+        
+        // Save to Firestore and state using AppContext
+        await addDevice(newD);
+        
+        setSelectedDeviceId(newD.id);
+        setIsEditingNew(false);
+        setIsAddingDevicePopup(false); // Close popup
+        setDeviceFeedbackText('Device registered successfully!');
+      } else {
+        const updatedD: Device = {
+          id: selectedDeviceId,
+          name: deviceNameInput.trim(),
+          locationId: deviceLocationInput
+        };
+        // Save to Firestore and state using AppContext
+        await addDevice(updatedD);
+        setDeviceFeedbackText('Device properties updated!');
+      }
 
-    setShowDeviceSavedFeedback(true);
-    setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
+      setShowDeviceSavedFeedback(true);
+      setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
+    } catch (err: any) {
+      console.error('Save device error:', err);
+      let msg = err?.message || 'Failed to register the telemetry node in Firestore.';
+      if (typeof msg === 'string' && msg.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(msg);
+          msg = `Firestore Error: ${parsed.error || parsed.message} (Operation: ${parsed.operationType}, Path: ${parsed.path})`;
+        } catch (_) {}
+      }
+      setDeviceError(msg);
+    }
   };
 
   const handleDeleteClick = (dev: Device) => {
@@ -219,15 +207,12 @@ export function SettingsPage() {
     setDeviceToDelete(dev);
   };
 
-  const executeDeleteDevice = () => {
+  const executeDeleteDevice = async () => {
     if (!deviceToDelete) return;
-    const updated = devices.filter(d => d.id !== deviceToDelete.id);
-    setDevices(updated);
-    try {
-      localStorage.setItem(`las_${uid}_devices`, JSON.stringify(updated));
-    } catch (e) {}
+    await deleteDevice(deviceToDelete.id);
 
-    const nextActive = updated[0]?.id || '';
+    const remainingDevices = devices.filter(d => d.id !== deviceToDelete.id);
+    const nextActive = remainingDevices[0]?.id || '';
     setSelectedDeviceId(nextActive);
     setIsEditingNew(false);
     setDeviceToDelete(null);
@@ -342,6 +327,21 @@ export function SettingsPage() {
                 Add New Device
               </button>
             </div>
+
+            {showDeviceSavedFeedback && (
+              <div className="p-3 bg-emerald-500/15 border-b border-system-border text-emerald-600 text-xs font-semibold flex items-center justify-between gap-3 animate-bounce">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block animate-ping shrink-0" />
+                  {deviceFeedbackText || 'Device registered successfully!'}
+                </span>
+                <button 
+                  onClick={() => setShowDeviceSavedFeedback(false)}
+                  className="text-[10px] uppercase font-bold text-emerald-600 hover:text-emerald-750 cursor-pointer shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <div className="divide-y divide-system-border">
               {/* Left Column: List of Devices */}
@@ -649,6 +649,23 @@ export function SettingsPage() {
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-system-panel border border-system-border rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <h3 className="font-bold text-base uppercase font-mono tracking-tight text-system-text mb-4">Register New Telemetry Node</h3>
+            
+            {deviceError && (
+              <div className="mb-4 p-3 bg-red-500/15 border border-red-500/30 text-red-500 rounded-xl text-xs font-mono font-semibold flex items-center justify-between gap-3 animate-pulse">
+                <div className="flex items-center gap-2 leading-relaxed">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-550 block animate-ping shrink-0" />
+                  <span>{deviceError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeviceError(null)}
+                  className="text-[10px] uppercase font-bold text-red-500 hover:text-red-700 cursor-pointer shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               {/* Form inputs copied from above */}
               <div className="space-y-2">
@@ -673,17 +690,47 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Facility Location Placement</label>
-                <select
-                  value={deviceLocationInput}
-                  onChange={(e) => setDeviceLocationInput(e.target.value)}
-                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
-                >
-                  {locations?.map(loc => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} ({loc.type})
-                    </option>
-                  ))}
-                </select>
+                {locations && locations.length > 0 ? (
+                  <select
+                    value={deviceLocationInput}
+                    onChange={(e) => {
+                      setDeviceLocationInput(e.target.value);
+                      setDeviceError(null);
+                    }}
+                    className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
+                  >
+                    <option value="">-- Choose Target Facility Placement --</option>
+                    {locations?.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} ({loc.type})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs bg-red-500/10 border border-red-500/20 text-red-500 p-3.5 rounded-xl flex flex-col gap-2">
+                    <span>No Facility Location placements exist yet. You must define a place first in order to bind this device model.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addLocation({
+                          id: 'loc-001',
+                          name: 'Main Broiler Barn',
+                          type: 'Poultry',
+                          animalCount: 4200,
+                          baseTemp: 22.5,
+                          baseHumidity: 60,
+                          baseCo2: 500,
+                          baseAmmonia: 2.1
+                        });
+                        setDeviceLocationInput('loc-001');
+                        setDeviceError(null);
+                      }}
+                      className="px-3.5 py-1.5 bg-red-500 hover:bg-opacity-90 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider self-start cursor-pointer transition-all active:scale-95"
+                    >
+                      Initialize Default Location Plan
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-2.5 justify-end">

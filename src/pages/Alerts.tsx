@@ -12,12 +12,14 @@ export function AlertsPage() {
   
   const [alerts, setAlerts] = useState<any[]>([]);
 
+  const uid = user?.uid || 'guest';
+
   useEffect(() => {
-    const unsubscribe = subscribeToAlerts((data) => {
+    const unsubscribe = subscribeToAlerts(uid, (data) => {
         setAlerts(data);
     });
     return () => unsubscribe();
-  }, []);
+  }, [uid]);
 
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);

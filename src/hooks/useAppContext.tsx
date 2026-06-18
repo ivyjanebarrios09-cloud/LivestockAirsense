@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, postSimulatedReading, saveUserSettingsToFirestore, db } from '../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { useAuthState } from './useAuthState';
 
 export interface Thresholds {
   tempMax: number;
@@ -32,13 +34,18 @@ export interface LocationDetail {
 
 const LOCATIONS: LocationDetail[] = [];
 
-interface AppContextType {
+export interface AppContextType {
   uid: string;
   locations: LocationDetail[];
   addLocation: (loc: LocationDetail) => void;
   deleteLocation: (id: string) => void;
+  devices: any[];
+  addDevice: (device: any) => void;
+  deleteDevice: (id: string) => void;
   selectedLocationId: string;
   setSelectedLocationId: (id: string) => void;
+  selectedDeviceId: string;
+  setSelectedDeviceId: (id: string) => void;
   activeLocation: LocationDetail | undefined;
   thresholds: Thresholds;
   saveThresholds: (newThresholds: Thresholds) => void;
@@ -54,45 +61,23 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
-  // Load location list and current selection
+  // Load devices and current selection
   const [locations, setLocations] = useState<LocationDetail[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
 
   useEffect(() => {
-    getLocations().then(setLocations);
+    getLocations(uid).then(setLocations);
+    getDevices(uid).then(setDevices);
   }, [uid]);
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
     return localStorage.getItem(`las_${uid}_selected_location`) || '';
   });
 
-  const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
+    return localStorage.getItem(`las_${uid}_selected_device`) || '';
+  });
 
-  // Save selection
-  useEffect(() => {
-    localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
-  }, [selectedLocationId, uid]);
-
-  const addLocation = async (loc: LocationDetail) => {
-    await addLocationToFirestore(loc);
-    setLocations(prev => [...prev, loc]);
-  };
-
-  const deleteLocation = async (id: string) => {
-    await deleteLocationFromFirestore(id);
-    setLocations(prev => {
-      const updated = prev.filter(l => l.id !== id);
-      if (selectedLocationId === id) {
-        if (updated.length > 0) {
-          setSelectedLocationId(updated[0].id);
-        } else {
-            setSelectedLocationId('');
-        }
-      }
-      return updated;
-    });
-  };
-
-  // Load alert thresholds
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
     const saved = localStorage.getItem(`las_${uid}_thresholds`);
     if (saved) {
@@ -111,16 +96,99 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     };
   });
 
+  // Real-time synchronization of user choices from the Firestore users collection!
+  useEffect(() => {
+    if (!uid || uid === 'guest') return;
+
+    const userDocRef = doc(db, 'users', uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.selectedLocationId !== undefined) {
+          setSelectedLocationId(data.selectedLocationId);
+        }
+        if (data.selectedDeviceId !== undefined) {
+          setSelectedDeviceId(data.selectedDeviceId);
+        }
+        if (data.thresholds !== undefined) {
+          setThresholds(data.thresholds);
+        }
+      }
+    }, (error) => {
+      console.error('Error syncing user document:', error);
+    });
+
+    return () => unsubscribeUser();
+  }, [uid]);
+
+  const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
+
+  // Save selection
+  useEffect(() => {
+    if (selectedLocationId) {
+      localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
+      saveUserSettingsToFirestore(uid, { selectedLocationId });
+    }
+  }, [selectedLocationId, uid]);
+
+  useEffect(() => {
+    if (selectedDeviceId) {
+      localStorage.setItem(`las_${uid}_selected_device`, selectedDeviceId);
+      saveUserSettingsToFirestore(uid, { selectedDeviceId });
+    }
+  }, [selectedDeviceId, uid]);
+
+  const addLocation = async (loc: LocationDetail) => {
+    const enrichedLocation = { ...loc, userId: uid };
+    await addLocationToFirestore(enrichedLocation);
+    setLocations(prev => [...prev, enrichedLocation]);
+  };
+
+  const deleteLocation = async (id: string) => {
+    await deleteLocationFromFirestore(id);
+    setLocations(prev => {
+      const updated = prev.filter(l => l.id !== id);
+      if (selectedLocationId === id) {
+        if (updated.length > 0) {
+          setSelectedLocationId(updated[0].id);
+        } else {
+          setSelectedLocationId('');
+        }
+      }
+      return updated;
+    });
+  };
+
+  const addDevice = async (device: any) => {
+    const enrichedDevice = { ...device, userId: uid };
+    await addDeviceToFirestore(enrichedDevice);
+    setDevices(prev => {
+      const index = prev.findIndex(d => d.id === device.id);
+      if (index >= 0) {
+        const copy = [...prev];
+        copy[index] = enrichedDevice;
+        return copy;
+      }
+      return [...prev, enrichedDevice];
+    });
+  };
+
+  const deleteDevice = async (id: string) => {
+    await deleteDeviceFromFirestore(id);
+    setDevices(prev => prev.filter(d => d.id !== id));
+  };
+
   const saveThresholds = (newThreshold: Thresholds) => {
     setThresholds(newThreshold);
     localStorage.setItem(`las_${uid}_thresholds`, JSON.stringify(newThreshold));
+    saveUserSettingsToFirestore(uid, { thresholds: newThreshold });
   };
 
   // Alerts managed via Firestore
   const [alertsList, setAlertsList] = useState<Alert[]>([]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAlerts((data) => {
+    const unsubscribe = subscribeToAlerts(uid, (data) => {
       setAlertsList(data.map(a => ({
         id: a.id,
         time: a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
@@ -155,10 +223,33 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const unreadAlertsCount = alertsList.filter(alert => !alert.resolved).length;
 
+  // Send dynamic sensor data stream to Firestore automatically
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
+    const device = devices.find(d => d.id === selectedDeviceId);
+    const deviceName = device?.name || 'ESP32 Node';
+
+    // Immediate execution
+    postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+
+    // Dynamic telemetry updates every 8 seconds
+    const intervalId = setInterval(() => {
+      postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+    }, 8000);
+
+    return () => clearInterval(intervalId);
+  }, [selectedDeviceId, activeLocation, devices, thresholds]);
+
   // Mock Pull-To-Refresh Syncing Animation Simulation
   const [isSyncing, setIsSyncing] = useState(false);
   const triggerSync = async () => {
     setIsSyncing(true);
+    if (selectedDeviceId) {
+      const device = devices.find(d => d.id === selectedDeviceId);
+      const deviceName = device?.name || 'ESP32 Node';
+      await postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+    }
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsSyncing(false);
   };
@@ -169,8 +260,13 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       locations,
       addLocation,
       deleteLocation,
+      devices,
+      addDevice,
+      deleteDevice,
       selectedLocationId,
       setSelectedLocationId,
+      selectedDeviceId,
+      setSelectedDeviceId,
       activeLocation,
       thresholds,
       saveThresholds,

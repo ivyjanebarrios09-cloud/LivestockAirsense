@@ -1,8 +1,49 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // User Profiles
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Cultivation Locations
+    match /locations/{locationId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Registered Telemetry Devices
+    match /devices/{deviceId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Sensor values / Latest State
+    match /sensors/{deviceId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Sensor readings historical series
+    match /sensor_readings/{readingId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Incidents & Alerts
+    match /alerts/{alertId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // Status Logs
+    match /status_history/{changeId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Global and System settings
+    match /system_settings/{settingId} {
+      allow read, write: if request.auth != null;
     }
   }
 }

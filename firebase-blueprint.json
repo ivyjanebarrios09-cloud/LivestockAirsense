@@ -76,6 +76,52 @@
         "aqiThreshold": { "type": "number" }
       },
       "required": ["refreshInterval", "tempThreshold", "co2Threshold", "aqiThreshold"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "Authenticated user settings and profiles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "lastLogin": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "selectedLocationId": { "type": "string" },
+        "selectedDeviceId": { "type": "string" },
+        "thresholds": { "type": "object" }
+      },
+      "required": ["uid", "email"]
+    },
+    "LocationDetail": {
+      "title": "Location Detail",
+      "description": "Farming facilities/barns tracked by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "animalCount": { "type": "number" },
+        "baseTemp": { "type": "number" },
+        "baseHumidity": { "type": "number" },
+        "baseCo2": { "type": "number" },
+        "baseAmmonia": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "userId"]
+    },
+    "Device": {
+      "title": "Telemetry Device",
+      "description": "Environmental monitoring device details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "locationId": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "userId"]
     }
   },
   "firestore": {
@@ -98,6 +144,18 @@
     "/system_settings/{settingId}": {
       "schema": { "$ref": "#/entities/SystemSettings" },
       "description": "System settings document"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and layout preferences"
+    },
+    "/locations/{locationId}": {
+      "schema": { "$ref": "#/entities/LocationDetail" },
+      "description": "Cultivation locations and base settings"
+    },
+    "/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/Device" },
+      "description": "ESP32 nodes registered by users"
     }
   }
 }
