@@ -13,6 +13,26 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    match /sensors/{deviceId} {
+      function isValidSensorData(data) {
+        return data.keys().hasAll(['deviceId', 'deviceName', 'temperature', 'temperatureLevel', 'humidity', 'humidityLevel', 'co2', 'co2Level', 'aqi', 'aqiLevel', 'nh3', 'nh3Level', 'ch4', 'ch4Level', 'timestamp']) &&
+               data.keys().size() == 15 &&
+               data.deviceId is string &&
+               data.deviceName is string &&
+               data.temperature is number && data.temperatureLevel is string &&
+               data.humidity is number && data.humidityLevel is string &&
+               data.co2 is number && data.co2Level is string &&
+               data.aqi is number && data.aqiLevel is string &&
+               data.nh3 is number && data.nh3Level is string &&
+               data.ch4 is number && data.ch4Level is string &&
+               data.timestamp is number;
+      }
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(deviceId) && isValidSensorData(request.resource.data);
+      allow update: if isSignedIn() && isValidSensorData(request.resource.data);
+      allow delete: if false;
+    }
+    
     match /sensor_readings/{readingId} {
       function isValidSensorReading(data) {
         return data.keys().hasAll(['timestamp', 'temperature', 'humidity', 'ammonia', 'methane', 'co2', 'pm25', 'pm10', 'aqi']) &&

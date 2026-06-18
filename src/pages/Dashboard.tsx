@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData } from '../lib/firebase';
 
 // Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -241,23 +241,30 @@ export function Dashboard() {
 
   const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation.id);
 
-  const [data, setData] = useState<any[]>([]);
-
-  const [currentAqi, setCurrentAqi] = useState(0);
-  const prevStatusesRef = useRef<{ [key: string]: string }>({});
-
-  // Reset or fluctuate data when selected location changes
+  const [deviceData, setDeviceData] = useState<any>(null);
+  
   useEffect(() => {
-    setData([]);
-  }, [activeLocation]);
+    const deviceId = 'LAS-001';
+    const unsubscribe = subscribeToSensorData(deviceId, (data) => {
+        setDeviceData(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const lastReading = data[data.length - 1] || { temp: 22, humidity: 50, co2: 450, ammonia: 0.5, aqi: 45 };
+  const lastReading = deviceData || { 
+      temperature: 0, 
+      humidity: 0, 
+      co2: 0, 
+      nh3: 0, 
+      ch4: 0, 
+      aqi: 0 
+  };
 
   // Evaluate state alerts
-  const isTempAlert = lastReading.temp > thresholds.tempMax;
+  const isTempAlert = lastReading.temperature > thresholds.tempMax;
   const isHumAlert = lastReading.humidity > thresholds.humidityMax;
   const isCo2Alert = lastReading.co2 > thresholds.co2Max;
-  const isAmmoniaAlert = lastReading.ammonia > thresholds.ammoniaMax;
+  const isAmmoniaAlert = lastReading.nh3 > thresholds.ammoniaMax;
 
   const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0);
 
@@ -305,16 +312,16 @@ export function Dashboard() {
     }
   };
 
-  const tempStatus = getStatus('Temperature', lastReading.temp);
+  const tempStatus = getStatus('Temperature', lastReading.temperature);
   const humStatus = getStatus('Humidity', lastReading.humidity);
   const co2Status = getStatus('CO2 Level', lastReading.co2);
-  const ammoniaStatus = getStatus('Ammonia NH3', lastReading.ammonia);
-  const pmStatus = getStatus('PM2.5 Feed Dust', 12.4); // Using simulated value for PM
+  const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
+  const pmStatus = getStatus('PM2.5 Feed Dust', 12.4); // Still simulated
 
   const metrics = [
     { 
       label: 'Temperature', 
-      value: lastReading.temp.toFixed(1) + ' °C', 
+      value: lastReading.temperature?.toFixed(1) + ' °C', 
       icon: TempSvg, 
       color: isTempAlert ? 'text-red-500' : 'text-orange-500', 
       bg: isTempAlert 
@@ -329,7 +336,7 @@ export function Dashboard() {
     },
     { 
       label: 'Humidity', 
-      value: lastReading.humidity.toFixed(1) + ' %', 
+      value: lastReading.humidity?.toFixed(1) + ' %', 
       icon: HumiditySvg, 
       color: isHumAlert ? 'text-red-500' : 'text-blue-500', 
       bg: isHumAlert 
@@ -344,7 +351,7 @@ export function Dashboard() {
     },
     { 
       label: 'CO2 Level', 
-      value: Math.round(lastReading.co2) + ' ppm', 
+      value: Math.round(lastReading.co2 || 0) + ' ppm', 
       icon: Co2Svg, 
       color: isCo2Alert ? 'text-red-500' : 'text-emerald-500', 
       bg: isCo2Alert 
@@ -359,7 +366,7 @@ export function Dashboard() {
     },
     { 
       label: 'Ammonia NH3', 
-      value: lastReading.ammonia.toFixed(2) + ' ppm', 
+      value: lastReading.nh3?.toFixed(2) + ' ppm', 
       icon: AmmoniaSvg, 
       color: isAmmoniaAlert ? 'text-red-500' : 'text-yellow-600', 
       bg: isAmmoniaAlert 
@@ -374,7 +381,7 @@ export function Dashboard() {
     },
     { 
       label: 'PM2.5 Feed Dust', 
-      value: '12.4 µg/m³', 
+      value: '12.4 µg/m³', // Still simulated? The user requested this structure in firestore, but it's not in the Firestore structure they provided. I'll leave as is.
       icon: PM25Svg, 
       color: 'text-purple-500', 
       bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
@@ -385,7 +392,7 @@ export function Dashboard() {
     },
     { 
       label: 'Methane CH4', 
-      value: '0.04 ppm', 
+      value: lastReading.ch4?.toFixed(2) + ' ppm', 
       icon: MethaneSvg, 
       color: 'text-gray-500', 
       bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
@@ -446,9 +453,9 @@ export function Dashboard() {
         <div className="relative shrink-0 w-full md:w-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-lg md:rounded-2xl p-2 md:p-4 flex items-center gap-2 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group">
           <div className="flex flex-col items-center justify-center bg-white/5 w-10 h-10 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
             <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
-            <span className="text-lg md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{currentAqi}</span>
-            <span className={cn("text-[8px] md:text-[9px] font-bold mt-0.5", getStatus('AQI', currentAqi).color)}>
-              {getStatus('AQI', currentAqi).icon} {getStatus('AQI', currentAqi).label}
+            <span className="text-lg md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{deviceData?.aqi || 0}</span>
+            <span className={cn("text-[8px] md:text-[9px] font-bold mt-0.5", getStatus('AQI', deviceData?.aqi || 0).color)}>
+              {getStatus('AQI', deviceData?.aqi || 0).icon} {getStatus('AQI', deviceData?.aqi || 0).label}
             </span>
           </div>
           <div className="w-[1px] h-8 md:h-12 bg-white/10 z-10" />
@@ -539,7 +546,7 @@ export function Dashboard() {
 
           <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
+              <AreaChart data={[]} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAqiDashboard" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-system-accent)" stopOpacity={0.25}/>

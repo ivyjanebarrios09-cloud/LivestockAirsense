@@ -17,6 +17,29 @@
       },
       "required": ["timestamp", "temperature", "humidity", "ammonia", "methane", "co2", "pm25", "pm10", "aqi"]
     },
+    "SensorData": {
+      "title": "Sensor Data",
+      "description": "Latest sensor data for a device",
+      "type": "object",
+      "properties": {
+        "deviceId": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "temperature": { "type": "number" },
+        "temperatureLevel": { "type": "string" },
+        "humidity": { "type": "number" },
+        "humidityLevel": { "type": "string" },
+        "co2": { "type": "number" },
+        "co2Level": { "type": "string" },
+        "aqi": { "type": "number" },
+        "aqiLevel": { "type": "string" },
+        "nh3": { "type": "number" },
+        "nh3Level": { "type": "string" },
+        "ch4": { "type": "number" },
+        "ch4Level": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["deviceId", "deviceName", "temperature", "humidity", "co2", "aqi", "nh3", "ch4", "timestamp"]
+    },
     "StatusChange": {
       "title": "Status Change",
       "description": "Sensor status change event",
@@ -59,6 +82,10 @@
     "/sensor_readings/{readingId}": {
       "schema": { "$ref": "#/entities/SensorReading" },
       "description": "Historical and real-time readings"
+    },
+    "/sensors/{deviceId}": {
+      "schema": { "$ref": "#/entities/SensorData" },
+      "description": "Latest sensor data documents"
     },
     "/status_history/{changeId}": {
       "schema": { "$ref": "#/entities/StatusChange" },

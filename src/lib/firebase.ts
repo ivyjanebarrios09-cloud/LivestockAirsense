@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -18,6 +18,14 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+
+export const subscribeToSensorData = (deviceId: string, callback: (data: any) => void) => {
+  return onSnapshot(doc(db, 'sensors', deviceId), (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: snapshot.id, ...snapshot.data() });
+    }
+  });
+};
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
