@@ -127,36 +127,6 @@ const MethaneSvg = ({ className }: { className?: string }) => {
   );
 };
 
-// Helper to generate dynamic fluctuations based on barn baseline properties
-const generateReading = (
-  timeStr: string,
-  baseTemp: number,
-  baseHumidity: number,
-  baseCo2: number,
-  baseAmmonia: number
-) => {
-  const tempOffset = (Math.random() - 0.5) * 1.5;
-  const humOffset = (Math.random() - 0.5) * 4;
-  const co2Offset = (Math.random() - 0.5) * 50;
-  const ammOffset = (Math.random() - 0.5) * 0.15;
-
-  const finalTemp = Math.max(10, baseTemp + tempOffset);
-  const finalHum = Math.max(20, Math.min(99, baseHumidity + humOffset));
-  const finalCo2 = Math.max(300, baseCo2 + co2Offset);
-  const finalAmm = Math.max(0, baseAmmonia + ammOffset);
-
-  // Derive simple AQI formula
-  const calculatedAqi = Math.round((finalCo2 / 10) + (finalAmm * 15) + Math.random() * 8);
-
-  return {
-    time: timeStr,
-    temp: finalTemp,
-    humidity: finalHum,
-    co2: finalCo2,
-    ammonia: finalAmm,
-    aqi: calculatedAqi,
-  };
-};
 
 // Animated background showcasing soft drifting clouds and flowing wind/air streams
 const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
@@ -256,11 +226,7 @@ export function Dashboard() {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return [
-      { id: 'EP-ESP32-LAS99X', name: 'AirSense Station Alpha', locationId: 'barn-a' },
-      { id: 'EP-ESP32-BRD30A', name: 'Brooder House 3 Sentinel', locationId: 'brooder-3' },
-      { id: 'EP-ESP32-MLK32F', name: 'Milking Parlor Controller', locationId: 'milking-parlor' }
-    ];
+    return [];
   });
 
   // Keep devices state refreshed if they navigate back and forth
@@ -275,71 +241,14 @@ export function Dashboard() {
 
   const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation.id);
 
-  const [data, setData] = useState(() => {
-    return Array.from({ length: 15 }, (_, i) => {
-      const d = new Date();
-      d.setMinutes(d.getMinutes() - (15 - i));
-      return generateReading(
-        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        activeLocation.baseTemp,
-        activeLocation.baseHumidity,
-        activeLocation.baseCo2,
-        activeLocation.baseAmmonia
-      );
-    });
-  });
+  const [data, setData] = useState<any[]>([]);
 
-  const [currentAqi, setCurrentAqi] = useState(54);
+  const [currentAqi, setCurrentAqi] = useState(0);
   const prevStatusesRef = useRef<{ [key: string]: string }>({});
 
   // Reset or fluctuate data when selected location changes
   useEffect(() => {
-    setData(Array.from({ length: 15 }, (_, i) => {
-      const d = new Date();
-      d.setMinutes(d.getMinutes() - (15 - i));
-      return generateReading(
-        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        activeLocation.baseTemp,
-        activeLocation.baseHumidity,
-        activeLocation.baseCo2,
-        activeLocation.baseAmmonia
-      );
-    }));
-  }, [activeLocation]);
-
-  useEffect(() => {
-    // Live update simulator every 2 seconds
-    const interval = setInterval(() => {
-      const d = new Date();
-      const newReading = generateReading(
-        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        activeLocation.baseTemp,
-        activeLocation.baseHumidity,
-        activeLocation.baseCo2,
-        activeLocation.baseAmmonia
-      );
-
-      // Detect status changes
-      const sensorMap: { [key: string]: { label: string, val: number } } = {
-        'Temperature': { label: 'Temperature', val: newReading.temp },
-        'Humidity': { label: 'Humidity', val: newReading.humidity },
-        'CO2': { label: 'CO2 Level', val: newReading.co2 },
-        'Ammonia': { label: 'Ammonia NH3', val: newReading.ammonia },
-      };
-
-      for (const key in sensorMap) {
-        const { label, val } = sensorMap[key];
-        const currentStatus = getStatus(label, val).label;
-        if (prevStatusesRef.current[key] && prevStatusesRef.current[key] !== currentStatus) {
-          recordStatusChange(key, currentStatus, val);
-        }
-        prevStatusesRef.current[key] = currentStatus;
-      }
-
-      setCurrentAqi(Math.round(newReading.aqi));
-      setData(prev => [...prev.slice(1), newReading]);
-    }, 2000);
-    return () => clearInterval(interval);
+    setData([]);
   }, [activeLocation]);
 
   const lastReading = data[data.length - 1] || { temp: 22, humidity: 50, co2: 450, ammonia: 0.5, aqi: 45 };

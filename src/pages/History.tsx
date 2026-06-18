@@ -180,11 +180,11 @@ export function HistoryPage() {
       <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-system-border bg-system-bg flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Live Datastore Ledger Details</h3>
-            <p className="text-[11px] text-system-muted font-mono mt-0.5">Secure ledgers synchronized with local PWA cache buffers.</p>
+            <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Historical Status Changes</h3>
+            <p className="text-[11px] text-system-muted font-mono mt-0.5">Logs of sensor status changes filtered by time range.</p>
           </div>
           <span className="text-[10px] bg-system-accent/15 text-system-accent font-bold px-2.5 py-0.5 rounded-full font-mono">
-            {historicalLogs.length} SECURE RECORDS
+            {historicalLogs.length} RECORDS
           </span>
         </div>
         
