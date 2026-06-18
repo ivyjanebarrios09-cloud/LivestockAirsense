@@ -39,7 +39,7 @@ interface AppContextType {
   deleteLocation: (id: string) => void;
   selectedLocationId: string;
   setSelectedLocationId: (id: string) => void;
-  activeLocation: LocationDetail;
+  activeLocation: LocationDetail | undefined;
   thresholds: Thresholds;
   saveThresholds: (newThresholds: Thresholds) => void;
   isSyncing: boolean;
@@ -61,7 +61,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return localStorage.getItem(`las_${uid}_selected_location`) || '';
   });
 
-  const activeLocation = locations.find(l => l.id === selectedLocationId) || locations[0];
+  const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
 
   // Save selection
   useEffect(() => {

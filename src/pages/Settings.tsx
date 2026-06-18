@@ -141,13 +141,17 @@ export function SettingsPage() {
   }, [selectedDeviceId, devices, isEditingNew]);
 
   const handleAddNewDeviceClick = () => {
+    if (locations.length === 0) {
+      setDeviceError('Please add a facility location before registering a device.');
+      return;
+    }
     setDeviceError(null);
     setIsEditingNew(true);
     setIsAddingDevicePopup(true); // Open popup
     const randTag = Math.random().toString(36).substring(2, 7).toUpperCase();
     setDeviceIdInput(`EP-ESP32-${randTag}`);
     setDeviceNameInput('');
-    setDeviceLocationInput(locations[0]?.id || 'barn-a');
+    setDeviceLocationInput(locations[0]?.id);
   };
 
   const handleSaveDevice = async () => {
@@ -158,6 +162,10 @@ export function SettingsPage() {
     }
     if (!deviceNameInput.trim()) {
       setDeviceError('Please enter a Device Name.');
+      return;
+    }
+    if (!deviceLocationInput) {
+      setDeviceError('Please select a Facility Location.');
       return;
     }
 

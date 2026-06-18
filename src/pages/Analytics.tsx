@@ -42,13 +42,13 @@ export function AnalyticsPage() {
   }, [dynamicTimelineData]);
 
   const breedInsights = useMemo(() => {
-    const breed = activeLocation.type ? activeLocation.type.toLowerCase() : '';
+    const breed = activeLocation?.type ? activeLocation.type.toLowerCase() : '';
     
     if (breed.includes('swine') || breed.includes('pig') || breed.includes('pork')) {
       return {
         optimalTemp: '18 - 24 °C',
         airFlowNeed: 'Moderate-High',
-        tip: `Swine at ${activeLocation.name} require high ventilation rates to clear moisture and heavy ammonia. Keep relative humidity around 60% with continuous fan cycles to prevent skin hazards.`
+        tip: `Swine at ${activeLocation?.name || 'the facility'} require high ventilation rates to clear moisture and heavy ammonia. Keep relative humidity around 60% with continuous fan cycles to prevent skin hazards.`
       };
     } else if (breed.includes('cattle') || breed.includes('cow') || breed.includes('dairy')) {
       return {
@@ -87,7 +87,7 @@ export function AnalyticsPage() {
           <Layers className="w-4 h-4 text-system-accent" />
           <div className="text-left">
             <div className="text-[9px] uppercase tracking-wider text-system-muted font-bold font-mono">Current Focus</div>
-            <div className="text-xs font-black text-system-text uppercase font-mono leading-none">{activeLocation.name}</div>
+            <div className="text-xs font-black text-system-text uppercase font-mono leading-none">{activeLocation?.name || 'No Facility Selected'}</div>
           </div>
         </div>
       </div>
@@ -111,8 +111,8 @@ export function AnalyticsPage() {
           },
           { 
             title: 'Animal Population', 
-            value: activeLocation.animalCount, 
-            sub: `${activeLocation.type}`, 
+            value: activeLocation?.animalCount || 0, 
+            sub: `${activeLocation?.type || 'None'}`, 
             icon: HelpCircle, 
             color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' 
           },
