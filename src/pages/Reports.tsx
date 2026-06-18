@@ -171,31 +171,6 @@ export function ReportsPage() {
           </div>
         ))}
       </div>
-
-      <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5">
-        <h3 className="font-bold text-sm tracking-tight mb-4 uppercase font-mono border-b border-system-border pb-4 text-system-text">Recent Automated Archives</h3>
-        <ul className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <li key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl hover:bg-system-bg/50 border border-transparent hover:border-system-border transition-colors gap-4">
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span className="text-xs font-bold uppercase font-mono text-system-text">Weekly Assessment - Week 0{i}</span>
-              </div>
-              <div className="flex items-center gap-6 text-[10px] text-system-muted font-mono">
-                <span>Created: 2026-06-0{i}</span>
-                <span className="w-12 text-right">2.8 MB</span>
-                <button 
-                  onClick={() => downloadPDFReport(`Weekly Assessment - Week 0${i}`)}
-                  className="text-system-accent hover:underline lowercase font-bold"
-                >
-                  Download
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
     </div>
   );
 }

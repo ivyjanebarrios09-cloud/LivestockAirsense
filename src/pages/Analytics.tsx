@@ -1,42 +1,35 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { Sparkles, TrendingUp, TrendingDown, Thermometer, Activity, HelpCircle, Flame, Wind, Layers } from 'lucide-react';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
+import { getSensorReadings } from '../lib/firebase';
 
 export function AnalyticsPage() {
   const { activeLocation } = useAppContext();
   const [chartMetric, setChartMetric] = useState<'aqi' | 'temp' | 'co2' | 'ammonia'>('aqi');
 
-  // Dynamically generate a 6-point telemetry log based on the active facility's baseline characteristics
+  const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const logs = await getSensorReadings(12);
+      setTelemetryLogs(logs.reverse());
+    };
+    fetchData();
+  }, []);
+
+  // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {
-    const hours = ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'];
-    
-    return hours.map((hour, idx) => {
-      // Create natural fluctuations throughout the day (warmest at 14:00, coolest at 02:00)
-      const isWarmHour = hour === '14:00' || hour === '18:00';
-      const tempModifier = isWarmHour ? 2.5 : -1.8;
-      const co2Modifier = hour === '10:00' || hour === '14:00' ? 85 : -40;
-      const ammoniaModifier = idx * 0.4;
-
-      const calculatedTemp = Number((activeLocation.baseTemp + tempModifier + (idx % 2 === 0 ? 0.3 : -0.2)).toFixed(1));
-      const calculatedCo2 = Math.round(activeLocation.baseCo2 + co2Modifier + (idx * 20));
-      const calculatedAmmonia = Number((activeLocation.baseAmmonia + ammoniaModifier + (idx % 2 === 0 ? 0.15 : -0.1)).toFixed(2));
-      const calculatedHumidity = Math.round(activeLocation.baseHumidity + (idx % 2 === 0 ? 4 : -3));
-
-      // Standardize simulated Air Quality Index (AQI) based on custom CO2 and Ammonia
-      const calculatedAqi = Math.round((calculatedCo2 / 12) + (calculatedAmmonia * 6));
-
-      return {
-        time: hour,
-        aqi: calculatedAqi,
-        temp: calculatedTemp,
-        co2: calculatedCo2,
-        ammonia: calculatedAmmonia,
-        humidity: calculatedHumidity
-      };
-    });
-  }, [activeLocation]);
+    return telemetryLogs.map(log => ({
+      time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      aqi: log.aqi,
+      temp: log.temperature,
+      co2: log.co2,
+      ammonia: log.ammonia,
+      humidity: log.humidity
+    }));
+  }, [telemetryLogs]);
 
   // Compute stats on the fly
   const averageAqi = useMemo(() => {

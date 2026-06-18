@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -25,6 +25,51 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
       callback({ id: snapshot.id, ...snapshot.data() });
     }
   });
+};
+
+export const subscribeToAlerts = (callback: (alerts: any[]) => void) => {
+  return onSnapshot(collection(db, 'alerts'), (snapshot) => {
+    const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(alerts);
+  });
+};
+
+export const addDevice = async (device: any) => {
+  try {
+    const docRef = doc(db, 'sensors', device.id);
+    await setDoc(docRef, {
+        deviceId: device.id,
+        deviceName: device.name,
+        temperature: 0,
+        temperatureLevel: 'GOOD',
+        humidity: 0,
+        humidityLevel: 'GOOD',
+        co2: 0,
+        co2Level: 'GOOD',
+        aqi: 0,
+        aqiLevel: 'GOOD',
+        nh3: 0,
+        nh3Level: 'GOOD',
+        ch4: 0,
+        ch4Level: 'GOOD',
+        timestamp: Date.now() / 1000
+    });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'sensors');
+    return false;
+  }
+};
+
+export const getSensorReadings = async (limitCount: number = 100): Promise<any[]> => {
+    try {
+        const q = query(collection(db, 'sensor_readings'), orderBy('timestamp', 'desc'), limit(limitCount));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        handleFirestoreError(error, OperationType.READ, 'sensor_readings');
+        return [];
+    }
 };
 
 export const loginWithGoogle = async () => {

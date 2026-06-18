@@ -4,11 +4,21 @@ import { cn } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
+import { subscribeToAlerts } from '../lib/firebase';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { activeLocation, alertsList, addAlert, resolveAlert, clearAllAlerts } = useAppContext();
+  const { activeLocation, resolveAlert, clearAllAlerts } = useAppContext();
   
+  const [alerts, setAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAlerts((data) => {
+        setAlerts(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'resolved'>('active');
@@ -37,49 +47,6 @@ export function AlertsPage() {
     setPermission(result);
   };
 
-  const simulateAlert = () => {
-    const freshAlert = {
-      location: activeLocation.name,
-      alertType: 'Simulated Hazard',
-      message: `Simulated microclimate trigger detected in ${activeLocation.name}.`,
-      severity: (Math.random() > 0.5 ? 'critical' : 'warning') as 'critical' | 'warning',
-      resolved: false
-    };
-    
-    addAlert(freshAlert);
-    
-    const popupValue = {
-      alertType: freshAlert.alertType,
-      message: freshAlert.message,
-      severity: freshAlert.severity === 'critical' ? 'Critical' : 'Warning'
-    };
-    setPopupAlert(popupValue);
-
-    if (permission === 'granted') {
-      const title = `Livestock AirSense: ${freshAlert.alertType}`;
-      const options = {
-        body: freshAlert.message,
-        icon: '/logo.png',
-        badge: '/logo.png',
-        vibrate: freshAlert.severity === 'critical' ? [200, 100, 200, 100, 200] : [100, 50, 100]
-      };
-      
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(reg => {
-          if (reg) {
-            reg.showNotification(title, options);
-          } else {
-            new Notification(title, options);
-          }
-        }).catch(() => {
-          new Notification(title, options);
-        });
-      } else {
-        new Notification(title, options);
-      }
-    }
-  };
-
   const severityStyles: Record<string, string> = {
     'critical': 'bg-severity-critical/10 text-red-700 border-red-500/20 ring-1 ring-red-500/10',
     'warning': 'bg-severity-warning/10 text-yellow-700 border-yellow-500/20 ring-1 ring-yellow-500/10',
@@ -101,7 +68,7 @@ export function AlertsPage() {
   };
 
   // Filter list
-  const filteredAlerts = alertsList.filter((item) => {
+  const filteredAlerts = alerts.filter((item) => {
     if (activeTab === 'active') return !item.resolved;
     if (activeTab === 'resolved') return item.resolved;
     return true; // 'all'
@@ -156,13 +123,6 @@ export function AlertsPage() {
                 Enable Push
               </button>
             )}
-            <button 
-              onClick={simulateAlert}
-              className="flex items-center gap-2 px-4 py-2 bg-system-accent text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-opacity-90 transition-all shadow-sm active:scale-95 cursor-pointer"
-            >
-              <BellRing className="w-4 h-4" />
-              Test Trigger
-            </button>
           </div>
         )}
       </div>

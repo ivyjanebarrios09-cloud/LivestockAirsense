@@ -4,7 +4,7 @@ import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../lib/firebase';
+import { logout, addDevice } from '../lib/firebase';
 
 interface Device {
   id: string;
@@ -39,11 +39,7 @@ export function SettingsPage() {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return [
-      { id: 'EP-ESP32-LAS99X', name: 'AirSense Station Alpha', locationId: 'barn-a' },
-      { id: 'EP-ESP32-BRD30A', name: 'Brooder House 3 Sentinel', locationId: 'brooder-3' },
-      { id: 'EP-ESP32-MLK32F', name: 'Milking Parlor Controller', locationId: 'milking-parlor' }
-    ];
+    return [];
   });
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
@@ -154,7 +150,7 @@ export function SettingsPage() {
     setDeviceLocationInput(locations[0]?.id || 'barn-a');
   };
 
-  const handleSaveDevice = () => {
+  const handleSaveDevice = async () => {
     setDeviceError(null);
     if (!deviceIdInput.trim()) {
       setDeviceError('Please enter a valid Device ID Token.');
@@ -175,6 +171,10 @@ export function SettingsPage() {
         name: deviceNameInput.trim(),
         locationId: deviceLocationInput
       };
+      
+      // Save to Firestore
+      await addDevice(newD);
+      
       const updated = [...devices, newD];
       setDevices(updated);
       try {
