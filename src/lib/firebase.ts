@@ -27,6 +27,24 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
   return onSnapshot(doc(db, 'sensors', deviceId), (snapshot) => {
     if (snapshot.exists()) {
       callback({ id: snapshot.id, ...snapshot.data() });
+    } else {
+      callback({
+        id: deviceId,
+        deviceId: deviceId,
+        temperature: 0,
+        temperatureLevel: 'GOOD',
+        humidity: 0,
+        humidityLevel: 'GOOD',
+        co2: 0,
+        co2Level: 'GOOD',
+        aqi: 0,
+        aqiLevel: 'GOOD',
+        nh3: 0,
+        nh3Level: 'GOOD',
+        ch4: 0,
+        ch4Level: 'GOOD',
+        timestamp: Date.now()
+      });
     }
   });
 };
@@ -58,7 +76,7 @@ export const addDevice = async (device: any) => {
         nh3Level: 'GOOD',
         ch4: 0,
         ch4Level: 'GOOD',
-        timestamp: Date.now() / 1000
+        timestamp: Date.now()
     });
     return true;
   } catch (error) {
@@ -75,7 +93,16 @@ export const getSensorReadings = async (deviceId: string, limitCount: number = 1
           q = query(sensorReadingsRef, where('deviceId', '==', deviceId));
         }
         const querySnapshot = await getDocs(q);
-        let docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let docs = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // Normalize for frontend compatibility with standard dynamic values
+            ammonia: data.nh3 !== undefined ? data.nh3 : data.ammonia,
+            methane: data.ch4 !== undefined ? data.ch4 : data.methane
+          };
+        });
         // Sort in memory by timestamp descending
         docs.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
         return docs.slice(0, limitCount);
@@ -311,7 +338,7 @@ export const postSimulatedReading = async (
       nh3Level,
       ch4,
       ch4Level,
-      timestamp: timestampSec
+      timestamp: timestampMs
     });
 
     // POST 2: Historical series log in sensor_readings
@@ -319,13 +346,16 @@ export const postSimulatedReading = async (
       timestamp: timestampMs,
       temperature,
       humidity,
+      nh3,
       ammonia: nh3,
       co2,
+      ch4,
       methane: ch4,
       pm25,
       pm10,
       aqi,
       deviceId,
+      deviceName,
       userId: currentUid
     });
 
