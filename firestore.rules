@@ -30,6 +30,13 @@ service cloud.firestore {
     match /sensorReadings/{readingId} {
       allow read, write: if true;
     }
+
+    match /airMonitoring/{deviceId} {
+      allow read, write: if true;
+      match /readings/{readingId} {
+        allow read, write: if true;
+      }
+    }
     
     // Incidents & Alerts
     match /alerts/{alertId} {
