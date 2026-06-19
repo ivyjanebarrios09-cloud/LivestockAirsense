@@ -261,6 +261,7 @@ export function Dashboard() {
       const devId = `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       await addDevice({
         id: devId,
+        deviceId: devId,
         name: 'ESP32 Main Node',
         locationId: slug
       });
@@ -295,6 +296,7 @@ export function Dashboard() {
       });
       await addDevice({
          id: onboardingDevId.trim(),
+         deviceId: onboardingDevId.trim(),
          name: onboardingDevName.trim(),
          locationId: slug
       });

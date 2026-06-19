@@ -211,7 +211,14 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
     const devicesRef = collection(db, 'devices');
     const q = uid && uid !== 'guest' ? query(devicesRef, where('userId', '==', uid)) : query(devicesRef);
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        deviceId: data.deviceId || doc.id,
+        ...data
+      };
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.READ, 'devices');
     return [];
@@ -221,7 +228,7 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
 export const addDeviceToFirestore = async (device: any) => {
   try {
     const docRef = doc(db, 'devices', device.id);
-    await setDoc(docRef, { ...device });
+    await setDoc(docRef, { ...device, deviceId: device.deviceId || device.id });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'devices');
   }

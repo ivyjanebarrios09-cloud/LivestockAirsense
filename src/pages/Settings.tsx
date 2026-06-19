@@ -8,6 +8,7 @@ import { logout } from '../lib/firebase';
 
 interface Device {
   id: string;
+  deviceId: string;
   name: string;
   locationId: string;
 }
@@ -190,6 +191,7 @@ export function SettingsPage() {
         }
         const newD: Device = {
           id: deviceIdInput.trim(),
+          deviceId: deviceIdInput.trim(),
           name: deviceNameInput.trim(),
           locationId: deviceLocationInput
         };
@@ -204,6 +206,7 @@ export function SettingsPage() {
       } else {
         const updatedD: Device = {
           id: selectedDeviceId,
+          deviceId: selectedDeviceId,
           name: deviceNameInput.trim(),
           locationId: deviceLocationInput
         };
