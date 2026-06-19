@@ -26,6 +26,10 @@ service cloud.firestore {
     match /sensor_readings/{readingId} {
       allow read, write: if true;
     }
+
+    match /sensorReadings/{readingId} {
+      allow read, write: if true;
+    }
     
     // Incidents & Alerts
     match /alerts/{alertId} {

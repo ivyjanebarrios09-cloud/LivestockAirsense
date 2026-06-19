@@ -24,28 +24,152 @@ export const db = dbId && dbId !== '(default)'
   : getFirestore(app);
 
 export const subscribeToSensorData = (deviceId: string, callback: (data: any) => void) => {
-  return onSnapshot(doc(db, 'sensors', deviceId), (snapshot) => {
-    if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() });
-    } else {
-      callback({
-        id: deviceId,
-        deviceId: deviceId,
-        temperature: 0,
-        temperatureLevel: 'GOOD',
-        humidity: 0,
-        humidityLevel: 'GOOD',
-        co2: 0,
-        co2Level: 'GOOD',
-        aqi: 0,
-        aqiLevel: 'GOOD',
-        nh3: 0,
-        nh3Level: 'GOOD',
-        ch4: 0,
-        ch4Level: 'GOOD',
-        timestamp: Date.now()
-      });
+  const sensorReadingsRef = collection(db, 'sensorReadings');
+  const q = query(sensorReadingsRef, where('deviceId', '==', deviceId));
+
+  const getValue = (val: any) => {
+    if (val === undefined || val === null) return undefined;
+    if (typeof val === 'object') {
+      if (val.doubleValue !== undefined) return Number(val.doubleValue);
+      if (val.integerValue !== undefined) return Number(val.integerValue);
+      if (val.stringValue !== undefined) return String(val.stringValue);
     }
+    return val;
+  };
+
+  return onSnapshot(q, (snapshot) => {
+    if (!snapshot.empty) {
+      let latestData: any = null;
+      let maxTimestamp = 0;
+
+      snapshot.docs.forEach((docSnap) => {
+        const raw = docSnap.data();
+        const rawTs = getValue(raw.timestamp);
+        const ts = typeof rawTs === 'number' ? rawTs : Number(rawTs) || 0;
+        if (!latestData || ts > maxTimestamp) {
+          maxTimestamp = ts;
+          latestData = { id: docSnap.id, ...raw };
+        }
+      });
+
+      if (latestData) {
+        const tempVal = getValue(latestData.temperature);
+        const humVal = getValue(latestData.humidity);
+        const co2Val = getValue(latestData.co2);
+        const aqiVal = getValue(latestData.aqi);
+        const nh3Val = getValue(latestData.nh3) !== undefined ? getValue(latestData.nh3) : getValue(latestData.ammonia);
+        const ch4Val = getValue(latestData.ch4) !== undefined ? getValue(latestData.ch4) : getValue(latestData.methane);
+
+        callback({
+          id: latestData.id,
+          deviceId: getValue(latestData.deviceId) || deviceId,
+          deviceName: getValue(latestData.deviceName) || 'AIRSENSE',
+          temperature: tempVal !== undefined ? Number(tempVal) : 0,
+          temperatureLevel: latestData.temperatureLevel || (tempVal > 30 ? 'HIGH' : 'GOOD'),
+          humidity: humVal !== undefined ? Number(humVal) : 0,
+          humidityLevel: latestData.humidityLevel || (humVal > 80 ? 'HIGH' : 'GOOD'),
+          co2: co2Val !== undefined ? Number(co2Val) : 0,
+          co2Level: latestData.co2Level || (co2Val > 1000 ? 'HIGH' : 'GOOD'),
+          aqi: aqiVal !== undefined ? Number(aqiVal) : 0,
+          aqiLevel: latestData.aqiLevel || (aqiVal > 150 ? 'POOR' : 'GOOD'),
+          nh3: nh3Val !== undefined ? Number(nh3Val) : 0,
+          nh3Level: latestData.nh3Level || 'GOOD',
+          ch4: ch4Val !== undefined ? Number(ch4Val) : 0,
+          ch4Level: latestData.ch4Level || 'GOOD',
+          timestamp: maxTimestamp || Date.now(),
+          // include mapped types for legacy compatibility
+          ammonia: nh3Val !== undefined ? Number(nh3Val) : 0,
+          methane: ch4Val !== undefined ? Number(ch4Val) : 0,
+        });
+        return;
+      }
+    }
+
+    // Default fallback to look at sensors direct doc
+    onSnapshot(doc(db, 'sensors', deviceId), (sensorsSnap) => {
+      if (sensorsSnap.exists()) {
+        const data = sensorsSnap.data();
+        const tempVal = getValue(data.temperature);
+        const humVal = getValue(data.humidity);
+        const co2Val = getValue(data.co2);
+        const aqiVal = getValue(data.aqi);
+        const nh3Val = getValue(data.nh3) !== undefined ? getValue(data.nh3) : getValue(data.ammonia);
+        const ch4Val = getValue(data.ch4) !== undefined ? getValue(data.ch4) : getValue(data.methane);
+
+        callback({
+          id: sensorsSnap.id,
+          deviceId: getValue(data.deviceId) || deviceId,
+          deviceName: getValue(data.deviceName) || 'AIRSENSE',
+          temperature: tempVal !== undefined ? Number(tempVal) : 0,
+          temperatureLevel: data.temperatureLevel || (tempVal > 30 ? 'HIGH' : 'GOOD'),
+          humidity: humVal !== undefined ? Number(humVal) : 0,
+          humidityLevel: data.humidityLevel || (humVal > 80 ? 'HIGH' : 'GOOD'),
+          co2: co2Val !== undefined ? Number(co2Val) : 0,
+          co2Level: data.co2Level || (co2Val > 1000 ? 'HIGH' : 'GOOD'),
+          aqi: aqiVal !== undefined ? Number(aqiVal) : 0,
+          aqiLevel: data.aqiLevel || (aqiVal > 150 ? 'POOR' : 'GOOD'),
+          nh3: nh3Val !== undefined ? Number(nh3Val) : 0,
+          nh3Level: data.nh3Level || 'GOOD',
+          ch4: ch4Val !== undefined ? Number(ch4Val) : 0,
+          ch4Level: data.ch4Level || 'GOOD',
+          timestamp: getValue(data.timestamp) || Date.now(),
+          ammonia: nh3Val !== undefined ? Number(nh3Val) : 0,
+          methane: ch4Val !== undefined ? Number(ch4Val) : 0,
+        });
+      } else {
+        callback({
+          id: deviceId,
+          deviceId: deviceId,
+          temperature: 0,
+          temperatureLevel: 'GOOD',
+          humidity: 0,
+          humidityLevel: 'GOOD',
+          co2: 0,
+          co2Level: 'GOOD',
+          aqi: 0,
+          aqiLevel: 'GOOD',
+          nh3: 0,
+          nh3Level: 'GOOD',
+          ch4: 0,
+          ch4Level: 'GOOD',
+          timestamp: Date.now()
+        });
+      }
+    });
+  }, (err) => {
+    console.error("sensorReadings subscription failed, falling back to sensors collection:", err);
+    onSnapshot(doc(db, 'sensors', deviceId), (sensorsSnap) => {
+      if (sensorsSnap.exists()) {
+        const data = sensorsSnap.data();
+        const tempVal = getValue(data.temperature);
+        const humVal = getValue(data.humidity);
+        const co2Val = getValue(data.co2);
+        const aqiVal = getValue(data.aqi);
+        const nh3Val = getValue(data.nh3) !== undefined ? getValue(data.nh3) : getValue(data.ammonia);
+        const ch4Val = getValue(data.ch4) !== undefined ? getValue(data.ch4) : getValue(data.methane);
+
+        callback({
+          id: sensorsSnap.id,
+          deviceId: getValue(data.deviceId) || deviceId,
+          deviceName: getValue(data.deviceName) || 'AIRSENSE',
+          temperature: tempVal !== undefined ? Number(tempVal) : 0,
+          temperatureLevel: data.temperatureLevel || (tempVal > 30 ? 'HIGH' : 'GOOD'),
+          humidity: humVal !== undefined ? Number(humVal) : 0,
+          humidityLevel: data.humidityLevel || (humVal > 80 ? 'HIGH' : 'GOOD'),
+          co2: co2Val !== undefined ? Number(co2Val) : 0,
+          co2Level: data.co2Level || (co2Val > 1000 ? 'HIGH' : 'GOOD'),
+          aqi: aqiVal !== undefined ? Number(aqiVal) : 0,
+          aqiLevel: data.aqiLevel || (aqiVal > 150 ? 'POOR' : 'GOOD'),
+          nh3: nh3Val !== undefined ? Number(nh3Val) : 0,
+          nh3Level: data.nh3Level || 'GOOD',
+          ch4: ch4Val !== undefined ? Number(ch4Val) : 0,
+          ch4Level: data.ch4Level || 'GOOD',
+          timestamp: getValue(data.timestamp) || Date.now(),
+          ammonia: nh3Val !== undefined ? Number(nh3Val) : 0,
+          methane: ch4Val !== undefined ? Number(ch4Val) : 0,
+        });
+      }
+    });
   });
 };
 
@@ -87,27 +211,70 @@ export const addDevice = async (device: any) => {
 
 export const getSensorReadings = async (deviceId: string, limitCount: number = 100): Promise<any[]> => {
     try {
-        const sensorReadingsRef = collection(db, 'sensor_readings');
-        let q = query(sensorReadingsRef);
-        if (deviceId) {
-          q = query(sensorReadingsRef, where('deviceId', '==', deviceId));
+        const getValue = (val: any) => {
+          if (val === undefined || val === null) return undefined;
+          if (typeof val === 'object') {
+            if (val.doubleValue !== undefined) return Number(val.doubleValue);
+            if (val.integerValue !== undefined) return Number(val.integerValue);
+            if (val.stringValue !== undefined) return String(val.stringValue);
+          }
+          return val;
+        };
+
+        const collectionsToQuery = ['sensorReadings', 'sensor_readings'];
+        let allDocs: any[] = [];
+
+        for (const colName of collectionsToQuery) {
+          try {
+            const ref = collection(db, colName);
+            let q = query(ref);
+            if (deviceId) {
+              q = query(ref, where('deviceId', '==', deviceId));
+            }
+            const querySnapshot = await getDocs(q);
+            querySnapshot.docs.forEach(docSnap => {
+              const data = docSnap.data();
+              const tempVal = getValue(data.temperature);
+              const humVal = getValue(data.humidity);
+              const co2Val = getValue(data.co2);
+              const aqiVal = getValue(data.aqi);
+              const nh3Val = getValue(data.nh3) !== undefined ? getValue(data.nh3) : getValue(data.ammonia);
+              const ch4Val = getValue(data.ch4) !== undefined ? getValue(data.ch4) : getValue(data.methane);
+              const rawTs = getValue(data.timestamp);
+              const ts = typeof rawTs === 'number' ? rawTs : Number(rawTs) || 0;
+
+              allDocs.push({
+                id: docSnap.id,
+                ...data,
+                temperature: tempVal !== undefined ? Number(tempVal) : 21,
+                humidity: humVal !== undefined ? Number(humVal) : 55,
+                co2: co2Val !== undefined ? Number(co2Val) : 450,
+                aqi: aqiVal !== undefined ? Number(aqiVal) : 50,
+                nh3: nh3Val !== undefined ? Number(nh3Val) : 0,
+                ch4: ch4Val !== undefined ? Number(ch4Val) : 0,
+                ammonia: nh3Val !== undefined ? Number(nh3Val) : 0,
+                methane: ch4Val !== undefined ? Number(ch4Val) : 0,
+                timestamp: ts,
+                deviceId: getValue(data.deviceId) || deviceId,
+                deviceName: getValue(data.deviceName) || 'AIRSENSE',
+              });
+            });
+          } catch (e) {
+             console.warn(`Query on collection ${colName} failed:`, e);
+          }
         }
-        const querySnapshot = await getDocs(q);
-        let docs = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            // Normalize for frontend compatibility with standard dynamic values
-            ammonia: data.nh3 !== undefined ? data.nh3 : data.ammonia,
-            methane: data.ch4 !== undefined ? data.ch4 : data.methane
-          };
+
+        const seenIds = new Set();
+        const uniqueDocs = allDocs.filter(d => {
+          if (seenIds.has(d.id)) return false;
+          seenIds.add(d.id);
+          return true;
         });
-        // Sort in memory by timestamp descending
-        docs.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
-        return docs.slice(0, limitCount);
+
+        uniqueDocs.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+        return uniqueDocs.slice(0, limitCount);
     } catch (error) {
-        handleFirestoreError(error, OperationType.READ, 'sensor_readings');
+        handleFirestoreError(error, OperationType.READ, 'sensorReadings');
         return [];
     }
 };
@@ -348,8 +515,11 @@ export const postSimulatedReading = async (
       timestamp: timestampMs
     });
 
-    // POST 2: Historical series log in sensor_readings
-    await addDoc(collection(db, 'sensor_readings'), {
+    // POST 2: Historical series log in sensorReadings and sensor_readings
+    const randomSuffix = Math.floor(Math.random() * 900000 + 100000);
+    const customDocId = `${deviceId}_${randomSuffix}`;
+
+    const dataPayload = {
       timestamp: timestampMs,
       temperature,
       humidity,
@@ -364,7 +534,11 @@ export const postSimulatedReading = async (
       deviceId,
       deviceName,
       userId: currentUid
-    });
+    };
+
+    // Write to both paths for dual compatibility
+    await setDoc(doc(db, 'sensorReadings', customDocId), dataPayload);
+    await addDoc(collection(db, 'sensor_readings'), dataPayload);
 
     // Check thresholds to write real alerts if they exceed limits!
     const triggers = [];
