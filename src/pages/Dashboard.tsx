@@ -4,6 +4,7 @@ import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings } from '../lib/firebase';
+import { Cpu, Plus, Layers, Wifi, Sparkles } from 'lucide-react';
 
 // Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -216,7 +217,95 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 };
 
 export function Dashboard() {
-  const { uid, activeLocation, thresholds, isSyncing, triggerSync, alertsList, locations, selectedLocationId, setSelectedLocationId, selectedDeviceId, devices } = useAppContext();
+  const { 
+    uid, 
+    activeLocation, 
+    thresholds, 
+    isSyncing, 
+    triggerSync, 
+    alertsList, 
+    locations, 
+    selectedLocationId, 
+    setSelectedLocationId, 
+    selectedDeviceId, 
+    setSelectedDeviceId,
+    devices, 
+    refreshInterval,
+    addLocation,
+    addDevice 
+  } = useAppContext();
+
+  // Onboarding parameters for registering a first device
+  const [onboardingLocName, setOnboardingLocName] = useState('Main Broiler Barn');
+  const [onboardingLocType, setOnboardingLocType] = useState('Poultry');
+  const [onboardingDevId, setOnboardingDevId] = useState(() => `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
+  const [onboardingDevName, setOnboardingDevName] = useState('ESP32 Main Node');
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
+
+  const handleQuickDemoSetup = async () => {
+    setIsOnboardingSaving(true);
+    setOnboardingError(null);
+    try {
+      const slug = 'main-broiler-barn';
+      await addLocation({
+        id: slug,
+        name: 'Main Broiler Barn',
+        type: 'Poultry',
+        animalCount: 0,
+        baseTemp: 22.5,
+        baseHumidity: 60,
+        baseCo2: 500,
+        baseAmmonia: 2.1
+      });
+      const devId = `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      await addDevice({
+        id: devId,
+        name: 'ESP32 Main Node',
+        locationId: slug
+      });
+      setSelectedLocationId(slug);
+      setSelectedDeviceId(devId);
+    } catch (err: any) {
+      setOnboardingError(err.message || 'Failed to complete quick onboarding.');
+    } finally {
+      setIsOnboardingSaving(false);
+    }
+  };
+
+  const handleCustomRegisterSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onboardingLocName.trim() || !onboardingDevName.trim() || !onboardingDevId.trim()) {
+      setOnboardingError('Please fill in all the registration fields.');
+      return;
+    }
+    setIsOnboardingSaving(true);
+    setOnboardingError(null);
+    try {
+      const slug = onboardingLocName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      await addLocation({
+        id: slug,
+        name: onboardingLocName.trim(),
+        type: onboardingLocType,
+        animalCount: 0,
+        baseTemp: 22.0,
+        baseHumidity: 60,
+        baseCo2: 500,
+        baseAmmonia: 1.5
+      });
+      await addDevice({
+         id: onboardingDevId.trim(),
+         name: onboardingDevName.trim(),
+         locationId: slug
+      });
+      setSelectedLocationId(slug);
+      setSelectedDeviceId(onboardingDevId.trim());
+    } catch (err: any) {
+      setOnboardingError(err.message || 'Failed to register the custom telemetry device.');
+    } finally {
+      setIsOnboardingSaving(false);
+    }
+  };
 
   // Load registered devices to show them linked to the monitoring zone
   const registeredDevices = devices;
@@ -240,9 +329,9 @@ export function Dashboard() {
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
-    const interval = setInterval(fetchData, 8050);
+    const interval = setInterval(fetchData, refreshInterval + 100);
     return () => clearInterval(interval);
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, refreshInterval]);
 
   const chartData = telemetryLogs.map(log => ({
     time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
@@ -402,6 +491,182 @@ export function Dashboard() {
       limitInfo: `${thresholds.methaneMax} ppm`
     },
   ];
+
+  if (devices.length === 0) {
+    return (
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden ring-1 ring-white/10">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-system-accent/15 rounded-full blur-3xl -mr-36 -mt-36 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -ml-36 -mb-36 pointer-events-none" />
+
+          {/* Core Onboarding Message Header */}
+          <div className="relative z-10 max-w-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-550/10 border border-yellow-500/20 text-yellow-400 text-xs font-bold font-mono tracking-wide uppercase select-none">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400"></span>
+              </span>
+              No Telemetry Edge Nodes Registered
+            </div>
+            
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+              Register Your AirSense Device
+            </h1>
+            
+            <p className="text-sm md:text-base text-slate-300 leading-relaxed">
+              Welcome to <strong>Livestock AirSense</strong>! You have successfully signed up. Let's register your first physical ESP32 edge telemetry hardware node so you can monitor animal comfort and air quality indices.
+            </p>
+          </div>
+
+          {/* Segmented Form options */}
+          <div className="grid grid-cols-1 md:grid-cols-10 gap-8 mt-10 relative z-10 border-t border-white/10 pt-8">
+            
+            {/* Quick Demo setup - Left Side (4 Cols) */}
+            <div className="md:col-span-4 space-y-5 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/10 pb-8 md:pb-0 md:pr-8">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-system-accent">
+                  <Sparkles className="w-5 h-5" />
+                  <h3 className="font-bold text-sm tracking-wide uppercase font-mono">1-Click Smart Sim</h3>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Instantly provision a simulated Broiler Barn paired with an ESP32 microclimate telemetry node. Ideal for immediate exploring.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleQuickDemoSetup}
+                  disabled={isOnboardingSaving}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-system-accent to-indigo-600 hover:from-system-accent/90 hover:to-indigo-500/95 py-3 px-4 text-xs font-bold tracking-wider text-white shadow-xl hover:shadow-2xl transition-all font-mono uppercase disabled:opacity-50 cursor-pointer"
+                >
+                  {isOnboardingSaving ? 'Provisioning...' : 'Provision Sim Node'}
+                </button>
+              </div>
+            </div>
+
+            {/* Manual Hardware device registration forms - Right Side (6 Cols) */}
+            <form onSubmit={handleCustomRegisterSetup} className="md:col-span-6 space-y-4">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Cpu className="w-5 h-5 text-slate-400" />
+                <h3 className="font-bold text-sm tracking-wide uppercase font-mono">Custom Device Pairing</h3>
+              </div>
+
+              {onboardingError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded-xl font-mono">
+                  {onboardingError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Facility Location Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardingLocName}
+                    onChange={(e) => setOnboardingLocName(e.target.value)}
+                    placeholder="e.g. Main Chicken Barn"
+                    className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent focus:ring-1 focus:ring-system-accent bg-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Livestock Cohort Type</label>
+                  <select
+                    value={onboardingLocType}
+                    onChange={(e) => setOnboardingLocType(e.target.value)}
+                    className="w-full text-xs rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent"
+                  >
+                    <option value="Poultry">Poultry / Chicken</option>
+                    <option value="Dairy">Dairy / Cattle</option>
+                    <option value="Equine">Equine / Horses</option>
+                    <option value="Other">Other / General</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardingDevId}
+                    onChange={(e) => setOnboardingDevId(e.target.value)}
+                    className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent bg-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Friendly Device Name</label>
+                <input
+                  type="text"
+                  required
+                  value={onboardingDevName}
+                  onChange={(e) => setOnboardingDevName(e.target.value)}
+                  placeholder="e.g. ESP32 Sensor Array 1"
+                  className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent bg-slate-900"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isOnboardingSaving}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-white text-slate-900 hover:bg-slate-100 py-3 px-4 text-xs font-bold tracking-wider shadow-lg hover:shadow-xl transition-all font-mono uppercase disabled:opacity-50 cursor-pointer"
+                >
+                  Register & Activate Node
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedDeviceId && !deviceData) {
+    return (
+      <div className="p-4 md:p-8 max-w-md mx-auto space-y-6 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
+        <div className="bg-system-panel border border-system-border shadow-xl rounded-2xl p-6 md:p-8 flex flex-col items-center text-center space-y-6 relative overflow-hidden">
+          
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-system-accent via-indigo-500 to-cyan-500 animate-pulse" />
+
+          {/* Radiating Antenna Waves animation */}
+          <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-system-accent/10 border border-system-accent/20">
+            <span className="absolute animate-ping inline-flex h-16 w-16 rounded-full bg-system-accent/20 opacity-75"></span>
+            <span className="absolute animate-ping inline-flex h-20 w-20 rounded-full bg-system-accent/10 opacity-50"></span>
+            <Wifi className="w-10 h-10 text-system-accent animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-500 border border-sky-500/20 text-[9px] font-bold font-mono tracking-wide uppercase select-none">
+              Awaiting First Sensor Transmission
+            </div>
+            <h2 className="text-xl font-bold text-system-text uppercase font-mono tracking-tight">
+              Establishing Data Link...
+            </h2>
+            <p className="text-xs text-system-muted leading-relaxed max-w-sm">
+              Node <span className="font-mono font-bold text-system-text bg-system-bg px-1.5 py-0.5 rounded border border-system-border/45 select-all">{selectedDeviceId}</span> is paired. We are now listening for the first environmental broadcast from your sensor.
+            </p>
+          </div>
+
+          <div className="w-full border-t border-system-border/40 pt-4 space-y-3">
+            <p className="text-[10px] text-system-muted font-mono leading-tight">
+              Using simulated stream or local device? Wake up the node or trigger the manual stream injector tool below.
+            </p>
+            <button
+              onClick={() => triggerSync()}
+              disabled={isSyncing}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-system-accent to-indigo-600 hover:from-system-accent/90 hover:to-indigo-500 py-2.5 px-4 text-xs font-bold tracking-wider text-white shadow-md hover:shadow-lg transition-all font-mono uppercase disabled:opacity-50 cursor-pointer"
+            >
+              {isSyncing ? 'Synchronizing stream...' : 'Trigger Seed Injection Signal'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">

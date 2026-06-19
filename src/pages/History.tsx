@@ -92,7 +92,7 @@ export function HistoryPage() {
     doc.text(`Livestock AirSense: ${activeLocation.name} Report`, 14, 15);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Livestock Breed: ${activeLocation.type} | Animal Census: ${activeLocation.animalCount}`, 14, 21);
+    doc.text(`Facility Type: ${activeLocation.type}`, 14, 21);
     doc.text(`Timeline Scope: ${timeRange.toUpperCase()} LOGS`, 14, 26);
     doc.setLineWidth(0.5);
     doc.line(14, 30, 196, 30);

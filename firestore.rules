@@ -4,46 +4,42 @@ service cloud.firestore {
     
     // User Profiles
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if true;
     }
     
     // Cultivation Locations
     match /locations/{locationId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow read, write: if true;
     }
     
     // Registered Telemetry Devices
     match /devices/{deviceId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow read, write: if true;
     }
     
     // Sensor values / Latest State
     match /sensors/{deviceId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Sensor readings historical series
     match /sensor_readings/{readingId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow read, write: if true;
     }
     
     // Incidents & Alerts
     match /alerts/{alertId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow read, write: if true;
     }
     
     // Status Logs
     match /status_history/{changeId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Global and System settings
     match /system_settings/{settingId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }

@@ -48,11 +48,11 @@ export function AnalyticsPage() {
   const breedInsights = useMemo(() => {
     const breed = activeLocation?.type ? activeLocation.type.toLowerCase() : '';
     
-    if (breed.includes('swine') || breed.includes('pig') || breed.includes('pork')) {
+    if (breed.includes('sheep') || breed.includes('goat') || breed.includes('ovine')) {
       return {
-        optimalTemp: '18 - 24 °C',
-        airFlowNeed: 'Moderate-High',
-        tip: `Swine at ${activeLocation?.name || 'the facility'} require high ventilation rates to clear moisture and heavy ammonia. Keep relative humidity around 60% with continuous fan cycles to prevent skin hazards.`
+        optimalTemp: '15 - 21 °C',
+        airFlowNeed: 'Moderate',
+        tip: `Sheep and goats at ${activeLocation?.name || 'the facility'} require clean dry bedding and well-regulated humidity to avoid respiratory issues. Prioritize moisture exhaust over heavy thermal cooling.`
       };
     } else if (breed.includes('cattle') || breed.includes('cow') || breed.includes('dairy')) {
       return {
@@ -114,10 +114,10 @@ export function AnalyticsPage() {
             color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' 
           },
           { 
-            title: 'Animal Population', 
-            value: activeLocation?.animalCount || 0, 
-            sub: `${activeLocation?.type || 'None'}`, 
-            icon: HelpCircle, 
+            title: 'Optimized Target Temp', 
+            value: breedInsights.optimalTemp, 
+            sub: `Sustains: ${activeLocation?.type || 'General'}`, 
+            icon: Sparkles, 
             color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' 
           },
           { 

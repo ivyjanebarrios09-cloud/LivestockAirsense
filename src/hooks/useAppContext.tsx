@@ -56,6 +56,9 @@ export interface AppContextType {
   resolveAlert: (id: string) => void;
   clearAllAlerts: () => void;
   unreadAlertsCount: number;
+  refreshInterval: number;
+  firebaseSync: boolean;
+  saveSystemSettings: (interval: number, sync: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -76,6 +79,16 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
     return localStorage.getItem(`las_${uid}_selected_device`) || '';
+  });
+
+  const [refreshInterval, setRefreshInterval] = useState<number>(() => {
+    const saved = localStorage.getItem(`las_${uid}_refresh_interval`);
+    return saved ? Number(saved) : 5000;
+  });
+
+  const [firebaseSync, setFirebaseSync] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`las_${uid}_firebase_sync`);
+    return saved === 'true';
   });
 
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
@@ -113,6 +126,12 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         if (data.thresholds !== undefined) {
           setThresholds(data.thresholds);
         }
+        if (data.refreshInterval !== undefined) {
+          setRefreshInterval(data.refreshInterval);
+        }
+        if (data.firebaseSync !== undefined) {
+          setFirebaseSync(data.firebaseSync);
+        }
       }
     }, (error) => {
       console.error('Error syncing user document:', error);
@@ -120,6 +139,19 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
     return () => unsubscribeUser();
   }, [uid]);
+
+  // Fallback / Auto-select the first location and device when lists are loaded
+  useEffect(() => {
+    if (locations.length > 0 && !selectedLocationId) {
+      setSelectedLocationId(locations[0].id);
+    }
+  }, [locations, selectedLocationId]);
+
+  useEffect(() => {
+    if (devices.length > 0 && !selectedDeviceId) {
+      setSelectedDeviceId(devices[0].id);
+    }
+  }, [devices, selectedDeviceId]);
 
   const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
 
@@ -141,7 +173,15 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   const addLocation = async (loc: LocationDetail) => {
     const enrichedLocation = { ...loc, userId: uid };
     await addLocationToFirestore(enrichedLocation);
-    setLocations(prev => [...prev, enrichedLocation]);
+    setLocations(prev => {
+      const index = prev.findIndex(l => l.id === loc.id);
+      if (index >= 0) {
+        const copy = [...prev];
+        copy[index] = enrichedLocation;
+        return copy;
+      }
+      return [...prev, enrichedLocation];
+    });
   };
 
   const deleteLocation = async (id: string) => {
@@ -182,6 +222,14 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     setThresholds(newThreshold);
     localStorage.setItem(`las_${uid}_thresholds`, JSON.stringify(newThreshold));
     saveUserSettingsToFirestore(uid, { thresholds: newThreshold });
+  };
+
+  const saveSystemSettings = (interval: number, sync: boolean) => {
+    setRefreshInterval(interval);
+    setFirebaseSync(sync);
+    localStorage.setItem(`las_${uid}_refresh_interval`, String(interval));
+    localStorage.setItem(`las_${uid}_firebase_sync`, String(sync));
+    saveUserSettingsToFirestore(uid, { refreshInterval: interval, firebaseSync: sync });
   };
 
   // Alerts managed via Firestore
@@ -230,16 +278,18 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const device = devices.find(d => d.id === selectedDeviceId);
     const deviceName = device?.name || 'ESP32 Node';
 
-    // Immediate execution
-    postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
-
-    // Dynamic telemetry updates every 8 seconds
-    const intervalId = setInterval(() => {
+    if (firebaseSync) {
       postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
-    }, 8000);
+    }
+
+    const intervalId = setInterval(() => {
+      if (firebaseSync) {
+        postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+      }
+    }, refreshInterval);
 
     return () => clearInterval(intervalId);
-  }, [selectedDeviceId, activeLocation, devices, thresholds]);
+  }, [selectedDeviceId, activeLocation, devices, thresholds, refreshInterval, firebaseSync]);
 
   // Mock Pull-To-Refresh Syncing Animation Simulation
   const [isSyncing, setIsSyncing] = useState(false);
@@ -276,7 +326,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       addAlert,
       resolveAlert,
       clearAllAlerts,
-      unreadAlertsCount
+      unreadAlertsCount,
+      refreshInterval,
+      firebaseSync,
+      saveSystemSettings
     }}>
       {children}
     </AppContext.Provider>

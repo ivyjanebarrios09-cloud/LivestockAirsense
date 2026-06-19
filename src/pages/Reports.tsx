@@ -64,7 +64,7 @@ export function ReportsPage() {
     doc.setFont("helvetica", "normal");
     doc.text(`Report Level: ${title}`, 14, 26);
     doc.text(`Monitored Facility: ${activeLocation.name}`, 14, 31);
-    doc.text(`Livestock Breed Type: ${activeLocation.type} | Censored Census: ${activeLocation.animalCount}`, 14, 36);
+    doc.text(`Facility Placement Type: ${activeLocation.type}`, 14, 36);
     doc.text(`Generated Standard: 2026-06-16 (UTC)`, 14, 41);
     doc.setLineWidth(0.5);
     doc.line(14, 45, 196, 45);

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -17,7 +17,11 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+
+const dbId = firebaseConfig.firestoreDatabaseId;
+export const db = dbId && dbId !== '(default)'
+  ? initializeFirestore(app, {}, dbId)
+  : getFirestore(app);
 
 export const subscribeToSensorData = (deviceId: string, callback: (data: any) => void) => {
   return onSnapshot(doc(db, 'sensors', deviceId), (snapshot) => {
@@ -350,7 +354,7 @@ export const postSimulatedReading = async (
   }
 };
 
-export const saveUserSettingsToFirestore = async (uid: string, settings: { selectedLocationId?: string; selectedDeviceId?: string; thresholds?: any }) => {
+export const saveUserSettingsToFirestore = async (uid: string, settings: any) => {
   if (!uid || uid === 'guest') return;
   try {
     const userDocRef = doc(db, 'users', uid);
@@ -372,50 +376,9 @@ export const recordUserInFirestore = async (user: any) => {
       updatedAt: Date.now()
     }, { merge: true });
 
-    // Ensure we seed default structures if they do not exist
-    const locationsColl = collection(db, 'locations');
-    const locSnap = await getDocs(query(locationsColl, where('userId', '==', user.uid)));
-    if (locSnap.empty) {
-      const defaultLocations = [
-        {
-          id: `${user.uid}_loc-001`,
-          name: 'Main Broiler Barn',
-          type: 'Poultry',
-          animalCount: 4200,
-          baseTemp: 22.5,
-          baseHumidity: 60,
-          baseCo2: 500,
-          baseAmmonia: 2.1,
-          userId: user.uid
-        },
-        {
-          id: `${user.uid}_loc-002`,
-          name: 'North Swine Nursery',
-          type: 'Swine',
-          animalCount: 350,
-          baseTemp: 24.0,
-          baseHumidity: 55,
-          baseCo2: 600,
-          baseAmmonia: 1.5,
-          userId: user.uid
-        }
-      ];
-      for (const loc of defaultLocations) {
-        await setDoc(doc(db, 'locations', loc.id), loc);
-      }
-    }
-
-    const devicesColl = collection(db, 'devices');
-    const devSnap = await getDocs(query(devicesColl, where('userId', '==', user.uid)));
-    if (devSnap.empty) {
-      const defaultDevices = [
-        { id: `${user.uid}_LAS-001`, name: 'ESP32 Main Node', locationId: `${user.uid}_loc-001`, userId: user.uid },
-        { id: `${user.uid}_LAS-002`, name: 'ESP32 Secondary Node', locationId: `${user.uid}_loc-002`, userId: user.uid }
-      ];
-      for (const dev of defaultDevices) {
-        await setDoc(doc(db, 'devices', dev.id), dev);
-      }
-    }
+    // No longer seeding default structure to allow clean registered experience
+    // The user will add real or simulated devices manually on onboarding/settings
+    console.log('Skipping template database seed to let user register devices manually.');
   } catch (error) {
     console.error('Failed to record user sign-in event:', error);
   }

@@ -14,7 +14,23 @@ interface Device {
 
 export function SettingsPage() {
   const { user } = useAuthState();
-  const { thresholds, saveThresholds, locations, addLocation, deleteLocation, selectedDeviceId, setSelectedDeviceId, devices, addDevice, deleteDevice } = useAppContext();
+  const { 
+    thresholds, 
+    saveThresholds, 
+    locations, 
+    addLocation, 
+    deleteLocation, 
+    selectedLocationId,
+    setSelectedLocationId,
+    selectedDeviceId, 
+    setSelectedDeviceId, 
+    devices, 
+    addDevice, 
+    deleteDevice,
+    refreshInterval,
+    firebaseSync,
+    saveSystemSettings
+  } = useAppContext();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
@@ -29,6 +45,20 @@ export function SettingsPage() {
   const [localHumidityMax, setLocalHumidityMax] = useState(thresholds.humidityMax);
   const [localCo2Max, setLocalCo2Max] = useState(thresholds.co2Max);
   const [localAmmoniaMax, setLocalAmmoniaMax] = useState(thresholds.ammoniaMax);
+  const [localMethaneMax, setLocalMethaneMax] = useState(thresholds.methaneMax);
+  const [localRefreshInterval, setLocalRefreshInterval] = useState(refreshInterval);
+  const [localFirebaseSync, setLocalFirebaseSync] = useState(firebaseSync);
+
+  // Sync local sliders and settings with context when we load them from Firebase
+  useEffect(() => {
+    setLocalTempMax(thresholds.tempMax);
+    setLocalHumidityMax(thresholds.humidityMax);
+    setLocalCo2Max(thresholds.co2Max);
+    setLocalAmmoniaMax(thresholds.ammoniaMax);
+    setLocalMethaneMax(thresholds.methaneMax);
+    setLocalRefreshInterval(refreshInterval);
+    setLocalFirebaseSync(firebaseSync);
+  }, [thresholds, refreshInterval, firebaseSync]);
 
   const uid = user?.uid || 'guest';
 // ...
@@ -53,8 +83,7 @@ export function SettingsPage() {
   const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
   const [isAddingLocationPopup, setIsAddingLocationPopup] = useState(false);
   const [newLocationName, setNewLocationName] = useState('');
-  const [newLocationType, setNewLocationType] = useState('Swine');
-  const [newLocationAnimalCount, setNewLocationAnimalCount] = useState(100);
+  const [newLocationType, setNewLocationType] = useState('Poultry');
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationToDelete, setLocationToDelete] = useState<any | null>(null);
 
@@ -227,15 +256,14 @@ export function SettingsPage() {
     setIsAddingLocation(true);
     setIsAddingLocationPopup(true); // Open popup
     setNewLocationName('');
-    setNewLocationType('Swine');
-    setNewLocationAnimalCount(100);
+    setNewLocationType('Poultry');
   };
 
-  const handleSaveLocation = () => {
+  const handleSaveLocation = async () => {
     setLocationError(null);
     if (!newLocationName.trim()) {
-      setLocationError('Please specify a Location Name.');
-      return;
+       setLocationError('Please specify a Location Name.');
+       return;
     }
     const slug = newLocationName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
     if (locations.some(l => l.id === slug)) {
@@ -243,21 +271,25 @@ export function SettingsPage() {
       return;
     }
 
-    addLocation({
+    const newLoc = {
       id: slug,
       name: newLocationName.trim(),
       type: newLocationType.trim(),
-      animalCount: Number(newLocationAnimalCount) || 120,
+      animalCount: 0,
       baseTemp: 21,
       baseHumidity: 50,
       baseCo2: 450,
       baseAmmonia: 0.5
-    });
+    };
+
+    await addLocation(newLoc);
+    setSelectedLocationId(slug);
 
     setDeviceFeedbackText('Location added successfully!');
     setShowDeviceSavedFeedback(true);
     setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
     setIsAddingLocation(false);
+    setIsAddingLocationPopup(false);
   };
 
   const handleDeleteLocationClick = (loc: any) => {
@@ -287,8 +319,9 @@ export function SettingsPage() {
         humidityMax: localHumidityMax,
         co2Max: localCo2Max,
         ammoniaMax: localAmmoniaMax,
-        methaneMax: thresholds.methaneMax
+        methaneMax: localMethaneMax
       });
+      saveSystemSettings(localRefreshInterval, localFirebaseSync);
       setSaving(false);
       setShowSavedFeedback(true);
       setTimeout(() => setShowSavedFeedback(false), 2000);
@@ -301,16 +334,19 @@ export function SettingsPage() {
         <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Settings</h1>
       </div>
 
-      {!user ? (
-        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-8 flex flex-col items-center justify-center text-center">
-          <Shield className="w-12 h-12 text-system-muted mb-4 animate-bounce" />
-          <h3 className="font-bold text-lg text-system-text uppercase font-mono">Administrator Access Required</h3>
-          <p className="text-sm text-system-muted max-w-md mt-2 leading-relaxed">
-            Please authenticate using authorized credentials to adjust live ventilation safety triggers, integration settings, and device properties.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
+      <div className="space-y-6">
+        {/* Guest Warning Notification Banner instead of page blockers */}
+        {!user && (
+          <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-4 flex gap-3 items-start animate-fade-in">
+            <Shield className="w-5 h-5 text-sky-500 shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <h4 className="font-bold text-xs font-mono uppercase tracking-wide text-sky-400">AirSense Guest Workspace</h4>
+              <p className="text-[11px] text-system-muted mt-0.5 leading-relaxed">
+                You are currently operating as a guest. All configurations, Facility Settings, and Registered Telemetry Nodes will persist in your local Firestore browser session for development testing.
+              </p>
+            </div>
+          </div>
+        )}
 
 
           <section className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
@@ -521,11 +557,15 @@ export function SettingsPage() {
             <div className="p-5 md:p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono">Refresh Interval (ms)</label>
-                <select defaultValue="5000 (5 seconds)" className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors">
-                  <option>1000 (1 second)</option>
-                  <option>2000 (2 seconds)</option>
-                  <option>5000 (5 seconds)</option>
-                  <option>10000 (10 seconds)</option>
+                <select 
+                  value={String(localRefreshInterval)} 
+                  onChange={(e) => setLocalRefreshInterval(Number(e.target.value))}
+                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
+                >
+                  <option value="1000">1000 (1 second)</option>
+                  <option value="2000">2000 (2 seconds)</option>
+                  <option value="5000">5000 (5 seconds)</option>
+                  <option value="10500">10000 (10 seconds)</option>
                 </select>
               </div>
               <div className="space-y-1 pt-2">
@@ -542,7 +582,12 @@ export function SettingsPage() {
 
               <div className="space-y-1 pt-2">
                 <label className="flex items-center gap-3 cursor-pointer group">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded-lg border-system-border bg-system-bg text-system-accent focus:ring-system-accent focus:ring-offset-system-panel cursor-pointer" />
+                  <input 
+                    type="checkbox" 
+                    checked={localFirebaseSync} 
+                    onChange={(e) => setLocalFirebaseSync(e.target.checked)}
+                    className="w-4 h-4 rounded-lg border-system-border bg-system-bg text-system-accent focus:ring-system-accent focus:ring-offset-system-panel cursor-pointer" 
+                  />
                   <span className="text-sm font-medium group-hover:text-system-accent transition-colors">Enable Firebase Real-time Synchronization</span>
                 </label>
               </div>
@@ -608,7 +653,6 @@ export function SettingsPage() {
           </section>
 
         </div>
-      )}
 
       {/* Sleek Custom Confirm Modal for deleting devices */}
       {deviceToDelete && (
@@ -716,7 +760,7 @@ export function SettingsPage() {
                           id: 'loc-001',
                           name: 'Main Broiler Barn',
                           type: 'Poultry',
-                          animalCount: 4200,
+                          animalCount: 0,
                           baseTemp: 22.5,
                           baseHumidity: 60,
                           baseCo2: 500,
