@@ -10,12 +10,12 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || autoConfig.storageBucket,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || autoConfig.messagingSenderId,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || autoConfig.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || autoConfig.measurementId,
   firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || autoConfig.firestoreDatabaseId
 };
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase services
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
@@ -46,7 +46,6 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
         ch4: latestReading.ch4 || 0,
         ch4Level: latestReading.ch4Status || 'Low',
         timestamp: latestReading.timestamp || Date.now(),
-        // include mapped types for legacy compatibility
         ammonia: latestReading.nh3 || 0,
         methane: latestReading.ch4 || 0,
         pm1_0: latestReading.pm1_0 || 0,
@@ -54,7 +53,6 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
         pm10: latestReading.pm10 || 0
       });
     } else {
-      // Fallback to sensors doc for backwards compatibility during migration if needed
       onSnapshot(doc(db, 'sensors', deviceId), (sensorsSnap) => {
         if (sensorsSnap.exists()) {
           const sensorsData = sensorsSnap.data();
@@ -143,13 +141,13 @@ export const getSensorReadings = async (deviceId: string, limitCount: number = 1
           };
         });
 
-        // Fallback for legacy data if needed
         if (docs.length === 0) {
             const legacyRef = collection(db, 'sensorReadings');
             const legacyQ = query(legacyRef, where('deviceId', '==', deviceId), orderBy('timestamp', 'desc'), limit(limitCount));
             const legacySnap = await getDocs(legacyQ);
             docs = legacySnap.docs.map(doc => ({ 
               id: doc.id, 
+              deviceId: deviceId,
               ...doc.data(),
               ammonia: (doc.data() as any).nh3,
               methane: (doc.data() as any).ch4
@@ -177,7 +175,6 @@ export const loginWithGoogle = async () => {
     } else if (error.code === 'auth/unauthorized-domain') {
       alert('Domain not authorized for OAuth. Please add this URL to Firebase Console > Authentication > Settings > Authorized domains.');
     } else if (error.code === 'auth/popup-closed-by-user') {
-      // User closed the popup, do nothing
     } else {
       alert('Google Sign-in failed: ' + error.message);
     }
@@ -194,7 +191,6 @@ export const loginWithEmail = async (email: string, pass: string, isSignUp: bool
     }
   } catch (error: any) {
     console.error('Email auth failed:', error);
-    // Explicitly handle cases without auto-signup on invalid credentials for signIn
     if (error.code === 'auth/invalid-credential') {
         alert('Invalid email or password. Please check your credentials or click "Sign Up" to create a new account.');
     } else if (error.code === 'auth/email-already-in-use') {
@@ -282,7 +278,6 @@ export const addDeviceToFirestore = async (device: any) => {
   try {
     const docRef = doc(db, 'airMonitoring', device.id);
     
-    // Construct the structured document as requested
     const structuredDoc = {
       deviceId: device.deviceId || device.id,
       deviceName: device.name || 'AIRSENSE',
@@ -350,7 +345,6 @@ export const addDeviceToFirestore = async (device: any) => {
 
     await setDoc(docRef, structuredDoc, { merge: true });
     
-    // Maintenance for backwards compatibility for some time
     const oldDocRef = doc(db, 'devices', device.id);
     await setDoc(oldDocRef, { ...device, deviceId: device.deviceId || device.id });
   } catch (error) {
@@ -422,13 +416,11 @@ export const postSimulatedReading = async (
   thresholds: any
 ) => {
   try {
-    // Determine base characteristics
     const baseTemp = location?.baseTemp || 21;
     const baseHum = location?.baseHumidity || 55;
     const baseCo2 = location?.baseCo2 || 450;
     const baseNh3 = location?.baseAmmonia || 1.2;
 
-    // Generate slight random adjustments to make it look alive and dynamic
     const temperature = Number((baseTemp + (Math.random() * 2.4 - 1.2)).toFixed(1));
     const humidity = Math.max(0, Math.min(100, Number((baseHum + (Math.random() * 6 - 3)).toFixed(1))));
     const co2 = Math.max(0, Math.round(baseCo2 + (Math.random() * 60 - 30)));
@@ -438,7 +430,6 @@ export const postSimulatedReading = async (
     const pm2_5 = Number((12.4 + (Math.random() * 3.2 - 1.6)).toFixed(1));
     const pm10 = Number((22.1 + (Math.random() * 4.8 - 2.4)).toFixed(1));
 
-    // Calculate AQI realistically based on CO2 and NH3 density
     const aqi = Math.round(Math.max(10, Math.min(500, 35 + (co2 - 350) / 8 + nh3 * 8)));
 
     const temperatureStatus = temperature > thresholds.tempMax ? 'High' : 'Normal';
@@ -450,7 +441,12 @@ export const postSimulatedReading = async (
     const timestampMs = Date.now();
     const currentUid = location?.userId || auth.currentUser?.uid || '';
 
-    // Data payload for current reading
+    const triggers = [];
+    if (temperature > thresholds.tempMax) triggers.push({ type: 'Temperature', msg: `Temperature of ${temperature}°C exceeded critical threshold limit.` });
+    if (humidity > thresholds.humidityMax) triggers.push({ type: 'Humidity', msg: `Humidity of ${humidity}% exceeded comfort zone limits.` });
+    if (co2 > thresholds.co2Max) triggers.push({ type: 'CO2', msg: `CO2 level reached ${co2} ppm - ventilation adjustment necessary.` });
+    if (nh3 > thresholds.ammoniaMax) triggers.push({ type: 'NH3', msg: `Ammonia density spiked to ${nh3} ppm - hazard to animal airways.` });
+
     const readingPayload = {
       temperature,
       humidity,
@@ -464,7 +460,6 @@ export const postSimulatedReading = async (
       timestamp: timestampMs
     };
 
-    // Refactored structure update: airMonitoring doc
     const currentAlertObj = triggers.length > 0 ? {
       activeAlert: true,
       lastAlertType: triggers[triggers.length - 1].type,
@@ -490,7 +485,6 @@ export const postSimulatedReading = async (
         ch4Status
       },
       lastSeen: timestampMs,
-      // Ensure basic maps exist even if mostly empty for initial structure
       user: {
         userId: currentUid,
         email: auth.currentUser?.email || '',
@@ -513,21 +507,12 @@ export const postSimulatedReading = async (
       alerts: currentAlertObj
     }, { merge: true });
 
-    // Add to readings subcollection
     const historyDocRef = doc(db, 'airMonitoring', deviceId, 'readings', String(timestampMs));
     await setDoc(historyDocRef, readingPayload);
 
-    // Maintenance of legacy paths for a while
     const legacyDocRef = doc(db, 'sensors', deviceId);
     await setDoc(legacyDocRef, { ...readingPayload, deviceId, deviceName, nh3Level: nh3Status, ch4Level: ch4Status }, { merge: true });
     await addDoc(collection(db, 'sensorReadings'), { ...readingPayload, deviceId, deviceName, userId: currentUid, ammonia: nh3, methane: ch4 });
-
-    // Check thresholds to write real alerts if they exceed limits!
-    const triggers = [];
-    if (temperature > thresholds.tempMax) triggers.push({ type: 'High Temperature', msg: `Temperature of ${temperature}°C exceeded critical threshold limit.` });
-    if (humidity > thresholds.humidityMax) triggers.push({ type: 'High Humidity', msg: `Humidity of ${humidity}% exceeded comfort zone limits.` });
-    if (co2 > thresholds.co2Max) triggers.push({ type: 'Elevated CO2', msg: `CO2 level reached ${co2} ppm - ventilation adjustment necessary.` });
-    if (nh3 > thresholds.ammoniaMax) triggers.push({ type: 'Ammonia Spike', msg: `Ammonia density spiked to ${nh3} ppm - hazard to animal airways.` });
 
     for (const trigger of triggers) {
       await addDoc(collection(db, 'alerts'), {
@@ -568,10 +553,6 @@ export const recordUserInFirestore = async (user: any) => {
       lastLogin: Date.now(),
       updatedAt: Date.now()
     }, { merge: true });
-
-    // No longer seeding default structure to allow clean registered experience
-    // The user will add real or simulated devices manually on onboarding/settings
-    console.log('Skipping template database seed to let user register devices manually.');
   } catch (error) {
     console.error('Failed to record user sign-in event:', error);
   }

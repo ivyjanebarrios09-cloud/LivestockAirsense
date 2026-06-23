@@ -41,7 +41,6 @@ export function SettingsPage() {
     navigate('/');
   };
 
-  // Local state for sliders so it holds temporary draft before saving
   const [localTempMax, setLocalTempMax] = useState(thresholds.tempMax);
   const [localHumidityMax, setLocalHumidityMax] = useState(thresholds.humidityMax);
   const [localCo2Max, setLocalCo2Max] = useState(thresholds.co2Max);
@@ -50,7 +49,6 @@ export function SettingsPage() {
   const [localRefreshInterval, setLocalRefreshInterval] = useState(refreshInterval);
   const [localFirebaseSync, setLocalFirebaseSync] = useState(firebaseSync);
 
-  // Sync local sliders and settings with context when we load them from Firebase
   useEffect(() => {
     setLocalTempMax(thresholds.tempMax);
     setLocalHumidityMax(thresholds.humidityMax);
@@ -66,20 +64,16 @@ export function SettingsPage() {
 
   const [isEditingNew, setIsEditingNew] = useState(false);
 
-  // Form input states
   const [deviceIdInput, setDeviceIdInput] = useState('');
   const [deviceNameInput, setDeviceNameInput] = useState('');
   const [deviceLocationInput, setDeviceLocationInput] = useState('');
 
-  // Device status response trackers
   const [showDeviceSavedFeedback, setShowDeviceSavedFeedback] = useState(false);
   const [deviceFeedbackText, setDeviceFeedbackText] = useState('');
 
-  // Validation & confirmation states preventing iframe alert/confirm issues
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
 
-  // Facility Location Placement management states
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
   const [isAddingLocationPopup, setIsAddingLocationPopup] = useState(false);
@@ -146,7 +140,6 @@ export function SettingsPage() {
     }
   }, [isDarkMode]);
 
-  // Sync state with active selection
   useEffect(() => {
     if (!isEditingNew) {
       const active = devices.find(d => d.id === selectedDeviceId) || devices[0];
@@ -196,12 +189,11 @@ export function SettingsPage() {
           locationId: deviceLocationInput
         };
         
-        // Save to Firestore and state using AppContext
         await addDevice(newD);
         
         setSelectedDeviceId(newD.id);
         setIsEditingNew(false);
-        setIsAddingDevicePopup(false); // Close popup
+        setIsAddingDevicePopup(false); 
         setDeviceFeedbackText('Device registered successfully!');
       } else {
         const updatedD: Device = {
@@ -210,7 +202,6 @@ export function SettingsPage() {
           name: deviceNameInput.trim(),
           locationId: deviceLocationInput
         };
-        // Save to Firestore and state using AppContext
         await addDevice(updatedD);
         setDeviceFeedbackText('Device properties updated!');
       }
@@ -338,7 +329,6 @@ export function SettingsPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Guest Warning Notification Banner instead of page blockers */}
         {!user && (
           <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-4 flex gap-3 items-start animate-fade-in">
             <Shield className="w-5 h-5 text-sky-500 shrink-0 mt-0.5 animate-pulse" />
@@ -657,7 +647,6 @@ export function SettingsPage() {
 
         </div>
 
-      {/* Sleek Custom Confirm Modal for deleting devices */}
       {deviceToDelete && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-system-panel border border-system-border rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -691,7 +680,6 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Add New Device Popup */}
       {isAddingDevicePopup && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-system-panel border border-system-border rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -714,7 +702,6 @@ export function SettingsPage() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              {/* Form inputs copied from above */}
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device ID Token</label>
                 <input
@@ -792,40 +779,6 @@ export function SettingsPage() {
                 className="px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
               >
                 Register
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sleek Custom Confirm Modal for deleting locations */}
-      {locationToDelete && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-system-panel border border-system-border rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-2.5 text-red-500 mb-3">
-              <div className="p-2.5 bg-red-500/10 rounded-full">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-base uppercase font-mono tracking-tight text-system-text">Delete Placement?</h3>
-            </div>
-            
-            <p className="text-xs text-system-muted mb-5 leading-relaxed">
-              Are you sure you want to remove the facility placement <span className="font-black text-system-text font-mono">"{locationToDelete.name}"</span>? 
-              This will unbind telemetry devices mapped to this physical sector.
-            </p>
-            
-            <div className="flex gap-2.5 justify-end">
-              <button
-                onClick={() => setLocationToDelete(null)}
-                className="px-3 py-1.5 bg-system-bg border border-system-border hover:bg-system-panel font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeDeleteLocation}
-                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
-              >
-                Delete
               </button>
             </div>
           </div>

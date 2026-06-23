@@ -2,27 +2,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // User Profiles
     match /users/{userId} {
       allow read, write: if true;
     }
     
-    // Cultivation Locations
     match /locations/{locationId} {
       allow read, write: if true;
     }
     
-    // Registered Telemetry Devices
     match /devices/{deviceId} {
       allow read, write: if true;
     }
     
-    // Sensor values / Latest State
     match /sensors/{deviceId} {
       allow read, write: if true;
     }
     
-    // Sensor readings historical series
     match /sensor_readings/{readingId} {
       allow read, write: if true;
     }
@@ -38,17 +33,14 @@ service cloud.firestore {
       }
     }
     
-    // Incidents & Alerts
     match /alerts/{alertId} {
       allow read, write: if true;
     }
     
-    // Status Logs
     match /status_history/{changeId} {
       allow read, write: if true;
     }
     
-    // Global and System settings
     match /system_settings/{settingId} {
       allow read, write: if true;
     }

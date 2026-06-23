@@ -12,7 +12,6 @@ export function Header() {
   return (
     <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-3 md:px-6 shrink-0 z-10 sticky top-0 select-none">
       <div className="flex items-center gap-3 overflow-hidden">
-        {/* Unified branding */}
         <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2 shrink-0">
           <img src="/logo.png" alt="LAS Logo" className="h-7 w-auto object-contain shrink-0" />
           <div className="flex flex-col">
@@ -25,12 +24,11 @@ export function Header() {
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {isInstallable && (
           <div className="flex items-center gap-1 px-1.5 py-0.5 bg-system-bg border border-system-border rounded-xl shadow-inner scale-90 sm:scale-100">
-            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse shrink-0" title="Bookmark style indicator" />
+            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse shrink-0" />
             <div className="w-[1px] h-3 bg-system-border mx-1" />
             <button
               onClick={install}
               className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm active:scale-95 whitespace-nowrap"
-              title="Install Native App (PWA)"
             >
               <MonitorDown className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden md:inline">Install App</span>

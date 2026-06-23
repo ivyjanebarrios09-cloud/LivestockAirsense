@@ -6,7 +6,6 @@ import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings } from '../lib/firebase';
 import { Cpu, Plus, Layers, Wifi, Sparkles } from 'lucide-react';
 
-// Custom robust vector SVGs for the dashboard metrics
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
   const colorStart = isWarning ? "#ef4444" : "#f97316";
@@ -129,7 +128,6 @@ const MethaneSvg = ({ className }: { className?: string }) => {
 };
 
 
-// Animated background showcasing soft drifting clouds and flowing wind/air streams
 const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
@@ -235,7 +233,6 @@ export function Dashboard() {
     addDevice 
   } = useAppContext();
 
-  // Onboarding parameters for registering a first device
   const [onboardingLocName, setOnboardingLocName] = useState('Main Broiler Barn');
   const [onboardingLocType, setOnboardingLocType] = useState('Poultry');
   const [onboardingDevId, setOnboardingDevId] = useState(() => `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
@@ -309,7 +306,6 @@ export function Dashboard() {
     }
   };
 
-  // Load registered devices to show them linked to the monitoring zone
   const registeredDevices = devices;
 
   const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation?.id);
@@ -351,7 +347,6 @@ export function Dashboard() {
       aqi: 0 
   };
 
-  // Evaluate state alerts
   const isTempAlert = lastReading.temperature > thresholds.tempMax;
   const isHumAlert = lastReading.humidity > thresholds.humidityMax;
   const isCo2Alert = lastReading.co2 > thresholds.co2Max;
@@ -472,7 +467,7 @@ export function Dashboard() {
     },
     { 
       label: 'PM2.5 Feed Dust', 
-      value: '12.4 µg/m³', // Still simulated? The user requested this structure in firestore, but it's not in the Firestore structure they provided. I'll leave as is.
+      value: '12.4 µg/m³', 
       icon: PM25Svg, 
       color: 'text-purple-500', 
       bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
@@ -501,7 +496,6 @@ export function Dashboard() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-system-accent/15 rounded-full blur-3xl -mr-36 -mt-36 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -ml-36 -mb-36 pointer-events-none" />
 
-          {/* Core Onboarding Message Header */}
           <div className="relative z-10 max-w-2xl space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-550/10 border border-yellow-500/20 text-yellow-400 text-xs font-bold font-mono tracking-wide uppercase select-none">
               <span className="relative flex h-2 w-2">
@@ -520,10 +514,8 @@ export function Dashboard() {
             </p>
           </div>
 
-          {/* Segmented Form options */}
           <div className="grid grid-cols-1 md:grid-cols-10 gap-8 mt-10 relative z-10 border-t border-white/10 pt-8">
             
-            {/* Quick Demo setup - Left Side (4 Cols) */}
             <div className="md:col-span-4 space-y-5 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/10 pb-8 md:pb-0 md:pr-8">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-system-accent">
@@ -547,7 +539,6 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Manual Hardware device registration forms - Right Side (6 Cols) */}
             <form onSubmit={handleCustomRegisterSetup} className="md:col-span-6 space-y-4">
               <div className="flex items-center gap-2 text-slate-300">
                 <Cpu className="w-5 h-5 text-slate-400" />
@@ -634,7 +625,6 @@ export function Dashboard() {
           
           <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-system-accent via-indigo-500 to-cyan-500 animate-pulse" />
 
-          {/* Radiating Antenna Waves animation */}
           <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-system-accent/10 border border-system-accent/20">
             <span className="absolute animate-ping inline-flex h-16 w-16 rounded-full bg-system-accent/20 opacity-75"></span>
             <span className="absolute animate-ping inline-flex h-20 w-20 rounded-full bg-system-accent/10 opacity-50"></span>
@@ -673,10 +663,8 @@ export function Dashboard() {
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
-      {/* Dynamic Header Barn Description & Pull Indicator with Immersive 3D Atmosphere */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
-        {/* Interactive 3D perspective Atmosphere & Billboarding Clouds Layer */}
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
 
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
@@ -716,7 +704,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Unified AQI & State Gauge */}
         <div className="relative shrink-0 w-full md:w-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-lg md:rounded-2xl p-2 md:p-4 flex items-center gap-2 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group">
           <div className="flex flex-col items-center justify-center bg-white/5 w-10 h-10 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
             <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
@@ -745,14 +732,12 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Syncing Simulator feedback Overlay Banner */}
       {isSyncing && (
         <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm">
           Synchronizing air quality data streams with cloud database...
         </div>
       )}
 
-      {/* Grid of Micro-Environmental Sensoring Cards */}
       <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
@@ -786,20 +771,16 @@ export function Dashboard() {
                 </div>
               </div>
 
-              {/* Animated Cloud & Air Wind background layer */}
               <CloudWindAnimation colorClass={metric.color} />
 
-              {/* Decorative subtle visual glow backgrounds */}
               <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
             </div>
           );
         })}
       </div>
 
-      {/* Live Graph Analytics & Diagnostics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Air Quality Index Area Chart */}
         <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-6">
             <div>

@@ -12,12 +12,10 @@ export function HistoryPage() {
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
   
-  // Pagination & Display limit states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
   const [historicalLogs, setHistoricalLogs] = useState<any[]>([]);
 
-  // Reset page position back to page 1 whenever filters shift
   useEffect(() => {
     setCurrentPage(1);
     fetchData();
@@ -33,7 +31,6 @@ export function HistoryPage() {
     setHistoricalLogs(formattedLogs);
   };
 
-  // Calculate items displaying inside current page view
   const paginatedLogs = useMemo(() => {
     if (rowsPerPage === 'all') {
       return historicalLogs;
@@ -54,10 +51,8 @@ export function HistoryPage() {
 
   const downloadCSV = () => {
     if (!activeLocation) return;
-    // CSV Header row
     const headers = ['Timestamp', 'Facility Name', 'Breed', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'Ammonia (ppm)', 'AQI'];
     
-    // Row mappings
     const rows = historicalLogs.map(row => [
       row.timestamp,
       activeLocation.name,
@@ -129,7 +124,6 @@ export function HistoryPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
       
-      {/* Title segment */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Historical Logs</h1>
@@ -138,7 +132,6 @@ export function HistoryPage() {
           </p>
         </div>
 
-        {/* Dynamic Segment Buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <div className="flex bg-system-panel border border-system-border rounded-xl p-1 shrink-0 select-none">
             {(['today', 'week', 'month'] as const).map(t => (
@@ -173,7 +166,6 @@ export function HistoryPage() {
         </div>
       </div>
 
-      {/* Dynamic Action Status Toast Alert inside flow */}
       {exportSuccessText && (
         <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-4 py-2.5 rounded-xl font-bold uppercase font-mono text-[10px] animate-pulse">
           <CheckCircle className="w-4 h-4" />
@@ -181,13 +173,11 @@ export function HistoryPage() {
         </div>
       )}
 
-      {/* Main Bar Chart Panel - Removed for data structure compatibility */}
       <div className="hidden">
         <div className="h-[320px]">
         </div>
       </div>
 
-      {/* Structured Telemetry Data List Table */}
       <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-system-border bg-system-bg flex flex-wrap justify-between items-center gap-3">
           <div>
@@ -222,7 +212,6 @@ export function HistoryPage() {
           </table>
         </div>
 
-        {/* Dynamic Pagination Footer Control Hub */}
         <div className="px-6 py-4 border-t border-system-border bg-system-bg flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-xs text-system-muted font-mono">
             <span>Rows per page:</span>

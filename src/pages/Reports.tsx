@@ -9,7 +9,6 @@ export function ReportsPage() {
   const { activeLocation } = useAppContext();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Dynamically compile active location environmental parameters
   const compiledReportProps = useMemo(() => {
     if (!activeLocation) return [];
     return [
@@ -97,7 +96,6 @@ export function ReportsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
       
-      {/* Title segment */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
@@ -115,7 +113,6 @@ export function ReportsPage() {
         </button>
       </div>
 
-      {/* Action Notification Alert Toast */}
       {successMsg && (
         <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-4 py-2.5 rounded-xl font-bold uppercase font-mono text-[10px] animate-pulse">
           <CheckCircle className="w-4 h-4" />
@@ -123,7 +120,6 @@ export function ReportsPage() {
         </div>
       )}
 
-      {/* Context info banner */}
       <div className="bg-system-panel border border-system-border rounded-2xl p-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Layers className="w-5 h-5 text-indigo-500 shrink-0" />

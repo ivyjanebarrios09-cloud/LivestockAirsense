@@ -33,7 +33,6 @@ export function LoginPage() {
     try {
       await loginWithEmail(email, password, isSignUp);
     } catch (err) {
-      // Error is handled in firebase.ts
     } finally {
       setIsLoggingIn(false);
     }

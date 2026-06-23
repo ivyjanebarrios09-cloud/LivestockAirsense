@@ -69,7 +69,6 @@ export function AlertsPage() {
     }
   };
 
-  // Filter list
   const filteredAlerts = alerts.filter((item) => {
     if (activeTab === 'active') return !item.resolved;
     if (activeTab === 'resolved') return item.resolved;
@@ -79,7 +78,6 @@ export function AlertsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 relative pb-28">
       
-      {/* Dynamic Pop up Toast Notifications */}
       <AnimatePresence>
         {popupAlert && (
           <motion.div 
@@ -138,7 +136,6 @@ export function AlertsPage() {
       ) : (
         <div className="space-y-4">
           
-          {/* Segment controls tab & bulk resolver actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-system-panel border border-system-border p-3 rounded-2xl">
             <div className="flex bg-system-bg p-1 rounded-xl border border-system-border select-none self-start sm:self-auto">
               {[
@@ -172,7 +169,6 @@ export function AlertsPage() {
             )}
           </div>
 
-          {/* List display */}
           <div className="space-y-3">
             {filteredAlerts.length === 0 ? (
               <div className="bg-system-panel border border-system-border text-center py-10 rounded-2xl text-system-muted select-none">
@@ -189,7 +185,6 @@ export function AlertsPage() {
                       log.resolved ? "opacity-60 border-system-border" : "border-system-text/10 ring-1 ring-system-text/5"
                     )}
                   >
-                    {/* Status badge and location */}
                     <div className="flex items-start gap-3.5 min-w-0 flex-1">
                       <div className="mt-0.5 shrink-0">
                         {getIcon(log.severity)}
@@ -212,7 +207,6 @@ export function AlertsPage() {
                       </div>
                     </div>
 
-                    {/* Resolve controls and timestamp */}
                     <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
                       <div className="flex flex-col text-right">
                         <span className="text-[10px] font-mono text-system-muted font-bold leading-none">{log.time}</span>

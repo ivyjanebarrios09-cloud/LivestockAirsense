@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppContextProvider } from './hooks/useAppContext';
 import { Layout } from './components/Layout';
@@ -32,7 +27,6 @@ export default function App() {
   const uid = user?.uid || 'guest';
 
   return (
-    // @ts-ignore
     <AppContextProvider key={uid} uid={uid}>
       <Router>
         <Routes>

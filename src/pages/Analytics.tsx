@@ -31,7 +31,6 @@ export function AnalyticsPage() {
     }));
   }, [telemetryLogs]);
 
-  // Compute stats on the fly
   const averageAqi = useMemo(() => {
     if (dynamicTimelineData.length === 0) return 0;
     const sum = dynamicTimelineData.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
@@ -68,7 +67,6 @@ export function AnalyticsPage() {
       };
     }
     
-    // Default fallback
     return {
       optimalTemp: '15 - 22 °C',
       airFlowNeed: 'Standard',
@@ -79,7 +77,6 @@ export function AnalyticsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
       
-      {/* Header section with active facility context badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Performance Analytics</h1>
@@ -96,7 +93,6 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Advanced Statistical Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { 
@@ -143,10 +139,8 @@ export function AnalyticsPage() {
         ))}
       </div>
 
-      {/* Interactive Correlation Plot and AI Advice Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Plot Section */}
         <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 lg:col-span-2 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -154,7 +148,6 @@ export function AnalyticsPage() {
               <p className="text-xs text-system-muted">Select microclimate sensors to evaluate historical trends.</p>
             </div>
             
-            {/* Interactive chart selector keys */}
             <div className="flex bg-system-bg border border-system-border rounded-xl p-1 shrink-0 select-none">
               {[
                 { id: 'aqi', val: 'AQI' },
@@ -254,7 +247,6 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        {/* AI Veterinary Veterinary-Husbandry advice */}
         <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="w-12 h-12 rounded-xl bg-system-accent/10 border border-system-accent/20 flex items-center justify-center text-system-accent">

@@ -9,7 +9,6 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-system-bg text-system-text flex flex-col font-sans selection:bg-system-accent/30">
-      {/* Header */}
       <header className="h-16 border-b border-system-border bg-system-panel flex items-center justify-between px-6 lg:px-12 sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Livestock AirSense Logo" className="h-10 sm:h-12 w-auto object-contain" />
@@ -18,12 +17,11 @@ export function LandingPage() {
         <div className="flex items-center gap-4">
           {isInstallable && (
             <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-system-bg border border-system-border rounded-lg shadow-inner">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" title="Bookmark style indicator" />
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse shrink-0" />
               <div className="w-[1px] h-4 bg-system-border" />
               <button
                 onClick={install}
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95"
-                title="Install Native App (PWA)"
               >
                 <MonitorDown className="w-4 h-4 shrink-0" />
                 <span>Install PWA</span>
@@ -33,10 +31,8 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
       <main className="flex-1">
         <div className="relative overflow-hidden bg-gradient-to-b from-sky-300 via-sky-100 to-system-bg border-b border-system-border min-h-[500px]">
-          {/* Detailed 3D perspective Atmosphere & Billboarding Clouds Layer */}
           <Interactive3DAtmosphere variant="sky" roundedClass="rounded-none" />
           
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/40 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none animate-pulse duration-10000" />
@@ -69,7 +65,6 @@ export function LandingPage() {
 
       </main>
 
-      {/* Footer */}
       <footer className="py-8 border-t border-system-border bg-system-bg text-center text-system-muted text-sm px-6">
         <p>&copy; {new Date().getFullYear()} Livestock AirSense (LAS). All rights reserved.</p>
       </footer>

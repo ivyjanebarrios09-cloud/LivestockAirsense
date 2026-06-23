@@ -64,7 +64,6 @@ export interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
-  // Load devices and current selection
   const [locations, setLocations] = useState<LocationDetail[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
 
@@ -140,7 +139,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => unsubscribeUser();
   }, [uid]);
 
-  // Fallback / Auto-select the first location and device when lists are loaded
   useEffect(() => {
     if (locations.length > 0 && !selectedLocationId) {
       setSelectedLocationId(locations[0].id);
@@ -155,7 +153,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
 
-  // Save selection
   useEffect(() => {
     if (selectedLocationId) {
       localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
@@ -232,7 +229,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     saveUserSettingsToFirestore(uid, { refreshInterval: interval, firebaseSync: sync });
   };
 
-  // Alerts managed via Firestore
   const [alertsList, setAlertsList] = useState<Alert[]>([]);
 
   useEffect(() => {
@@ -250,7 +246,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => unsubscribe();
   }, [uid]);
 
-  // Resolve Alert action
   const addAlert = (alert: Omit<Alert, 'id' | 'time'>) => {
     const newAlert: Alert = {
       ...alert,
@@ -264,14 +259,12 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     setAlertsList(prev => prev.map(alert => alert.id === id ? { ...alert, resolved: true } : alert));
   };
 
-  // Clear all resolved Alerts
   const clearAllAlerts = () => {
     setAlertsList(prev => prev.filter(alert => !alert.resolved));
   };
 
   const unreadAlertsCount = alertsList.filter(alert => !alert.resolved).length;
 
-  // Send dynamic sensor data stream to Firestore automatically
   useEffect(() => {
     if (!selectedDeviceId) return;
 
@@ -291,7 +284,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => clearInterval(intervalId);
   }, [selectedDeviceId, activeLocation, devices, thresholds, refreshInterval, firebaseSync]);
 
-  // Mock Pull-To-Refresh Syncing Animation Simulation
   const [isSyncing, setIsSyncing] = useState(false);
   const triggerSync = async () => {
     setIsSyncing(true);
