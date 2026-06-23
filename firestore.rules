@@ -2,47 +2,138 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // -------------------------------------------------------------------------
+    // Phase 3: Primitive Definition & Global Helpers
+    // -------------------------------------------------------------------------
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    // -------------------------------------------------------------------------
+    // Pillar 2: Validation Blueprints (The "Anti-Update-Gap")
+    // -------------------------------------------------------------------------
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256;
+    }
+
+    function isValidLocation(data) {
+      return data.keys().hasAll(['id', 'name', 'userId']) &&
+             isValidId(data.id) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.userId is string && data.userId == request.auth.uid;
+    }
+
+    function isValidDevice(data) {
+      return data.keys().hasAll(['id', 'name', 'userId']) &&
+             isValidId(data.id) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.userId is string && data.userId == request.auth.uid;
+    }
+
+    function isValidReading(data) {
+      return data.keys().hasAll(['timestamp', 'temperature', 'humidity']) &&
+             data.timestamp is number &&
+             data.temperature is number &&
+             data.humidity is number;
+    }
+
+    // -------------------------------------------------------------------------
+    // Match Blocks (The "Fortress" Rules)
+    // -------------------------------------------------------------------------
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     match /users/{userId} {
-      allow read, write: if true;
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastLogin', 'updatedAt', 'selectedLocationId', 'selectedDeviceId', 'thresholds', 'refreshInterval', 'firebaseSync']);
     }
-    
+
     match /locations/{locationId} {
-      allow read, write: if true;
+      // Enforce query security (Pillar 8)
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Also allow public read for guest/simulated mode IF the location is marked as public or for specific IDs
+      // For now, let's allow all reads to match the previous permissive state while hardening writes
+      allow read: if true; 
+      
+      allow create: if isSignedIn() && isValidLocation(incoming());
+      allow update: if isSignedIn() && isOwner(existing().userId) && isValidLocation(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'type', 'animalCount', 'baseTemp', 'baseHumidity', 'baseCo2', 'baseAmmonia']);
+      allow delete: if isSignedIn() && isOwner(existing().userId);
     }
-    
+
     match /devices/{deviceId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isSignedIn() && isValidDevice(incoming());
+      allow update: if isSignedIn() && isOwner(existing().userId) && isValidDevice(incoming());
+      allow delete: if isSignedIn() && isOwner(existing().userId);
     }
-    
+
     match /sensors/{deviceId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true; // Simulation allows anyone to update for now
     }
-    
+
     match /sensor_readings/{readingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if true;
     }
 
     match /sensorReadings/{readingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if true;
     }
 
     match /airMonitoring/{deviceId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
+      
       match /readings/{readingId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow create: if true;
       }
     }
-    
+
     match /alerts/{alertId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
-    
+
     match /status_history/{changeId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if true;
     }
-    
+
     match /system_settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSignedIn();
     }
   }
 }
+

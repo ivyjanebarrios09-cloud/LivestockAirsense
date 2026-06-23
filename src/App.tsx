@@ -27,7 +27,7 @@ export default function App() {
   const uid = user?.uid || 'guest';
 
   return (
-    <AppContextProvider key={uid} uid={uid}>
+    <AppContextProvider uid={uid}>
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />

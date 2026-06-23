@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0123648907",
-  "appId": "1:835409275856:web:f1d3a3f7e961ab3597e7d5",
-  "apiKey": "AIzaSyBC-qBnnmaIlNRXzG3IsYF-rVurLA5bNv8",
-  "authDomain": "gen-lang-client-0123648907.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-4728dc45-1051-45bb-bc92-b25b860163e0",
-  "storageBucket": "gen-lang-client-0123648907.firebasestorage.app",
-  "messagingSenderId": "835409275856",
-  "measurementId": ""
+  "projectId": "livestockairsense",
+  "appId": "1:40896854963:web:72ec6d9c524318998229c6",
+  "apiKey": "AIzaSyCVKH_r4VfUrBsiA0RACVG6G3-AOpHbJf4",
+  "authDomain": "livestockairsense.firebaseapp.com",
+  "firestoreDatabaseId": "",
+  "storageBucket": "livestockairsense.firebasestorage.app",
+  "messagingSenderId": "40896854963",
+  "measurementId": "G-6D2XXYY272"
 }
