@@ -138,7 +138,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   }, [selectedDeviceId, uid]);
 
   const addDevice = async (device: any) => {
-    const enrichedDevice = { ...device, userId: uid };
+    const enrichedDevice = { ...device, userId: uid || 'guest' };
     await addDeviceToFirestore(enrichedDevice);
     setDevices(prev => {
       const index = prev.findIndex(d => d.id === device.id);

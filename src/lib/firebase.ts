@@ -11,7 +11,9 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || autoConfig.messagingSenderId,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || autoConfig.appId,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || autoConfig.measurementId,
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || autoConfig.firestoreDatabaseId
+  firestoreDatabaseId: (import.meta.env.VITE_FIREBASE_DATABASE_ID && import.meta.env.VITE_FIREBASE_DATABASE_ID !== '(default)')
+    ? import.meta.env.VITE_FIREBASE_DATABASE_ID
+    : (autoConfig.firestoreDatabaseId || '(default)')
 };
 
 const app = initializeApp(firebaseConfig);
@@ -350,11 +352,14 @@ export const addDeviceToFirestore = async (device: any) => {
     const oldDocRef = doc(db, 'airMonitoring', deviceId);
     await setDoc(oldDocRef, structuredDoc, { merge: true });
     
+    const cleanDevice = Object.fromEntries(
+      Object.entries(device).filter(([_, v]) => v !== undefined)
+    );
     const legacyDeviceRef = doc(db, 'devices', deviceId);
-    await setDoc(legacyDeviceRef, { ...device, deviceId: deviceId }, { merge: true });
+    await setDoc(legacyDeviceRef, { ...cleanDevice, deviceId: deviceId }, { merge: true });
     
     const sensorsRef = doc(db, 'sensors', deviceId);
-    await setDoc(sensorsRef, { deviceId: deviceId, deviceName: device.name, timestamp: Date.now() }, { merge: true });
+    await setDoc(sensorsRef, { deviceId: deviceId, deviceName: device.name || 'AIRSENSE', timestamp: Date.now() }, { merge: true });
 
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'users/devices');
