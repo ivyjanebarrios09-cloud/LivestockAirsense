@@ -297,6 +297,7 @@ export const addDeviceToFirestore = async (device: any) => {
       status: 'Online',
       lastSeen: Date.now(),
       createdAt: Date.now(),
+      sharedFromUid: device.sharedFromUid || '',
       user: {
         userId: userId,
         firstName: '',
@@ -537,6 +538,23 @@ export const postSimulatedReading = async (
     const legacyDocRef = doc(db, 'sensors', deviceId);
     await setDoc(legacyDocRef, { ...readingPayload, deviceId, deviceName, nh3Level: nh3Status, ch4Level: ch4Status }, { merge: true });
     await addDoc(collection(db, 'sensorReadings'), { ...readingPayload, deviceId, deviceName, userId: currentUid, ammonia: nh3, methane: ch4 });
+
+    // Post to status_history for History Page and CSV/PDF export
+    await addDoc(collection(db, 'status_history'), {
+      timestamp: timestampMs,
+      sensorName: deviceName || 'ESP32 Node',
+      status: triggers.length > 0 ? 'Warning' : 'Normal',
+      reading: `AQI: ${aqi}`,
+      temp: temperature,
+      humidity: humidity,
+      co2: co2,
+      ammonia: nh3,
+      methane: ch4,
+      pm1_0: pm1_0,
+      pm2_5: pm2_5,
+      pm10: pm10,
+      aqi: aqi
+    });
 
     for (const trigger of triggers) {
       await addDoc(collection(db, 'alerts'), {

@@ -280,24 +280,27 @@ export function Dashboard() {
   const [deviceData, setDeviceData] = useState<any>(null);
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
   
+  const currentDevice = devices.find(d => d.id === selectedDeviceId);
+  const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
+
   useEffect(() => {
-    if (!selectedDeviceId || !uid) return;
-    const unsubscribe = subscribeToSensorData(uid, selectedDeviceId, (data) => {
+    if (!selectedDeviceId || !deviceOwnerUid) return;
+    const unsubscribe = subscribeToSensorData(deviceOwnerUid, selectedDeviceId, (data) => {
         setDeviceData(data);
     });
     return () => unsubscribe();
-  }, [selectedDeviceId, uid]);
+  }, [selectedDeviceId, deviceOwnerUid]);
 
   useEffect(() => {
-    if (!uid) return;
+    if (!deviceOwnerUid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(uid, selectedDeviceId, 12);
+      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 12);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
     const interval = setInterval(fetchData, refreshInterval + 100);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, refreshInterval, uid]);
+  }, [selectedDeviceId, refreshInterval, deviceOwnerUid]);
 
   const chartData = telemetryLogs.map(log => ({
     time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',

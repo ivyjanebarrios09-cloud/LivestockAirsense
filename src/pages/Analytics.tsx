@@ -12,14 +12,16 @@ export function AnalyticsPage() {
 
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
 
+  const deviceOwnerUid = activeDevice?.sharedFromUid || uid;
+
   useEffect(() => {
-    if (!uid) return;
+    if (!deviceOwnerUid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(uid, selectedDeviceId, 12);
+      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 12);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
-  }, [selectedDeviceId, uid]);
+  }, [selectedDeviceId, deviceOwnerUid]);
 
   // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {

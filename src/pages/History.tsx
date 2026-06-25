@@ -52,17 +52,34 @@ export function HistoryPage() {
 
   const downloadCSV = () => {
     if (!activeDevice) return;
-    const headers = ['Timestamp', 'Device Name', 'Device ID', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'Ammonia (ppm)', 'AQI'];
+    const headers = [
+      'Timestamp', 
+      'Device Name', 
+      'Device ID', 
+      'Temp (°C)', 
+      'Humidity (%)', 
+      'CO2 (ppm)', 
+      'Ammonia (ppm)', 
+      'Methane (ppm)',
+      'PM1.0 (µg/m³)',
+      'PM2.5 (µg/m³)',
+      'PM10 (µg/m³)',
+      'AQI'
+    ];
     
     const rows = historicalLogs.map(row => [
       row.timestamp,
       activeDevice.name,
       activeDevice.id,
-      row.temp,
-      row.humidity,
-      row.co2,
-      row.ammonia,
-      row.aqi
+      row.temp ?? '-',
+      row.humidity ?? '-',
+      row.co2 ?? '-',
+      row.ammonia ?? '-',
+      row.methane ?? '-',
+      row.pm1_0 ?? '-',
+      row.pm2_5 ?? '-',
+      row.pm10 ?? '-',
+      row.aqi ?? '-'
     ]);
     
     const csvContent = [
@@ -94,18 +111,22 @@ export function HistoryPage() {
     doc.line(14, 30, 196, 30);
 
     autoTable(doc, {
-      head: [['Timestamp', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'NH3 (ppm)', 'AQI']],
+      head: [['Timestamp', 'Temp', 'Humidity', 'CO2', 'NH3', 'CH4', 'PM1.0', 'PM2.5', 'PM10', 'AQI']],
       body: historicalLogs.map(row => [
         row.timestamp, 
-        `${row.temp} °C`, 
-        `${row.humidity} %`, 
-        `${row.co2} ppm`, 
-        `${row.ammonia} ppm`, 
-        row.aqi
+        row.temp !== undefined ? `${row.temp} °C` : '-', 
+        row.humidity !== undefined ? `${row.humidity} %` : '-', 
+        row.co2 !== undefined ? `${row.co2} ppm` : '-', 
+        row.ammonia !== undefined ? `${row.ammonia} ppm` : '-', 
+        row.methane !== undefined ? `${row.methane} ppm` : '-', 
+        row.pm1_0 !== undefined ? `${row.pm1_0} µg` : '-', 
+        row.pm2_5 !== undefined ? `${row.pm2_5} µg` : '-', 
+        row.pm10 !== undefined ? `${row.pm10} µg` : '-', 
+        row.aqi !== undefined ? String(row.aqi) : '-'
       ]),
       startY: 35,
       theme: 'grid',
-      styles: { fontSize: 8, font: 'courier' },
+      styles: { fontSize: 7, font: 'courier' },
       headStyles: { fillColor: [59, 130, 246] }
     });
 
@@ -198,6 +219,14 @@ export function HistoryPage() {
                 <th className="px-6 py-3.5 whitespace-nowrap">Sensor Name</th>
                 <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
                 <th className="px-6 py-3.5 whitespace-nowrap">Reading</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">Temp</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">Humidity</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">CO2</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">NH3</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">CH4</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">PM1.0</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">PM2.5</th>
+                <th className="px-6 py-3.5 whitespace-nowrap text-right">PM10</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
@@ -207,6 +236,14 @@ export function HistoryPage() {
                   <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.status}</td>
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.reading}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.temp !== undefined ? `${row.temp}°C` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.humidity !== undefined ? `${row.humidity}%` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.co2 !== undefined ? `${row.co2} ppm` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.ammonia !== undefined ? `${row.ammonia} ppm` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.methane !== undefined ? `${row.methane} ppm` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.pm1_0 !== undefined ? `${row.pm1_0} µg` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.pm2_5 !== undefined ? `${row.pm2_5} µg` : '-'}</td>
+                  <td className="px-6 py-3.5 text-system-text font-semibold text-right whitespace-nowrap">{row.pm10 !== undefined ? `${row.pm10} µg` : '-'}</td>
                 </tr>
               ))}
             </tbody>
