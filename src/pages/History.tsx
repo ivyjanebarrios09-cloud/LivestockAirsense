@@ -8,7 +8,8 @@ import { useAppContext } from '../hooks/useAppContext';
 import { getStatusHistory } from '../lib/firebase';
 
 export function HistoryPage() {
-  const { activeLocation } = useAppContext();
+  const { devices, selectedDeviceId } = useAppContext();
+  const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
   
@@ -19,7 +20,7 @@ export function HistoryPage() {
   useEffect(() => {
     setCurrentPage(1);
     fetchData();
-  }, [timeRange, activeLocation]);
+  }, [timeRange, activeDevice]);
 
   const fetchData = async () => {
     const logs = await getStatusHistory();
@@ -50,13 +51,13 @@ export function HistoryPage() {
   };
 
   const downloadCSV = () => {
-    if (!activeLocation) return;
-    const headers = ['Timestamp', 'Facility Name', 'Breed', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'Ammonia (ppm)', 'AQI'];
+    if (!activeDevice) return;
+    const headers = ['Timestamp', 'Device Name', 'Device ID', 'Temp (°C)', 'Humidity (%)', 'CO2 (ppm)', 'Ammonia (ppm)', 'AQI'];
     
     const rows = historicalLogs.map(row => [
       row.timestamp,
-      activeLocation.name,
-      activeLocation.type,
+      activeDevice.name,
+      activeDevice.id,
       row.temp,
       row.humidity,
       row.co2,
@@ -73,21 +74,21 @@ export function HistoryPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `airsense_${activeLocation.id}_historical_${timeRange}.csv`);
+    link.setAttribute('download', `airsense_${activeDevice.id}_historical_${timeRange}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    triggerFeedback(`Exported CSV for ${activeLocation.name}`);
+    triggerFeedback(`Exported CSV for ${activeDevice.name}`);
   };
 
   const downloadPDF = () => {
-    if (!activeLocation) return;
+    if (!activeDevice) return;
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
-    doc.text(`Livestock AirSense: ${activeLocation.name} Report`, 14, 15);
+    doc.text(`Livestock AirSense: ${activeDevice.name} Report`, 14, 15);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Facility Type: ${activeLocation.type}`, 14, 21);
+    doc.text(`Device ID: ${activeDevice.id}`, 14, 21);
     doc.text(`Timeline Scope: ${timeRange.toUpperCase()} LOGS`, 14, 26);
     doc.setLineWidth(0.5);
     doc.line(14, 30, 196, 30);
@@ -108,15 +109,15 @@ export function HistoryPage() {
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    doc.save(`airsense_${activeLocation.id}_historical_${timeRange}.pdf`);
-    triggerFeedback(`Generated PDF for ${activeLocation.name}`);
+    doc.save(`airsense_${activeDevice.id}_historical_${timeRange}.pdf`);
+    triggerFeedback(`Generated PDF for ${activeDevice.name}`);
   };
 
-  if (!activeLocation) {
+  if (!activeDevice) {
     return (
       <div className="p-8 text-center">
-        <h2 className="text-xl font-bold">No facility selected</h2>
-        <p className="text-system-muted mt-2">Please select a facility location in the dashboard to generate history logs.</p>
+        <h2 className="text-xl font-bold">No device selected</h2>
+        <p className="text-system-muted mt-2">Please register an AirSense device in the settings page to generate history logs.</p>
       </div>
     );
   }
@@ -128,7 +129,7 @@ export function HistoryPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Historical Logs</h1>
           <p className="text-sm text-system-muted mt-1 leading-relaxed">
-            Analyze historical calibrated telemetry curves for <span className="font-bold text-system-text">{activeLocation.name}</span>.
+            Analyze historical calibrated telemetry curves for <span className="font-bold text-system-text">{activeDevice.name}</span>.
           </p>
         </div>
 

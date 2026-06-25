@@ -6,18 +6,20 @@ import { cn } from '../lib/utils';
 import { getSensorReadings } from '../lib/firebase';
 
 export function AnalyticsPage() {
-  const { activeLocation, selectedDeviceId } = useAppContext();
+  const { uid, devices, selectedDeviceId } = useAppContext();
+  const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [chartMetric, setChartMetric] = useState<'aqi' | 'temp' | 'co2' | 'ammonia'>('aqi');
 
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!uid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(selectedDeviceId, 12);
+      const logs = await getSensorReadings(uid, selectedDeviceId, 12);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, uid]);
 
   // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {
@@ -45,34 +47,12 @@ export function AnalyticsPage() {
   }, [dynamicTimelineData]);
 
   const breedInsights = useMemo(() => {
-    const breed = activeLocation?.type ? activeLocation.type.toLowerCase() : '';
-    
-    if (breed.includes('sheep') || breed.includes('goat') || breed.includes('ovine')) {
-      return {
-        optimalTemp: '15 - 21 °C',
-        airFlowNeed: 'Moderate',
-        tip: `Sheep and goats at ${activeLocation?.name || 'the facility'} require clean dry bedding and well-regulated humidity to avoid respiratory issues. Prioritize moisture exhaust over heavy thermal cooling.`
-      };
-    } else if (breed.includes('cattle') || breed.includes('cow') || breed.includes('dairy')) {
-      return {
-        optimalTemp: '5 - 18 °C',
-        airFlowNeed: 'Critical',
-        tip: `Dairy cattle suffer early signs of heat stress above 20°C. Maintaining strong wind speeds at stall heights is critical. Prioritize fan activation when temperature exceeds average and CO2 goes beyond 750 ppm.`
-      };
-    } else if (breed.includes('poultry') || breed.includes('chicken') || breed.includes('hen')) {
-      return {
-        optimalTemp: '20 - 26 °C',
-        airFlowNeed: 'Maximum',
-        tip: `Poultry laying hens are extremely sensitive to elevated carbon dioxide and dust particulates. Maintain dust filtering and maximize fresh air intake when birds are highly active during peak afternoon cycles.`
-      };
-    }
-    
     return {
       optimalTemp: '15 - 22 °C',
       airFlowNeed: 'Standard',
-      tip: `Keep microclimate stable. Continuous fresh air changes help regulate core ambient air and clear organic particulate loads safely.`
+      tip: `Keep microclimate stable. Continuous fresh air changes help regulate core ambient air and clear organic particulate loads safely. Prioritize monitoring sensor trends for early hazard detection.`
     };
-  }, [activeLocation]);
+  }, []);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
@@ -88,7 +68,7 @@ export function AnalyticsPage() {
           <Layers className="w-4 h-4 text-system-accent" />
           <div className="text-left">
             <div className="text-[9px] uppercase tracking-wider text-system-muted font-bold font-mono">Current Focus</div>
-            <div className="text-xs font-black text-system-text uppercase font-mono leading-none">{activeLocation?.name || 'No Facility Selected'}</div>
+            <div className="text-xs font-black text-system-text uppercase font-mono leading-none">{activeDevice?.name || 'No Device Selected'}</div>
           </div>
         </div>
       </div>
@@ -112,7 +92,7 @@ export function AnalyticsPage() {
           { 
             title: 'Optimized Target Temp', 
             value: breedInsights.optimalTemp, 
-            sub: `Sustains: ${activeLocation?.type || 'General'}`, 
+            sub: 'Sustains: Universal livestock', 
             icon: Sparkles, 
             color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' 
           },

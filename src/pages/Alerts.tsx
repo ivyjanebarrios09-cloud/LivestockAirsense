@@ -8,7 +8,7 @@ import { subscribeToAlerts } from '../lib/firebase';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { activeLocation, resolveAlert, clearAllAlerts } = useAppContext();
+  const { resolveAlert, clearAllAlerts } = useAppContext();
   
   const [alerts, setAlerts] = useState<any[]>([]);
 

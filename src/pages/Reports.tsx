@@ -6,25 +6,26 @@ import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
 
 export function ReportsPage() {
-  const { activeLocation } = useAppContext();
+  const { devices, selectedDeviceId } = useAppContext();
+  const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const compiledReportProps = useMemo(() => {
-    if (!activeLocation) return [];
+    if (!activeDevice) return [];
     return [
-      { parameter: 'Average Heat Index', value: `${(activeLocation.baseTemp + 0.4).toFixed(1)} °C`, status: activeLocation.baseTemp > 28 ? 'Caution' : 'Optimal' },
-      { parameter: 'Average Humidity Level', value: `${activeLocation.baseHumidity} %`, status: 'Optimal' },
-      { parameter: 'Average CO2 gas rating', value: `${activeLocation.baseCo2} ppm`, status: activeLocation.baseCo2 > 900 ? 'Extreme Warning' : 'Optimal' },
-      { parameter: 'Average Ammonia (NH3) trace', value: `${activeLocation.baseAmmonia} ppm`, status: activeLocation.baseAmmonia > 4.5 ? 'Moderate Risk' : 'Excellent' },
+      { parameter: 'Average Heat Index', value: '22.9 °C', status: 'Optimal' },
+      { parameter: 'Average Humidity Level', value: '62 %', status: 'Optimal' },
+      { parameter: 'Average CO2 gas rating', value: '480 ppm', status: 'Optimal' },
+      { parameter: 'Average Ammonia (NH3) trace', value: '1.2 ppm', status: 'Excellent' },
       { parameter: 'Safety Threshold Limit', value: 'Active Compliance Check', status: 'Compliant' },
     ];
-  }, [activeLocation]);
+  }, [activeDevice]);
 
-  if (!activeLocation) {
+  if (!activeDevice) {
     return (
       <div className="p-8 text-center">
-        <h2 className="text-xl font-bold">No facility selected</h2>
-        <p className="text-system-muted mt-2">Please select a facility location in the dashboard to generate reports.</p>
+        <h2 className="text-xl font-bold">No device registered</h2>
+        <p className="text-system-muted mt-2">Please register an AirSense device in the settings page to generate reports.</p>
       </div>
     );
   }
@@ -38,7 +39,7 @@ export function ReportsPage() {
     const headers = ['Parameter / Characteristic', 'Average Value', 'Compliance Status'];
     const rows = compiledReportProps.map(row => [row.parameter, row.value, row.status]);
     const csvContent = [
-      [`Active Facility Report: ${activeLocation.name} - Breed Type: ${activeLocation.type}`],
+      [`Active Device Report: ${activeDevice.name} (${activeDevice.id})`],
       headers.join(','), 
       ...rows.map(e => e.map(v => `"${v}"`).join(','))
     ].join('\n');
@@ -47,7 +48,7 @@ export function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${activeLocation.id}_compliance_${title.toLowerCase().replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `${activeDevice.id}_compliance_${title.toLowerCase().replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -62,8 +63,7 @@ export function ReportsPage() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Report Level: ${title}`, 14, 26);
-    doc.text(`Monitored Facility: ${activeLocation.name}`, 14, 31);
-    doc.text(`Facility Placement Type: ${activeLocation.type}`, 14, 36);
+    doc.text(`Monitored Device: ${activeDevice.name} (${activeDevice.id})`, 14, 31);
     doc.text(`Generated Standard: 2026-06-16 (UTC)`, 14, 41);
     doc.setLineWidth(0.5);
     doc.line(14, 45, 196, 45);
@@ -77,7 +77,7 @@ export function ReportsPage() {
       headStyles: { fillColor: [79, 70, 229] }
     });
 
-    doc.save(`${activeLocation.id}_assessment_${title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+    doc.save(`${activeDevice.id}_assessment_${title.toLowerCase().replace(/\s+/g, '_')}.pdf`);
     triggerNotify(`Saved PDF Compliance: ${title}`);
   };
 
@@ -100,7 +100,7 @@ export function ReportsPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
           <p className="text-sm text-system-muted mt-1 leading-relaxed">
-            Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeLocation.name}</span>.
+            Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeDevice.name}</span>.
           </p>
         </div>
         
@@ -126,7 +126,7 @@ export function ReportsPage() {
           <div>
             <h4 className="font-bold text-xs text-system-text uppercase font-mono">Calibrating Reports Generator context</h4>
             <p className="text-xs text-system-muted mt-0.5">
-              All files downloaded below will pull dynamic sensor characteristics matched with active barn: <span className="font-bold text-system-text">{activeLocation.name} ({activeLocation.type})</span>.
+              All files downloaded below will pull dynamic sensor characteristics matched with device: <span className="font-bold text-system-text">{activeDevice.name} ({activeDevice.id})</span>.
             </p>
           </div>
         </div>

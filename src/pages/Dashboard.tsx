@@ -217,24 +217,17 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 export function Dashboard() {
   const { 
     uid, 
-    activeLocation, 
     thresholds, 
     isSyncing, 
     triggerSync, 
     alertsList, 
-    locations, 
-    selectedLocationId, 
-    setSelectedLocationId, 
     selectedDeviceId, 
     setSelectedDeviceId,
     devices, 
     refreshInterval,
-    addLocation,
     addDevice 
   } = useAppContext();
 
-  const [onboardingLocName, setOnboardingLocName] = useState('Main Broiler Barn');
-  const [onboardingLocType, setOnboardingLocType] = useState('Poultry');
   const [onboardingDevId, setOnboardingDevId] = useState(() => `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
   const [onboardingDevName, setOnboardingDevName] = useState('ESP32 Main Node');
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
@@ -244,25 +237,13 @@ export function Dashboard() {
     setIsOnboardingSaving(true);
     setOnboardingError(null);
     try {
-      const slug = 'main-broiler-barn';
-      await addLocation({
-        id: slug,
-        name: 'Main Broiler Barn',
-        type: 'Poultry',
-        animalCount: 0,
-        baseTemp: 22.5,
-        baseHumidity: 60,
-        baseCo2: 500,
-        baseAmmonia: 2.1
-      });
       const devId = `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       await addDevice({
         id: devId,
         deviceId: devId,
         name: 'ESP32 Main Node',
-        locationId: slug
+        locationId: 'default'
       });
-      setSelectedLocationId(slug);
       setSelectedDeviceId(devId);
     } catch (err: any) {
       setOnboardingError(err.message || 'Failed to complete quick onboarding.');
@@ -273,31 +254,19 @@ export function Dashboard() {
 
   const handleCustomRegisterSetup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onboardingLocName.trim() || !onboardingDevName.trim() || !onboardingDevId.trim()) {
+    if (!onboardingDevName.trim() || !onboardingDevId.trim()) {
       setOnboardingError('Please fill in all the registration fields.');
       return;
     }
     setIsOnboardingSaving(true);
     setOnboardingError(null);
     try {
-      const slug = onboardingLocName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      await addLocation({
-        id: slug,
-        name: onboardingLocName.trim(),
-        type: onboardingLocType,
-        animalCount: 0,
-        baseTemp: 22.0,
-        baseHumidity: 60,
-        baseCo2: 500,
-        baseAmmonia: 1.5
-      });
       await addDevice({
          id: onboardingDevId.trim(),
          deviceId: onboardingDevId.trim(),
          name: onboardingDevName.trim(),
-         locationId: slug
+         locationId: 'default'
       });
-      setSelectedLocationId(slug);
       setSelectedDeviceId(onboardingDevId.trim());
     } catch (err: any) {
       setOnboardingError(err.message || 'Failed to register the custom telemetry device.');
@@ -308,28 +277,27 @@ export function Dashboard() {
 
   const registeredDevices = devices;
 
-  const locationDevices = registeredDevices.filter(d => d.locationId === activeLocation?.id);
-
   const [deviceData, setDeviceData] = useState<any>(null);
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
   
   useEffect(() => {
-    if (!selectedDeviceId) return;
-    const unsubscribe = subscribeToSensorData(selectedDeviceId, (data) => {
+    if (!selectedDeviceId || !uid) return;
+    const unsubscribe = subscribeToSensorData(uid, selectedDeviceId, (data) => {
         setDeviceData(data);
     });
     return () => unsubscribe();
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, uid]);
 
   useEffect(() => {
+    if (!uid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(selectedDeviceId, 12);
+      const logs = await getSensorReadings(uid, selectedDeviceId, 12);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
     const interval = setInterval(fetchData, refreshInterval + 100);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, refreshInterval]);
+  }, [selectedDeviceId, refreshInterval, uid]);
 
   const chartData = telemetryLogs.map(log => ({
     time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
@@ -489,7 +457,7 @@ export function Dashboard() {
     },
   ];
 
-  if (false && devices.length === 0) {
+  if (devices.length === 0) {
     return (
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden ring-1 ring-white/10">
@@ -551,44 +519,18 @@ export function Dashboard() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Facility Location Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={onboardingLocName}
-                    onChange={(e) => setOnboardingLocName(e.target.value)}
-                    placeholder="e.g. Main Chicken Barn"
-                    className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent focus:ring-1 focus:ring-system-accent bg-slate-900"
-                  />
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={onboardingDevId}
+                      onChange={(e) => setOnboardingDevId(e.target.value)}
+                      className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent bg-slate-900"
+                    />
+                  </div>
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Livestock Cohort Type</label>
-                  <select
-                    value={onboardingLocType}
-                    onChange={(e) => setOnboardingLocType(e.target.value)}
-                    className="w-full text-xs rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent"
-                  >
-                    <option value="Poultry">Poultry / Chicken</option>
-                    <option value="Dairy">Dairy / Cattle</option>
-                    <option value="Equine">Equine / Horses</option>
-                    <option value="Other">Other / General</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
-                  <input
-                    type="text"
-                    required
-                    value={onboardingDevId}
-                    onChange={(e) => setOnboardingDevId(e.target.value)}
-                    className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent bg-slate-900"
-                  />
-                </div>
-              </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Friendly Device Name</label>
@@ -618,47 +560,14 @@ export function Dashboard() {
     );
   }
 
-  if (selectedDeviceId && !deviceData) {
-    return (
-      <div className="p-4 md:p-8 max-w-md mx-auto space-y-6 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
-        <div className="bg-system-panel border border-system-border shadow-xl rounded-2xl p-6 md:p-8 flex flex-col items-center text-center space-y-6 relative overflow-hidden">
-          
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-system-accent via-indigo-500 to-cyan-500 animate-pulse" />
-
-          <div className="relative flex items-center justify-center w-24 h-24 rounded-full bg-system-accent/10 border border-system-accent/20">
-            <span className="absolute animate-ping inline-flex h-16 w-16 rounded-full bg-system-accent/20 opacity-75"></span>
-            <span className="absolute animate-ping inline-flex h-20 w-20 rounded-full bg-system-accent/10 opacity-50"></span>
-            <Wifi className="w-10 h-10 text-system-accent animate-pulse" />
-          </div>
-
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-500 border border-sky-500/20 text-[9px] font-bold font-mono tracking-wide uppercase select-none">
-              Awaiting First Sensor Transmission
-            </div>
-            <h2 className="text-xl font-bold text-system-text uppercase font-mono tracking-tight">
-              Establishing Data Link...
-            </h2>
-            <p className="text-xs text-system-muted leading-relaxed max-w-sm">
-              Node <span className="font-mono font-bold text-system-text bg-system-bg px-1.5 py-0.5 rounded border border-system-border/45 select-all">{selectedDeviceId}</span> is paired. We are now listening for the first environmental broadcast from your sensor.
-            </p>
-          </div>
-
-          <div className="w-full border-t border-system-border/40 pt-4 space-y-3">
-            <p className="text-[10px] text-system-muted font-mono leading-tight">
-              Using simulated stream or local device? Wake up the node or trigger the manual stream injector tool below.
-            </p>
-            <button
-              onClick={() => triggerSync()}
-              disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-system-accent to-indigo-600 hover:from-system-accent/90 hover:to-indigo-500 py-2.5 px-4 text-xs font-bold tracking-wider text-white shadow-md hover:shadow-lg transition-all font-mono uppercase disabled:opacity-50 cursor-pointer"
-            >
-              {isSyncing ? 'Synchronizing stream...' : 'Trigger Seed Injection Signal'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Loading screen removed to ensure dashboard always renders
+  // if (selectedDeviceId && !deviceData) {
+  //   return (
+  //     <div className="p-4 md:p-8 max-w-md mx-auto space-y-6 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
+  //        ...
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
@@ -682,16 +591,16 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <label className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap hidden sm:block">Zone</label>
+            <label className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap hidden sm:block">Identifier</label>
             <div className="relative inline-block w-full sm:w-auto flex-1">
               <select
-                value={selectedLocationId}
-                onChange={(e) => setSelectedLocationId(e.target.value)}
+                value={selectedDeviceId}
+                onChange={(e) => setSelectedDeviceId(e.target.value)}
                 className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg px-2 md:px-3 py-1 md:py-2 text-xs md:text-base font-black tracking-tight text-white focus:outline-none pr-7 md:pr-9 appearance-none transition-colors leading-none w-full sm:w-auto"
               >
-                {locations?.map((loc) => (
-                  <option key={loc.id} value={loc.id} className="text-slate-900 font-semibold bg-white">
-                    {loc.name}
+                {devices?.map((dev) => (
+                  <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
+                    {dev.name} ({dev.id})
                   </option>
                 ))}
               </select>
@@ -843,22 +752,22 @@ export function Dashboard() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
-                {locationDevices.length} ACTIVE
+                {devices.length} ACTIVE
               </div>
             </div>
 
-            {/* List of hardware nodes matching current location */}
+            {/* List of hardware nodes */}
             <div className="space-y-2 shrink-0">
               <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
-                Zone Hardware Node Devices
+                Registered Hardware Node Devices
               </div>
               <div className="grid grid-cols-1 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
-                {locationDevices.length === 0 ? (
+                {devices.length === 0 ? (
                   <div className="p-2 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono">
                     No hardware mapped. Register a node in settings page.
                   </div>
                 ) : (
-                  locationDevices.map((dev: any) => (
+                  devices.map((dev: any) => (
                     <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
                       <div className="min-w-0">
                         <p className="font-bold truncate text-system-text">{dev.name}</p>
@@ -881,13 +790,12 @@ export function Dashboard() {
 
             {/* Warn/Telemetry Events */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
-              {alertsList.filter(l => l.location.toLowerCase().includes(activeLocation.name.split(' (')[0].toLowerCase()) || l.location.toLowerCase() === activeLocation.name.toLowerCase()).length === 0 ? (
+              {alertsList.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                  <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal for this zone.</p>
+                  <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal.</p>
                 </div>
               ) : (
                 alertsList
-                  .filter(l => l.location.toLowerCase().includes(activeLocation.name.split(' (')[0].toLowerCase()) || l.location.toLowerCase() === activeLocation.name.toLowerCase())
                   .slice(0, 4)
                   .map((log, i) => (
                     <div key={log.id || i} className="flex gap-2.5 text-xs pb-2 border-b border-system-bg last:border-0">

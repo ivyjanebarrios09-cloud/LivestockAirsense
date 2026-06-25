@@ -18,11 +18,6 @@ export function SettingsPage() {
   const { 
     thresholds, 
     saveThresholds, 
-    locations, 
-    addLocation, 
-    deleteLocation, 
-    selectedLocationId,
-    setSelectedLocationId,
     selectedDeviceId, 
     setSelectedDeviceId, 
     devices, 
@@ -66,21 +61,13 @@ export function SettingsPage() {
 
   const [deviceIdInput, setDeviceIdInput] = useState('');
   const [deviceNameInput, setDeviceNameInput] = useState('');
-  const [deviceLocationInput, setDeviceLocationInput] = useState('');
 
   const [showDeviceSavedFeedback, setShowDeviceSavedFeedback] = useState(false);
   const [deviceFeedbackText, setDeviceFeedbackText] = useState('');
 
+  const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
-
-  const [isAddingLocation, setIsAddingLocation] = useState(false);
-  const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
-  const [isAddingLocationPopup, setIsAddingLocationPopup] = useState(false);
-  const [newLocationName, setNewLocationName] = useState('');
-  const [newLocationType, setNewLocationType] = useState('Poultry');
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [locationToDelete, setLocationToDelete] = useState<any | null>(null);
 
   const [pushEnabled, setPushEnabled] = useState(() => {
     return localStorage.getItem(`las_${uid}_push_enabled`) === 'true';
@@ -146,7 +133,6 @@ export function SettingsPage() {
       if (active) {
         setDeviceIdInput(active.id);
         setDeviceNameInput(active.name);
-        setDeviceLocationInput(active.locationId);
       }
     }
   }, [selectedDeviceId, devices, isEditingNew]);
@@ -158,7 +144,6 @@ export function SettingsPage() {
     const randTag = Math.random().toString(36).substring(2, 7).toUpperCase();
     setDeviceIdInput(`EP-ESP32-${randTag}`);
     setDeviceNameInput('');
-    setDeviceLocationInput(locations[0]?.id);
   };
 
   const handleSaveDevice = async () => {
@@ -169,10 +154,6 @@ export function SettingsPage() {
     }
     if (!deviceNameInput.trim()) {
       setDeviceError('Please enter a Device Name.');
-      return;
-    }
-    if (!deviceLocationInput) {
-      setDeviceError('Please select a Facility Location.');
       return;
     }
 
@@ -186,7 +167,7 @@ export function SettingsPage() {
           id: deviceIdInput.trim(),
           deviceId: deviceIdInput.trim(),
           name: deviceNameInput.trim(),
-          locationId: deviceLocationInput
+          locationId: 'default'
         };
         
         await addDevice(newD);
@@ -200,7 +181,7 @@ export function SettingsPage() {
           id: selectedDeviceId,
           deviceId: selectedDeviceId,
           name: deviceNameInput.trim(),
-          locationId: deviceLocationInput
+          locationId: 'default'
         };
         await addDevice(updatedD);
         setDeviceFeedbackText('Device properties updated!');
@@ -241,66 +222,6 @@ export function SettingsPage() {
     setDeviceToDelete(null);
 
     setDeviceFeedbackText('Device removed.');
-    setShowDeviceSavedFeedback(true);
-    setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
-  };
-
-  const handleAddLocationClick = () => {
-    setLocationError(null);
-    setIsAddingLocation(true);
-    setIsAddingLocationPopup(true); // Open popup
-    setNewLocationName('');
-    setNewLocationType('Poultry');
-  };
-
-  const handleSaveLocation = async () => {
-    setLocationError(null);
-    if (!newLocationName.trim()) {
-       setLocationError('Please specify a Location Name.');
-       return;
-    }
-    const slug = newLocationName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    if (locations.some(l => l.id === slug)) {
-      setLocationError('A location with this name or code already exists. Please use a unique name.');
-      return;
-    }
-
-    const newLoc = {
-      id: slug,
-      name: newLocationName.trim(),
-      type: newLocationType.trim(),
-      animalCount: 0,
-      baseTemp: 21,
-      baseHumidity: 50,
-      baseCo2: 450,
-      baseAmmonia: 0.5
-    };
-
-    await addLocation(newLoc);
-    setSelectedLocationId(slug);
-
-    setDeviceFeedbackText('Location added successfully!');
-    setShowDeviceSavedFeedback(true);
-    setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
-    setIsAddingLocation(false);
-    setIsAddingLocationPopup(false);
-  };
-
-  const handleDeleteLocationClick = (loc: any) => {
-    setLocationError(null);
-    if (locations.length <= 1) {
-      setLocationError('Cannot delete the last facility location. At least one location is required.');
-      return;
-    }
-    setLocationToDelete(loc);
-  };
-
-  const executeDeleteLocation = () => {
-    if (!locationToDelete) return;
-    deleteLocation(locationToDelete.id);
-    setLocationToDelete(null);
-
-    setDeviceFeedbackText('Facility placement removed.');
     setShowDeviceSavedFeedback(true);
     setTimeout(() => setShowDeviceSavedFeedback(false), 2500);
   };
@@ -381,7 +302,6 @@ export function SettingsPage() {
 
                 <div className="space-y-1.5">
                   {devices.map((dev) => {
-                    const devLocation = locations?.find(l => l.id === dev.locationId);
                     const isSelected = selectedDeviceId === dev.id && !isEditingNew;
                     return (
                       <div
@@ -404,10 +324,6 @@ export function SettingsPage() {
                           <p className="font-mono text-[9px] text-system-muted truncate bg-system-bg px-1.5 py-0.5 rounded border border-system-border/40 inline-block">
                             {dev.id}
                           </p>
-                          <div className="flex items-center gap-1 text-[10px] text-system-muted font-medium">
-                            <MapPin className="w-3 h-3 text-system-accent/60" />
-                            <span className="truncate">{devLocation ? devLocation.name : 'Unknown Location'}</span>
-                          </div>
                         </div>
 
                         <button
@@ -428,117 +344,6 @@ export function SettingsPage() {
 
               {/* Right Column: Device Registration Overview */}
 
-            </div>
-          </section>
-
-          <section className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-system-border bg-system-bg flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-system-muted" />
-                <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Facility Location Placements ({locations.length})</h3>
-              </div>
-              <button
-                onClick={handleAddLocationClick}
-                className="flex items-center gap-1 px-3 py-1 bg-system-accent/15 hover:bg-system-accent/25 border border-system-accent/35 text-system-accent font-bold rounded-lg text-[11px] uppercase tracking-wider transition-all cursor-pointer animate-pulse"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add New Location
-              </button>
-            </div>
-
-            <div className="divide-y divide-system-border">
-              {/* Left Column: List of Facility Locations */}
-              <div className="p-4 bg-system-bg/30 space-y-2.5 max-h-[350px] overflow-y-auto">
-                <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono px-1">
-                  Available placements ({locations.length})
-                </div>
-
-                <div className="space-y-1.5">
-                  {locations.map((loc) => {
-                    const isSelected = !isAddingLocation && deviceLocationInput === loc.id;
-                    return (
-                      <div
-                        key={loc.id}
-                        onClick={() => {
-                          setIsAddingLocation(false);
-                          setDeviceLocationInput(loc.id);
-                        }}
-                        className={cn(
-                          "group p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 select-none",
-                          isSelected
-                            ? "bg-system-bg border-system-border pl-4"
-                            : "bg-system-panel hover:bg-system-bg/40 border-system-border/60"
-                        )}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold font-sans text-system-text truncate">{loc.name}</p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteLocationClick(loc);
-                          }}
-                          className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer shrink-0"
-                          title="Delete Location"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {locationError && (
-                  <div className="p-3 bg-red-500/15 border border-red-500/30 text-red-500 rounded-xl text-xs font-mono font-semibold flex items-center justify-between gap-3 animate-pulse">
-                    <div className="flex items-center gap-2 leading-relaxed">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 block animate-ping shrink-0" />
-                      <span>{locationError}</span>
-                    </div>
-                    <button 
-                      onClick={() => setLocationError(null)}
-                      className="text-[10px] uppercase font-bold text-red-500 hover:text-red-650 cursor-pointer shrink-0"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-              </div>
-
-                {isAddingLocation && (
-                  <div className="p-5 md:p-6 space-y-4 border-t md:border-t-0 md:border-l border-system-border">
-                    <div className="text-[10px] uppercase tracking-wider text-system-muted font-bold font-mono">
-                      New Location Placement Parameters
-                    </div>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Location / Barn Name</label>
-                        <input
-                          type="text"
-                          value={newLocationName}
-                          onChange={(e) => setNewLocationName(e.target.value)}
-                          placeholder="e.g. Barn B (Nursery)"
-                          className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-sans"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-system-border/40 pt-4 mt-2">
-                        <button
-                          onClick={() => setIsAddingLocation(false)}
-                          className="px-4 py-2 border border-system-border text-system-muted hover:bg-system-bg rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveLocation}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Create Placement
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
             </div>
           </section>
 
@@ -701,7 +506,7 @@ export function SettingsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 gap-4 mb-6">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Device ID Token</label>
                 <input
@@ -722,50 +527,6 @@ export function SettingsPage() {
                   className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
                 />
               </div>
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Facility Location Placement</label>
-                {locations && locations.length > 0 ? (
-                  <select
-                    value={deviceLocationInput}
-                    onChange={(e) => {
-                      setDeviceLocationInput(e.target.value);
-                      setDeviceError(null);
-                    }}
-                    className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text cursor-pointer transition-colors"
-                  >
-                    <option value="">-- Choose Target Facility Placement --</option>
-                    {locations?.map(loc => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} ({loc.type})
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="text-xs bg-red-500/10 border border-red-500/20 text-red-500 p-3.5 rounded-xl flex flex-col gap-2">
-                    <span>No Facility Location placements exist yet. You must define a place first in order to bind this device model.</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        addLocation({
-                          id: 'loc-001',
-                          name: 'Main Broiler Barn',
-                          type: 'Poultry',
-                          animalCount: 0,
-                          baseTemp: 22.5,
-                          baseHumidity: 60,
-                          baseCo2: 500,
-                          baseAmmonia: 2.1
-                        });
-                        setDeviceLocationInput('loc-001');
-                        setDeviceError(null);
-                      }}
-                      className="px-3.5 py-1.5 bg-red-500 hover:bg-opacity-90 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider self-start cursor-pointer transition-all active:scale-95"
-                    >
-                      Initialize Default Location Plan
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
             <div className="flex gap-2.5 justify-end">
               <button
@@ -785,43 +546,7 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Add New Location Popup */}
-      {isAddingLocationPopup && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-system-panel border border-system-border rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="font-bold text-base uppercase font-mono tracking-tight text-system-text mb-4">Add New Location Placement</h3>
-            <div className="grid grid-cols-1 gap-4 mb-6">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">Location / Barn Name</label>
-                <input
-                  type="text"
-                  value={newLocationName}
-                  onChange={(e) => setNewLocationName(e.target.value)}
-                  placeholder="e.g. Barn B (Nursery)"
-                  className="w-full bg-system-bg border border-system-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors font-sans"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2.5 justify-end">
-              <button
-                onClick={() => setIsAddingLocationPopup(false)}
-                className="px-4 py-2 bg-system-bg border border-system-border hover:bg-system-panel font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleSaveLocation();
-                  setIsAddingLocationPopup(false);
-                }}
-                className="px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add New Location Popups removed */}
     </div>
   );
 }

@@ -67,8 +67,27 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if true;
-      allow write: if isOwner(userId);
+      allow read, write: if true;
+
+      match /devices/{deviceId} {
+        allow read, write: if true;
+
+        match /history/{dateStr} {
+          allow read, write: if true;
+
+          match /readings/{readingId} {
+            allow read, write: if true;
+          }
+        }
+
+        match /dailyHistory/{dateStr} {
+          allow read, write: if true;
+        }
+      }
+    }
+
+    match /deviceRegistry/{deviceId} {
+      allow read, write: if true;
     }
 
     match /locations/{locationId} {

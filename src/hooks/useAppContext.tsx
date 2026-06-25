@@ -36,17 +36,11 @@ const LOCATIONS: LocationDetail[] = [];
 
 export interface AppContextType {
   uid: string;
-  locations: LocationDetail[];
-  addLocation: (loc: LocationDetail) => void;
-  deleteLocation: (id: string) => void;
   devices: any[];
   addDevice: (device: any) => void;
   deleteDevice: (id: string) => void;
-  selectedLocationId: string;
-  setSelectedLocationId: (id: string) => void;
   selectedDeviceId: string;
   setSelectedDeviceId: (id: string) => void;
-  activeLocation: LocationDetail | undefined;
   thresholds: Thresholds;
   saveThresholds: (newThresholds: Thresholds) => void;
   isSyncing: boolean;
@@ -64,17 +58,11 @@ export interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
-  const [locations, setLocations] = useState<LocationDetail[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
 
   useEffect(() => {
-    getLocations(uid).then(setLocations);
     getDevices(uid).then(setDevices);
   }, [uid]);
-
-  const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
-    return localStorage.getItem(`las_${uid}_selected_location`) || '';
-  });
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
     return localStorage.getItem(`las_${uid}_selected_device`) || '';
@@ -116,9 +104,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const unsubscribeUser = onSnapshot(userDocRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        if (data.selectedLocationId !== undefined) {
-          setSelectedLocationId(data.selectedLocationId);
-        }
         if (data.selectedDeviceId !== undefined) {
           setSelectedDeviceId(data.selectedDeviceId);
         }
@@ -140,25 +125,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   }, [uid]);
 
   useEffect(() => {
-    if (locations.length > 0 && !selectedLocationId) {
-      setSelectedLocationId(locations[0].id);
-    }
-  }, [locations, selectedLocationId]);
-
-  useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
       setSelectedDeviceId(devices[0].id);
     }
   }, [devices, selectedDeviceId]);
-
-  const activeLocation = locations.find(l => l.id === selectedLocationId) || (locations.length > 0 ? locations[0] : undefined);
-
-  useEffect(() => {
-    if (selectedLocationId) {
-      localStorage.setItem(`las_${uid}_selected_location`, selectedLocationId);
-      saveUserSettingsToFirestore(uid, { selectedLocationId });
-    }
-  }, [selectedLocationId, uid]);
 
   useEffect(() => {
     if (selectedDeviceId) {
@@ -166,35 +136,6 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       saveUserSettingsToFirestore(uid, { selectedDeviceId });
     }
   }, [selectedDeviceId, uid]);
-
-  const addLocation = async (loc: LocationDetail) => {
-    const enrichedLocation = { ...loc, userId: uid };
-    await addLocationToFirestore(enrichedLocation);
-    setLocations(prev => {
-      const index = prev.findIndex(l => l.id === loc.id);
-      if (index >= 0) {
-        const copy = [...prev];
-        copy[index] = enrichedLocation;
-        return copy;
-      }
-      return [...prev, enrichedLocation];
-    });
-  };
-
-  const deleteLocation = async (id: string) => {
-    await deleteLocationFromFirestore(id);
-    setLocations(prev => {
-      const updated = prev.filter(l => l.id !== id);
-      if (selectedLocationId === id) {
-        if (updated.length > 0) {
-          setSelectedLocationId(updated[0].id);
-        } else {
-          setSelectedLocationId('');
-        }
-      }
-      return updated;
-    });
-  };
 
   const addDevice = async (device: any) => {
     const enrichedDevice = { ...device, userId: uid };
@@ -211,8 +152,18 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   };
 
   const deleteDevice = async (id: string) => {
-    await deleteDeviceFromFirestore(id);
-    setDevices(prev => prev.filter(d => d.id !== id));
+    await deleteDeviceFromFirestore(uid || 'guest', id);
+    setDevices(prev => {
+      const updated = prev.filter(d => d.id !== id);
+      if (selectedDeviceId === id) {
+        if (updated.length > 0) {
+          setSelectedDeviceId(updated[0].id);
+        } else {
+          setSelectedDeviceId('');
+        }
+      }
+      return updated;
+    });
   };
 
   const saveThresholds = (newThreshold: Thresholds) => {
@@ -272,17 +223,17 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const deviceName = device?.name || 'ESP32 Node';
 
     if (firebaseSync) {
-      postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+      postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
     }
 
     const intervalId = setInterval(() => {
       if (firebaseSync) {
-        postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+        postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
       }
     }, refreshInterval);
 
     return () => clearInterval(intervalId);
-  }, [selectedDeviceId, activeLocation, devices, thresholds, refreshInterval, firebaseSync]);
+  }, [selectedDeviceId, devices, thresholds, refreshInterval, firebaseSync]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const triggerSync = async () => {
@@ -290,7 +241,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     if (selectedDeviceId) {
       const device = devices.find(d => d.id === selectedDeviceId);
       const deviceName = device?.name || 'ESP32 Node';
-      await postSimulatedReading(selectedDeviceId, deviceName, activeLocation, thresholds);
+      await postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
     }
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsSyncing(false);
@@ -299,17 +250,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   return (
     <AppContext.Provider value={{
       uid,
-      locations,
-      addLocation,
-      deleteLocation,
       devices,
       addDevice,
       deleteDevice,
-      selectedLocationId,
-      setSelectedLocationId,
       selectedDeviceId,
       setSelectedDeviceId,
-      activeLocation,
       thresholds,
       saveThresholds,
       isSyncing,

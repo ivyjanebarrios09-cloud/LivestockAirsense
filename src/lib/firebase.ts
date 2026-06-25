@@ -23,8 +23,9 @@ export const db = dbId && dbId !== '(default)'
   ? initializeFirestore(app, {}, dbId)
   : getFirestore(app);
 
-export const subscribeToSensorData = (deviceId: string, callback: (data: any) => void) => {
-  return onSnapshot(doc(db, 'airMonitoring', deviceId), (snapshot) => {
+export const subscribeToSensorData = (uid: string, deviceId: string, callback: (data: any) => void) => {
+  if (!uid || !deviceId) return () => {};
+  return onSnapshot(doc(db, 'users', uid, 'devices', deviceId), (snapshot) => {
     if (snapshot.exists()) {
       const data = snapshot.data();
       const latestReading = data.latestReading || {};
@@ -53,35 +54,22 @@ export const subscribeToSensorData = (deviceId: string, callback: (data: any) =>
         pm10: latestReading.pm10 || 0
       });
     } else {
-      onSnapshot(doc(db, 'sensors', deviceId), (sensorsSnap) => {
-        if (sensorsSnap.exists()) {
-          const sensorsData = sensorsSnap.data();
-          callback({
-            id: sensorsSnap.id,
-            deviceId: sensorsSnap.id,
-            ...sensorsData,
-            ammonia: sensorsData.nh3,
-            methane: sensorsData.ch4
-          });
-        } else {
-          callback({
-            id: deviceId,
-            deviceId: deviceId,
-            temperature: 0,
-            temperatureLevel: 'Normal',
-            humidity: 0,
-            humidityLevel: 'Normal',
-            co2: 0,
-            co2Level: 'Good',
-            aqi: 0,
-            aqiLevel: 'GOOD',
-            nh3: 0,
-            nh3Level: 'Low',
-            ch4: 0,
-            ch4Level: 'Low',
-            timestamp: Date.now()
-          });
-        }
+      callback({
+        id: deviceId,
+        deviceId: deviceId,
+        temperature: 0,
+        temperatureLevel: 'Normal',
+        humidity: 0,
+        humidityLevel: 'Normal',
+        co2: 0,
+        co2Level: 'Good',
+        aqi: 0,
+        aqiLevel: 'GOOD',
+        nh3: 0,
+        nh3Level: 'Low',
+        ch4: 0,
+        ch4Level: 'Low',
+        timestamp: Date.now()
       });
     }
   });
@@ -123,10 +111,11 @@ export const addDevice = async (device: any) => {
   }
 };
 
-export const getSensorReadings = async (deviceId: string, limitCount: number = 100): Promise<any[]> => {
-    if (!deviceId) return [];
+export const getSensorReadings = async (uid: string, deviceId: string, limitCount: number = 100): Promise<any[]> => {
+    if (!uid || !deviceId) return [];
     try {
-        const readingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
+        const today = new Date().toISOString().split('T')[0];
+        const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'history', today, 'readings');
         const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(limitCount));
         const querySnapshot = await getDocs(q);
         
@@ -135,16 +124,16 @@ export const getSensorReadings = async (deviceId: string, limitCount: number = 1
           return {
             id: docSnap.id,
             ...data,
-            // Consistency normalization
             ammonia: data.nh3,
             methane: data.ch4,
             deviceId: deviceId
           };
         });
 
+        // Fallback to legacy structure for compatibility if new is empty
         if (docs.length === 0) {
-            const legacyRef = collection(db, 'sensorReadings');
-            const legacyQ = query(legacyRef, where('deviceId', '==', deviceId), orderBy('timestamp', 'desc'), limit(limitCount));
+            const legacyRef = collection(db, 'airMonitoring', deviceId, 'readings');
+            const legacyQ = query(legacyRef, orderBy('timestamp', 'desc'), limit(limitCount));
             const legacySnap = await getDocs(legacyQ);
             docs = legacySnap.docs.map(doc => ({ 
               id: doc.id, 
@@ -256,12 +245,18 @@ export const deleteLocationFromFirestore = async (id: string) => {
 
 export const getDevices = async (uid?: string): Promise<any[]> => {
   try {
-    const monitoringRef = collection(db, 'airMonitoring');
-    const q = uid && uid !== 'guest' ? query(monitoringRef, where('user.userId', '==', uid)) : query(monitoringRef);
+    let q;
+    if (uid && uid !== 'guest') {
+      const monitoringRef = collection(db, 'users', uid, 'devices');
+      q = query(monitoringRef);
+    } else {
+      const monitoringRef = collection(db, 'airMonitoring');
+      q = query(monitoringRef);
+    }
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(docSnap => {
-      const data = docSnap.data();
+      const data = docSnap.data() as any;
       return {
         id: docSnap.id,
         deviceId: data.deviceId || docSnap.id,
@@ -277,10 +272,23 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
 
 export const addDeviceToFirestore = async (device: any) => {
   try {
-    const docRef = doc(db, 'airMonitoring', device.id);
+    const userId = device.userId || 'guest';
+    const deviceId = device.deviceId || device.id;
+    
+    // 1. Add to Device Registry
+    const registryRef = doc(db, 'deviceRegistry', deviceId);
+    await setDoc(registryRef, {
+      ownerId: userId,
+      deviceName: device.name || 'AIRSENSE',
+      status: 'Online',
+      createdAt: Date.now()
+    }, { merge: true });
+
+    // 2. Add to user's devices
+    const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     
     const structuredDoc = {
-      deviceId: device.deviceId || device.id,
+      deviceId: deviceId,
       deviceName: device.name || 'AIRSENSE',
       deviceType: device.type || 'Livestock Air Sensor',
       firmwareVersion: '1.0.0',
@@ -288,20 +296,12 @@ export const addDeviceToFirestore = async (device: any) => {
       lastSeen: Date.now(),
       createdAt: Date.now(),
       user: {
-        userId: device.userId || '',
+        userId: userId,
         firstName: '',
         lastName: '',
         email: device.email || '',
         contactNumber: '',
         role: 'Owner'
-      },
-      location: {
-        farmId: device.locationId || 'FARM001',
-        farmName: device.locationName || 'Livestock Farm A',
-        building: device.building || 'House A',
-        address: '',
-        latitude: 0,
-        longitude: 0
       },
       latestReading: {
         temperature: 0,
@@ -344,23 +344,30 @@ export const addDeviceToFirestore = async (device: any) => {
       }
     };
 
-    await setDoc(docRef, structuredDoc, { merge: true });
+    await setDoc(userDeviceRef, structuredDoc, { merge: true });
     
-    // Maintain legacy/backup collections for compatibility
-    const oldDocRef = doc(db, 'devices', device.id);
-    await setDoc(oldDocRef, { ...device, deviceId: device.deviceId || device.id }, { merge: true });
+    // Maintain legacy collections for compatibility during transition
+    const oldDocRef = doc(db, 'airMonitoring', deviceId);
+    await setDoc(oldDocRef, structuredDoc, { merge: true });
     
-    const sensorsRef = doc(db, 'sensors', device.id);
-    await setDoc(sensorsRef, { deviceId: device.id, deviceName: device.name, timestamp: Date.now() }, { merge: true });
+    const legacyDeviceRef = doc(db, 'devices', deviceId);
+    await setDoc(legacyDeviceRef, { ...device, deviceId: deviceId }, { merge: true });
+    
+    const sensorsRef = doc(db, 'sensors', deviceId);
+    await setDoc(sensorsRef, { deviceId: deviceId, deviceName: device.name, timestamp: Date.now() }, { merge: true });
 
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'airMonitoring');
+    handleFirestoreError(error, OperationType.WRITE, 'users/devices');
   }
 };
 
-export const deleteDeviceFromFirestore = async (id: string) => {
+export const deleteDeviceFromFirestore = async (userId: string, id: string) => {
   try {
     // Delete from all relevant collections
+    if (userId) {
+      await deleteDoc(doc(db, 'users', userId, 'devices', id));
+    }
+    await deleteDoc(doc(db, 'deviceRegistry', id));
     await deleteDoc(doc(db, 'airMonitoring', id));
     await deleteDoc(doc(db, 'devices', id));
     await deleteDoc(doc(db, 'sensors', id));
@@ -421,14 +428,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export const postSimulatedReading = async (
   deviceId: string,
   deviceName: string,
-  location: any,
+  _location: any,
   thresholds: any
 ) => {
   try {
-    const baseTemp = location?.baseTemp || 21;
-    const baseHum = location?.baseHumidity || 55;
-    const baseCo2 = location?.baseCo2 || 450;
-    const baseNh3 = location?.baseAmmonia || 1.2;
+    const baseTemp = 21;
+    const baseHum = 55;
+    const baseCo2 = 450;
+    const baseNh3 = 1.2;
 
     const temperature = Number((baseTemp + (Math.random() * 2.4 - 1.2)).toFixed(1));
     const humidity = Math.max(0, Math.min(100, Number((baseHum + (Math.random() * 6 - 3)).toFixed(1))));
@@ -448,7 +455,7 @@ export const postSimulatedReading = async (
     const ch4Status = ch4 > thresholds.methaneMax ? 'High' : 'Low';
 
     const timestampMs = Date.now();
-    const currentUid = location?.userId || auth.currentUser?.uid || '';
+    const currentUid = auth.currentUser?.uid || '';
 
     const triggers = [];
     if (temperature > thresholds.tempMax) triggers.push({ type: 'Temperature', msg: `Temperature of ${temperature}°C exceeded critical threshold limit.` });
@@ -481,7 +488,8 @@ export const postSimulatedReading = async (
       lastAlertTime: 0
     };
 
-    const deviceDocRef = doc(db, 'airMonitoring', deviceId);
+    const dateStr = new Date(timestampMs).toISOString().split('T')[0];
+    const deviceDocRef = doc(db, 'users', currentUid || 'guest', 'devices', deviceId);
     await setDoc(deviceDocRef, {
       deviceId,
       deviceName,
@@ -495,14 +503,9 @@ export const postSimulatedReading = async (
       },
       lastSeen: timestampMs,
       user: {
-        userId: currentUid,
+        userId: currentUid || 'guest',
         email: auth.currentUser?.email || '',
         role: 'Owner'
-      },
-      location: {
-        farmName: location?.name || 'My Farm',
-        address: location?.address || 'Default Address',
-        farmId: location?.id || 'FARM001'
       },
       thresholds: {
         temperatureMax: thresholds.tempMax,
@@ -516,8 +519,15 @@ export const postSimulatedReading = async (
       alerts: currentAlertObj
     }, { merge: true });
 
-    const historyDocRef = doc(db, 'airMonitoring', deviceId, 'readings', String(timestampMs));
+    const historyDocRef = doc(db, 'users', currentUid || 'guest', 'devices', deviceId, 'history', dateStr, 'readings', String(timestampMs));
     await setDoc(historyDocRef, readingPayload);
+
+    // Keep legacy updates for full safety
+    const legacyDeviceDocRef = doc(db, 'airMonitoring', deviceId);
+    await setDoc(legacyDeviceDocRef, { latestReading: readingPayload, lastSeen: timestampMs }, { merge: true });
+    
+    const legacyHistoryDocRef = doc(db, 'airMonitoring', deviceId, 'readings', String(timestampMs));
+    await setDoc(legacyHistoryDocRef, readingPayload);
 
     const legacyDocRef = doc(db, 'sensors', deviceId);
     await setDoc(legacyDocRef, { ...readingPayload, deviceId, deviceName, nh3Level: nh3Status, ch4Level: ch4Status }, { merge: true });
@@ -529,7 +539,7 @@ export const postSimulatedReading = async (
         alertType: trigger.type,
         severity: 'critical',
         message: trigger.msg,
-        location: location?.name || 'Unknown Zone',
+        location: 'Facility',
         resolved: false,
         isRead: false,
         userId: currentUid
