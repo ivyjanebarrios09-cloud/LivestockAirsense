@@ -124,6 +124,7 @@ export const addDevice = async (device: any) => {
 };
 
 export const getSensorReadings = async (deviceId: string, limitCount: number = 100): Promise<any[]> => {
+    if (!deviceId) return [];
     try {
         const readingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
         const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(limitCount));
@@ -345,8 +346,13 @@ export const addDeviceToFirestore = async (device: any) => {
 
     await setDoc(docRef, structuredDoc, { merge: true });
     
+    // Maintain legacy/backup collections for compatibility
     const oldDocRef = doc(db, 'devices', device.id);
-    await setDoc(oldDocRef, { ...device, deviceId: device.deviceId || device.id });
+    await setDoc(oldDocRef, { ...device, deviceId: device.deviceId || device.id }, { merge: true });
+    
+    const sensorsRef = doc(db, 'sensors', device.id);
+    await setDoc(sensorsRef, { deviceId: device.id, deviceName: device.name, timestamp: Date.now() }, { merge: true });
+
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'airMonitoring');
   }
@@ -354,7 +360,10 @@ export const addDeviceToFirestore = async (device: any) => {
 
 export const deleteDeviceFromFirestore = async (id: string) => {
   try {
+    // Delete from all relevant collections
+    await deleteDoc(doc(db, 'airMonitoring', id));
     await deleteDoc(doc(db, 'devices', id));
+    await deleteDoc(doc(db, 'sensors', id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, 'devices');
   }

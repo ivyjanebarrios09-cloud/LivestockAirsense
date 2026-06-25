@@ -489,7 +489,7 @@ export function Dashboard() {
     },
   ];
 
-  if (devices.length === 0) {
+  if (false && devices.length === 0) {
     return (
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col justify-center">
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden ring-1 ring-white/10">

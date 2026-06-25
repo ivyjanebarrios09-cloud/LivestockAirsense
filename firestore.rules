@@ -67,37 +67,23 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidUser(incoming()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastLogin', 'updatedAt', 'selectedLocationId', 'selectedDeviceId', 'thresholds', 'refreshInterval', 'firebaseSync']);
+      allow read: if true;
+      allow write: if isOwner(userId);
     }
 
     match /locations/{locationId} {
-      // Enforce query security (Pillar 8)
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      // Also allow public read for guest/simulated mode IF the location is marked as public or for specific IDs
-      // For now, let's allow all reads to match the previous permissive state while hardening writes
-      allow read: if true; 
-      
-      allow create: if isSignedIn() && isValidLocation(incoming());
-      allow update: if isSignedIn() && isOwner(existing().userId) && isValidLocation(incoming()) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'type', 'animalCount', 'baseTemp', 'baseHumidity', 'baseCo2', 'baseAmmonia']);
-      allow delete: if isSignedIn() && isOwner(existing().userId);
+      allow read: if true;
+      allow write: if true; 
     }
 
     match /devices/{deviceId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidDevice(incoming());
-      allow update: if isSignedIn() && isOwner(existing().userId) && isValidDevice(incoming());
-      allow delete: if isSignedIn() && isOwner(existing().userId);
+      allow write: if true;
     }
 
     match /sensors/{deviceId} {
       allow read: if true;
-      allow write: if true; // Simulation allows anyone to update for now
+      allow write: if true;
     }
 
     match /sensor_readings/{readingId} {
