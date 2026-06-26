@@ -178,6 +178,69 @@ export const getSensorReadings = async (uid: string, deviceId: string, limitCoun
     }
 };
 
+export const subscribeToSensorReadings = (
+  uid: string,
+  deviceId: string,
+  limitCount: number = 100,
+  selectedDateStr: string,
+  callback: (readings: any[]) => void
+) => {
+  if (!uid || !deviceId) {
+    callback([]);
+    return () => {};
+  }
+  const targetDate = selectedDateStr || new Date().toISOString().split('T')[0];
+  const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'history', targetDate, 'readings');
+  const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(limitCount));
+
+  return onSnapshot(
+    q,
+    async (snapshot) => {
+      let docs = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
+          pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
+          pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
+          ammonia: data.nh3 ?? data.ammonia,
+          methane: data.ch4 ?? data.methane,
+          deviceId: deviceId
+        };
+      });
+
+      if (docs.length === 0) {
+        try {
+          const legacyRef = collection(db, 'airMonitoring', deviceId, 'readings');
+          const legacyQ = query(legacyRef, orderBy('timestamp', 'desc'), limit(limitCount));
+          const legacySnap = await getDocs(legacyQ);
+          docs = legacySnap.docs.map(docSnap => {
+            const data = docSnap.data();
+            return { 
+              id: docSnap.id, 
+              deviceId: deviceId,
+              ...data,
+              pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
+              pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
+              pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
+              ammonia: data.nh3 ?? data.ammonia,
+              methane: data.ch4 ?? data.methane
+            };
+          });
+        } catch (e) {
+          console.warn('Fallback to legacy readings subscription failed:', e);
+        }
+      }
+
+      callback(docs);
+    },
+    (error) => {
+      console.warn(`[Firestore] Sensor readings subscription stream error for ${deviceId}:`, error);
+    }
+  );
+};
+
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({

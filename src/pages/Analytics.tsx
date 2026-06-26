@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Sparkles, TrendingUp, TrendingDown, Thermometer, Activity, HelpCircle, Flame, Wind, Layers } from 'lucide-react';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn, parseSafeDate } from '../lib/utils';
-import { getSensorReadings } from '../lib/firebase';
+import { getSensorReadings, subscribeToSensorReadings } from '../lib/firebase';
 
 export function AnalyticsPage() {
   const { uid, devices, selectedDeviceId } = useAppContext();
@@ -16,12 +16,11 @@ export function AnalyticsPage() {
   const deviceOwnerUid = activeDevice?.sharedFromUid || uid;
 
   useEffect(() => {
-    if (!deviceOwnerUid) return;
-    const fetchData = async () => {
-      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate);
-      setTelemetryLogs(logs.reverse());
-    };
-    fetchData();
+    if (!deviceOwnerUid || !selectedDeviceId) return;
+    const unsubscribe = subscribeToSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate, (logs) => {
+      setTelemetryLogs([...logs].reverse());
+    });
+    return () => unsubscribe();
   }, [selectedDeviceId, deviceOwnerUid, selectedDate]);
 
   // Use telemetryLogs instead of dynamicTimelineData

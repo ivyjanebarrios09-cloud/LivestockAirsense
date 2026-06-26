@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry, addAlertToFirestore } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -375,15 +375,12 @@ export function Dashboard() {
   }, [selectedDeviceId, deviceOwnerUid]);
 
   useEffect(() => {
-    if (!deviceOwnerUid) return;
-    const fetchData = async () => {
-      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate);
-      setTelemetryLogs(logs.reverse());
-    };
-    fetchData();
-    const interval = setInterval(fetchData, refreshInterval + 100);
-    return () => clearInterval(interval);
-  }, [selectedDeviceId, refreshInterval, deviceOwnerUid, selectedDate]);
+    if (!deviceOwnerUid || !selectedDeviceId) return;
+    const unsubscribe = subscribeToSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate, (logs) => {
+      setTelemetryLogs([...logs].reverse());
+    });
+    return () => unsubscribe();
+  }, [selectedDeviceId, deviceOwnerUid, selectedDate]);
 
   const chartData = telemetryLogs.map(log => {
     const d = log.timestamp ? parseSafeDate(log.timestamp) : new Date();
