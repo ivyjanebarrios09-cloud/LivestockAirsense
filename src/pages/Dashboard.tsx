@@ -3,8 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange, subscribeToSensorData, getSensorReadings } from '../lib/firebase';
-import { Cpu, Plus, Layers, Wifi } from 'lucide-react';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry } from '../lib/firebase';
+import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -256,6 +256,107 @@ export function Dashboard() {
     }
   };
 
+  // Telemetry Simulator States
+  const [simTemp, setSimTemp] = useState(24.5);
+  const [simHum, setSimHum] = useState(62.0);
+  const [simCo2, setSimCo2] = useState(650);
+  const [simNh3, setSimNh3] = useState(5.5);
+  const [simCh4, setSimCh4] = useState(12.0);
+  const [simPm25, setSimPm25] = useState(15.0);
+  const [isPublishingSim, setIsPublishingSim] = useState(false);
+  const [simSuccessMessage, setSimSuccessMessage] = useState('');
+
+  const applyPreset = (presetName: string) => {
+    switch (presetName) {
+      case 'optimal':
+        setSimTemp(22.0);
+        setSimHum(55.0);
+        setSimCo2(420);
+        setSimNh3(1.2);
+        setSimCh4(5.0);
+        setSimPm25(8.0);
+        break;
+      case 'heat':
+        setSimTemp(38.5);
+        setSimHum(82.0);
+        setSimCo2(900);
+        setSimNh3(15.0);
+        setSimCh4(25.0);
+        setSimPm25(24.0);
+        break;
+      case 'poor_ventilation':
+        setSimTemp(28.0);
+        setSimHum(78.5);
+        setSimCo2(2450);
+        setSimNh3(32.0);
+        setSimCh4(85.0);
+        setSimPm25(64.5);
+        break;
+      case 'methane_leak':
+        setSimTemp(25.0);
+        setSimHum(60.0);
+        setSimCo2(1100);
+        setSimNh3(12.0);
+        setSimCh4(215.0);
+        setSimPm25(18.0);
+        break;
+      case 'dust_surge':
+        setSimTemp(24.0);
+        setSimHum(52.0);
+        setSimCo2(720);
+        setSimNh3(8.0);
+        setSimCh4(14.0);
+        setSimPm25(115.0);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handlePublishSimulation = async () => {
+    if (!selectedDeviceId || !deviceOwnerUid) return;
+    setIsPublishingSim(true);
+    setSimSuccessMessage('');
+
+    const tempStatusStr = getStatus('Temperature', simTemp).label;
+    const humStatusStr = getStatus('Humidity', simHum).label;
+    const co2StatusStr = getStatus('CO2 Level', simCo2).label;
+    const nh3StatusStr = getStatus('Ammonia NH3', simNh3).label;
+    const ch4StatusStr = getStatus('Methane CH4', simCh4).label;
+
+    const pmWeight = simPm25 >= 35.5 ? 4.0 : simPm25 >= 12.1 ? 2.5 : 1.0;
+    const co2Weight = simCo2 >= 1200 ? 0.15 : 0.05;
+    const nh3Weight = simNh3 >= 20 ? 4.0 : 1.0;
+    const estimatedAqi = Math.round(Math.min(999, Math.max(10, simPm25 * pmWeight + simCo2 * co2Weight + simNh3 * nh3Weight)));
+
+    const readings = {
+      temperature: simTemp,
+      humidity: simHum,
+      co2: simCo2,
+      nh3: simNh3,
+      ch4: simCh4,
+      pm1_0: Math.round(simPm25 * 0.4),
+      pm2_5: simPm25,
+      pm10: Math.round(simPm25 * 1.8),
+      aqi: estimatedAqi,
+      temperatureStatus: tempStatusStr,
+      humidityStatus: humStatusStr,
+      co2Status: co2StatusStr,
+      nh3Status: nh3StatusStr,
+      ch4Status: ch4StatusStr
+    };
+
+    try {
+      await updateDeviceTelemetry(deviceOwnerUid, selectedDeviceId, readings);
+      setSimSuccessMessage('Simulated telemetry successfully published! Sensor readings and health status changed.');
+      setTimeout(() => setSimSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Failed to publish simulation:', err);
+    } finally {
+      setIsPublishingSim(false);
+    }
+  };
+
   const registeredDevices = devices;
 
   const [deviceData, setDeviceData] = useState<any>(null);
@@ -307,8 +408,9 @@ export function Dashboard() {
   const isCo2Alert = lastReading.co2 > thresholds.co2Max;
   const isAmmoniaAlert = lastReading.nh3 > thresholds.ammoniaMax;
   const isPm25Alert = (lastReading.pm2_5 || 0) > 35;
+  const isMethaneAlert = (lastReading.ch4 || 0) > thresholds.methaneMax;
 
-  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0);
+  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0);
 
   const getStatus = (label: string, val: number) => {
     switch (label) {
@@ -342,6 +444,12 @@ export function Dashboard() {
         if (val >= 35.5) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
         if (val >= 12.1) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
+      case 'Methane CH4':
+        if (val > thresholds.methaneMax * 2) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val > thresholds.methaneMax) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        if (val >= thresholds.methaneMax * 0.7) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+        if (val >= thresholds.methaneMax * 0.4) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
       case 'AQI':
         if (val > 900) return { label: 'Hazardous', icon: '⚫', color: 'text-gray-900' };
         if (val >= 801) return { label: 'Very Poor', icon: '🔴', color: 'text-red-500' };
@@ -354,11 +462,119 @@ export function Dashboard() {
     }
   };
 
+  const getStylesByStatus = (status: { label: string; color: string }) => {
+    const label = status?.label || 'Good';
+    if (label === 'Good' || label === 'Excellent') {
+      return {
+        borderClass: 'border-emerald-500/25 hover:border-emerald-500/50 shadow-[0_4px_20px_rgba(16,185,129,0.04)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/5',
+        bgClass: 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
+        textClass: 'text-emerald-500',
+        cardBg: 'bg-emerald-500/[0.02] dark:bg-emerald-500/[0.01]'
+      };
+    }
+    if (label === 'Moderate') {
+      return {
+        borderClass: 'border-yellow-500/25 hover:border-yellow-500/50 shadow-[0_4px_20px_rgba(234,179,8,0.04)] hover:shadow-[0_8px_30px_rgba(234,179,8,0.1)] ring-1 ring-yellow-500/5',
+        bgClass: 'bg-yellow-500/10 border border-yellow-500/15 group-hover:bg-yellow-500/15',
+        textClass: 'text-yellow-600 dark:text-yellow-400',
+        cardBg: 'bg-yellow-500/[0.02] dark:bg-yellow-500/[0.01]'
+      };
+    }
+    if (label === 'Poor') {
+      return {
+        borderClass: 'border-orange-500/30 hover:border-orange-500/60 shadow-[0_4px_20px_rgba(249,115,22,0.06)] hover:shadow-[0_8px_30px_rgba(249,115,22,0.12)] ring-1 ring-orange-500/10',
+        bgClass: 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
+        textClass: 'text-orange-500',
+        cardBg: 'bg-orange-500/[0.02] dark:bg-orange-500/[0.01]'
+      };
+    }
+    if (label === 'Warning' || label === 'Very Poor') {
+      return {
+        borderClass: 'bg-red-50/5 border-red-500/40 hover:border-red-500/60 shadow-[0_4px_20px_rgba(239,68,68,0.08)] hover:shadow-[0_8px_30px_rgba(239,68,68,0.16)] ring-1 ring-red-500/20',
+        bgClass: 'bg-red-500/15 border border-red-500/25 group-hover:bg-red-500/20',
+        textClass: 'text-red-500',
+        cardBg: 'bg-red-550/[0.03] dark:bg-red-550/[0.01]'
+      };
+    }
+    // Dangerous / Hazardous
+    return {
+      borderClass: 'bg-red-100/10 border-red-700/60 hover:border-red-800 shadow-[0_4px_20px_rgba(185,28,28,0.1)] hover:shadow-[0_8px_30px_rgba(185,28,28,0.22)] ring-2 ring-red-600/30',
+      bgClass: 'bg-red-700/20 border border-red-700/30 group-hover:bg-red-700/25',
+      textClass: 'text-red-700 dark:text-red-400',
+      cardBg: 'bg-red-700/[0.05] dark:bg-red-700/[0.02]'
+    };
+  };
+
+  const prevDeviceDataRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!deviceData) return;
+    
+    if (prevDeviceDataRef.current) {
+      const prev = prevDeviceDataRef.current;
+      const curr = deviceData;
+
+      const checkAndRecord = async (
+        sensorName: string,
+        currVal: number,
+        prevVal: number,
+        currStatus: string,
+        prevStatus: string
+      ) => {
+        if (currVal !== prevVal || currStatus !== prevStatus) {
+          console.log(`[Status Change] Sensor ${sensorName} changed from ${prevVal} (${prevStatus}) to ${currVal} (${currStatus})`);
+          await recordStatusChange(sensorName, currStatus, currVal, {
+            temp: curr.temperature ?? 0,
+            humidity: curr.humidity ?? 0,
+            co2: curr.co2 ?? 0,
+            ammonia: curr.nh3 ?? curr.ammonia ?? 0,
+            methane: curr.ch4 ?? curr.methane ?? 0,
+            pm1_0: curr.pm1_0 ?? 0,
+            pm2_5: curr.pm2_5 ?? 0,
+            pm10: curr.pm10 ?? 0,
+            aqi: curr.aqi ?? 0
+          });
+        }
+      };
+
+      const currTempStat = getStatus('Temperature', curr.temperature ?? 0).label;
+      const prevTempStat = getStatus('Temperature', prev.temperature ?? 0).label;
+      checkAndRecord('Temperature', curr.temperature ?? 0, prev.temperature ?? 0, currTempStat, prevTempStat);
+
+      const currHumStat = getStatus('Humidity', curr.humidity ?? 0).label;
+      const prevHumStat = getStatus('Humidity', prev.humidity ?? 0).label;
+      checkAndRecord('Humidity', curr.humidity ?? 0, prev.humidity ?? 0, currHumStat, prevHumStat);
+
+      const currCo2Stat = getStatus('CO2 Level', curr.co2 ?? 0).label;
+      const prevCo2Stat = getStatus('CO2 Level', prev.co2 ?? 0).label;
+      checkAndRecord('CO2 Level', curr.co2 ?? 0, prev.co2 ?? 0, currCo2Stat, prevCo2Stat);
+
+      const currNh3Stat = getStatus('Ammonia NH3', curr.nh3 ?? curr.ammonia ?? 0).label;
+      const prevNh3Stat = getStatus('Ammonia NH3', prev.nh3 ?? prev.ammonia ?? 0).label;
+      checkAndRecord('Ammonia NH3', curr.nh3 ?? curr.ammonia ?? 0, prev.nh3 ?? prev.ammonia ?? 0, currNh3Stat, prevNh3Stat);
+
+      const currCh4Stat = getStatus('Methane CH4', curr.ch4 ?? curr.methane ?? 0).label;
+      const prevCh4Stat = getStatus('Methane CH4', prev.ch4 ?? prev.methane ?? 0).label;
+      checkAndRecord('Methane CH4', curr.ch4 ?? curr.methane ?? 0, prev.ch4 ?? prev.methane ?? 0, currCh4Stat, prevCh4Stat);
+
+      const currPm25Stat = getStatus('PM2.5 Feed Dust', curr.pm2_5 ?? 0).label;
+      const prevPm25Stat = getStatus('PM2.5 Feed Dust', prev.pm2_5 ?? 0).label;
+      checkAndRecord('PM2.5 Feed Dust', curr.pm2_5 ?? 0, prev.pm2_5 ?? 0, currPm25Stat, prevPm25Stat);
+
+      const currAqiStat = getStatus('AQI', curr.aqi ?? 0).label;
+      const prevAqiStat = getStatus('AQI', prev.aqi ?? 0).label;
+      checkAndRecord('AQI', curr.aqi ?? 0, prev.aqi ?? 0, currAqiStat, prevAqiStat);
+    }
+
+    prevDeviceDataRef.current = deviceData;
+  }, [deviceData, thresholds]);
+
   const tempStatus = getStatus('Temperature', lastReading.temperature);
   const humStatus = getStatus('Humidity', lastReading.humidity);
   const co2Status = getStatus('CO2 Level', lastReading.co2);
   const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
   const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0);
+  const methaneStatus = getStatus('Methane CH4', lastReading.ch4 || 0);
 
   const metrics = [
     { 
@@ -440,11 +656,15 @@ export function Dashboard() {
       label: 'Methane CH4', 
       value: lastReading.ch4?.toFixed(2) + ' ppm', 
       icon: MethaneSvg, 
-      color: 'text-gray-500', 
-      bg: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
-      cardStyle: 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
-      isWarning: false,
-      status: { label: 'Good', icon: '🟢', color: 'text-emerald-500' },
+      color: isMethaneAlert ? 'text-red-500' : 'text-gray-500', 
+      bg: isMethaneAlert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
+      cardStyle: isMethaneAlert 
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
+      isWarning: isMethaneAlert,
+      status: methaneStatus,
       limitInfo: `${thresholds.methaneMax} ppm`
     },
   ];
@@ -618,18 +838,20 @@ export function Dashboard() {
       <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
+          const statusStyles = getStylesByStatus(metric.status);
           return (
             <div 
               key={idx} 
               className={cn(
-                "rounded-[1.25rem] p-3 sm:p-3.5 flex flex-col justify-between h-24 sm:h-28 relative overflow-hidden transition-all duration-300 group select-none border bg-system-panel shadow-sm hover:-translate-y-1 hover:shadow-md",
-                metric.cardStyle
+                "rounded-[1.25rem] p-3 sm:p-3.5 flex flex-col justify-between h-24 sm:h-28 relative overflow-hidden transition-all duration-300 group select-none border hover:-translate-y-1",
+                statusStyles.borderClass,
+                statusStyles.cardBg
               )}
             >
               <div className="relative z-10 flex justify-between items-start gap-2">
                 <span className="font-mono text-[8px] md:text-[9px] text-system-muted uppercase tracking-wider leading-tight mt-0.5 line-clamp-2 pr-0.5">{metric.label}</span>
-                <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", metric.bg)}>
-                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", metric.color)} isWarning={metric.isWarning} />
+                <div className={cn("p-1.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110", statusStyles.bgClass)}>
+                  <IconComponent className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", statusStyles.textClass)} isWarning={metric.isWarning} />
                 </div>
               </div>
 
@@ -648,9 +870,9 @@ export function Dashboard() {
                 </div>
               </div>
 
-              <CloudWindAnimation colorClass={metric.color} />
+              <CloudWindAnimation colorClass={statusStyles.textClass} />
 
-              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", metric.color)} />
+              <div className={cn("absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-[0.03] blur-xl group-hover:opacity-10 transition-opacity flex-shrink-0 bg-current pointer-events-none", statusStyles.textClass)} />
             </div>
           );
         })}
@@ -785,6 +1007,165 @@ export function Dashboard() {
         </div>
 
       </div>
+
+      {/* Interactive Edge Node Telemetry Simulator & Status Changer */}
+      {selectedDeviceId && (
+        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 mt-6 select-none">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-system-border pb-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-system-accent" />
+                <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Edge Node Telemetry Simulator</h3>
+              </div>
+              <p className="text-xs text-system-muted mt-1">Configure and publish simulated sensor readings and health states to Firestore in real-time.</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] font-bold text-system-muted font-mono uppercase tracking-wider self-center mr-1">Presets:</span>
+              <button onClick={() => applyPreset('optimal')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 rounded-lg transition-all cursor-pointer">Optimal</button>
+              <button onClick={() => applyPreset('heat')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-orange-500/20 bg-orange-500/10 text-orange-500 hover:bg-orange-500/15 rounded-lg transition-all cursor-pointer">Heat Stress</button>
+              <button onClick={() => applyPreset('poor_ventilation')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-purple-500/20 bg-purple-500/10 text-purple-500 hover:bg-purple-500/15 rounded-lg transition-all cursor-pointer">Poor Vent</button>
+              <button onClick={() => applyPreset('methane_leak')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/15 rounded-lg transition-all cursor-pointer">CH4 Leak</button>
+              <button onClick={() => applyPreset('dust_surge')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500/15 rounded-lg transition-all cursor-pointer">Dust Surge</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Temperature Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">Temperature</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Temperature', simTemp)).bgClass, getStylesByStatus(getStatus('Temperature', simTemp)).textClass)}>
+                  {simTemp.toFixed(1)} °C ({getStatus('Temperature', simTemp).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="10" 
+                max="50" 
+                step="0.1" 
+                value={simTemp}
+                onChange={(e) => setSimTemp(parseFloat(e.target.value))}
+                className="w-full accent-orange-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+
+            {/* Humidity Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">Humidity</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Humidity', simHum)).bgClass, getStylesByStatus(getStatus('Humidity', simHum)).textClass)}>
+                  {simHum.toFixed(1)} % ({getStatus('Humidity', simHum).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                step="0.1" 
+                value={simHum}
+                onChange={(e) => setSimHum(parseFloat(e.target.value))}
+                className="w-full accent-blue-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+
+            {/* CO2 Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">CO2 Level</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('CO2 Level', simCo2)).bgClass, getStylesByStatus(getStatus('CO2 Level', simCo2)).textClass)}>
+                  {simCo2} ppm ({getStatus('CO2 Level', simCo2).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="300" 
+                max="6000" 
+                step="10" 
+                value={simCo2}
+                onChange={(e) => setSimCo2(parseInt(e.target.value))}
+                className="w-full accent-emerald-550 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+
+            {/* Ammonia Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">Ammonia NH3</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Ammonia NH3', simNh3)).bgClass, getStylesByStatus(getStatus('Ammonia NH3', simNh3)).textClass)}>
+                  {simNh3.toFixed(1)} ppm ({getStatus('Ammonia NH3', simNh3).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="120" 
+                step="0.1" 
+                value={simNh3}
+                onChange={(e) => setSimNh3(parseFloat(e.target.value))}
+                className="w-full accent-yellow-600 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+
+            {/* Methane Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">Methane CH4</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Methane CH4', simCh4)).bgClass, getStylesByStatus(getStatus('Methane CH4', simCh4)).textClass)}>
+                  {simCh4.toFixed(1)} ppm ({getStatus('Methane CH4', simCh4).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="500" 
+                step="0.5" 
+                value={simCh4}
+                onChange={(e) => setSimCh4(parseFloat(e.target.value))}
+                className="w-full accent-slate-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+
+            {/* PM2.5 Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-system-text font-mono">PM2.5 Feed Dust</span>
+                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('PM2.5 Feed Dust', simPm25)).bgClass, getStylesByStatus(getStatus('PM2.5 Feed Dust', simPm25)).textClass)}>
+                  {simPm25.toFixed(1)} µg/m³ ({getStatus('PM2.5 Feed Dust', simPm25).label})
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="200" 
+                step="0.5" 
+                value={simPm25}
+                onChange={(e) => setSimPm25(parseFloat(e.target.value))}
+                className="w-full accent-purple-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-system-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="text-[11px] text-system-muted font-mono">
+              ⚡ Publishing will trigger immediate updates on active dials, gauge colors, live animations, populate historic charts and record history logs.
+            </div>
+            <button
+              onClick={handlePublishSimulation}
+              disabled={isPublishingSim}
+              className="px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider text-white bg-system-accent hover:bg-system-accent-hover active:scale-[0.98] disabled:opacity-50 disabled:scale-100 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Zap className={cn("w-4 h-4", isPublishingSim && "animate-bounce")} />
+              {isPublishingSim ? 'Publishing Telemetry...' : 'Publish Simulated Reading'}
+            </button>
+          </div>
+
+          {simSuccessMessage && (
+            <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-bold font-mono tracking-tight animate-in fade-in duration-300">
+              ✓ {simSuccessMessage}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

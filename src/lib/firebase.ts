@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, initializeFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where, updateDoc } from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -228,16 +228,92 @@ export const logout = async () => {
 };
 
   
-export const recordStatusChange = async (sensorName: string, status: string, reading: number) => {
+export const recordStatusChange = async (
+  sensorName: string,
+  status: string,
+  reading: number,
+  allReadings?: {
+    temp?: number;
+    humidity?: number;
+    co2?: number;
+    ammonia?: number;
+    methane?: number;
+    pm1_0?: number;
+    pm2_5?: number;
+    pm10?: number;
+    aqi?: number;
+  }
+) => {
   try {
     await addDoc(collection(db, 'status_history'), {
       timestamp: Date.now(),
       sensorName,
       status,
-      reading
+      reading,
+      ...allReadings
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'status_history');
+  }
+};
+
+export const updateDeviceTelemetry = async (
+  userId: string,
+  deviceId: string,
+  readings: {
+    temperature: number;
+    humidity: number;
+    co2: number;
+    nh3: number;
+    ch4: number;
+    pm1_0: number;
+    pm2_5: number;
+    pm10: number;
+    aqi: number;
+    temperatureStatus: string;
+    humidityStatus: string;
+    co2Status: string;
+    nh3Status: string;
+    ch4Status: string;
+  }
+) => {
+  try {
+    if (!userId || !deviceId) return;
+    const today = new Date().toISOString().split('T')[0];
+    const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
+    
+    // 1. Update the latestReading on the device document
+    await updateDoc(userDeviceRef, {
+      latestReading: {
+        ...readings,
+        timestamp: Date.now()
+      }
+    });
+
+    // 2. Add to history readings subcollection for charts
+    const readingsRef = collection(db, 'users', userId, 'devices', deviceId, 'history', today, 'readings');
+    await addDoc(readingsRef, {
+      ...readings,
+      timestamp: Date.now()
+    });
+
+    // 3. Update legacy collections for full compatibility
+    const oldDocRef = doc(db, 'airMonitoring', deviceId);
+    await setDoc(oldDocRef, {
+      latestReading: {
+        ...readings,
+        timestamp: Date.now()
+      }
+    }, { merge: true });
+
+    const legacyReadingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
+    await addDoc(legacyReadingsRef, {
+      ...readings,
+      timestamp: Date.now()
+    });
+
+  } catch (error) {
+    console.error('updateDeviceTelemetry failed:', error);
   }
 };
 
