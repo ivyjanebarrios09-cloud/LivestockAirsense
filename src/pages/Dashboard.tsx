@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry, addAlertToFirestore } from '../lib/firebase';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -433,10 +433,8 @@ export function Dashboard() {
         if (val >= 801) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
       case 'Ammonia NH3':
-        if (val > 100) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 51) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if (val >= 26) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= 11) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        if (val >= 25) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 10) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
       case 'PM2.5 Feed Dust':
         if (val > 150.4) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
@@ -445,10 +443,8 @@ export function Dashboard() {
         if (val >= 12.1) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
       case 'Methane CH4':
-        if (val > thresholds.methaneMax * 2) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val > thresholds.methaneMax) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if (val >= thresholds.methaneMax * 0.7) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= thresholds.methaneMax * 0.4) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
+        if (val > 50) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        if (val >= 25) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
       case 'AQI':
         if (val > 900) return { label: 'Hazardous', icon: '⚫', color: 'text-gray-900' };
@@ -534,6 +530,22 @@ export function Dashboard() {
             pm10: curr.pm10 ?? 0,
             aqi: curr.aqi ?? 0
           });
+
+          if (currStatus !== prevStatus && uid) {
+            let severity: 'critical' | 'warning' | 'normal' = 'normal';
+            if (currStatus === 'Dangerous' || currStatus === 'Hazardous' || currStatus === 'Very Poor') {
+              severity = 'critical';
+            } else if (currStatus === 'Warning' || currStatus === 'Poor' || currStatus === 'Moderate') {
+              severity = 'warning';
+            }
+
+            await addAlertToFirestore(uid, {
+              alertType: `${sensorName} Status Change`,
+              message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
+              severity,
+              location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node'
+            });
+          }
         }
       };
 

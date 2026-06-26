@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate } from '../lib/utils';
@@ -88,20 +88,28 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
     const saved = localStorage.getItem(`las_${uid}_thresholds`);
+    let parsed: Thresholds = {
+      tempMax: 26,
+      humidityMax: 70,
+      co2Max: 800,
+      ammoniaMax: 10.0,
+      methaneMax: 25.0
+    };
     if (saved) {
       try {
-        return JSON.parse(saved);
+        parsed = { ...parsed, ...JSON.parse(saved) };
       } catch (e) {
         // Fall back to default
       }
     }
-    return {
-      tempMax: 26,
-      humidityMax: 70,
-      co2Max: 800,
-      ammoniaMax: 4.0,
-      methaneMax: 0.2
-    };
+    // Automatically migrate old, low thresholds from previous version
+    if (parsed.ammoniaMax === 4.0 || parsed.ammoniaMax < 10.0) {
+      parsed.ammoniaMax = 10.0;
+    }
+    if (parsed.methaneMax === 0.2 || parsed.methaneMax < 25.0) {
+      parsed.methaneMax = 25.0;
+    }
+    return parsed;
   });
 
   // Real-time synchronization of user choices from the Firestore users collection!
@@ -116,7 +124,14 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           setSelectedDeviceId(data.selectedDeviceId);
         }
         if (data.thresholds !== undefined) {
-          setThresholds(data.thresholds);
+          const t = { ...data.thresholds };
+          if (t.ammoniaMax === 4.0 || t.ammoniaMax < 10.0) {
+            t.ammoniaMax = 10.0;
+          }
+          if (t.methaneMax === 0.2 || t.methaneMax < 25.0) {
+            t.methaneMax = 25.0;
+          }
+          setThresholds(t);
         }
         if (data.refreshInterval !== undefined) {
           setRefreshInterval(data.refreshInterval);
@@ -230,11 +245,17 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
         if (storedPush && 'Notification' in window && Notification.permission === 'granted') {
           mappedAlerts.forEach(alert => {
-            if (alert.severity === 'critical' && !alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
+            if (!alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
+              const notificationTitle = alert.severity === 'critical'
+                ? `🚨 Critical Air Quality Alert`
+                : alert.severity === 'warning'
+                ? `⚠️ Air Quality Warning`
+                : `ℹ️ Air Quality Update`;
+
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistration().then(reg => {
                   if (reg) {
-                    reg.showNotification(`Critical Air Quality Alert`, {
+                    reg.showNotification(notificationTitle, {
                       body: `${alert.location}: ${alert.message}`,
                       icon: '/logo.png',
                       badge: '/logo.png',
@@ -242,19 +263,19 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
                       vibrate: [200, 100, 200]
                     } as any);
                   } else {
-                    new Notification(`Critical Air Quality Alert`, {
+                    new Notification(notificationTitle, {
                       body: `${alert.location}: ${alert.message}`,
                       icon: '/logo.png'
                     });
                   }
                 }).catch(() => {
-                  new Notification(`Critical Air Quality Alert`, {
+                  new Notification(notificationTitle, {
                     body: `${alert.location}: ${alert.message}`,
                     icon: '/logo.png'
                   });
                 });
               } else {
-                new Notification(`Critical Air Quality Alert`, {
+                new Notification(notificationTitle, {
                   body: `${alert.location}: ${alert.message}`,
                   icon: '/logo.png'
                 });
@@ -283,12 +304,17 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     setAlertsList(prev => [newAlert, ...prev]);
   };
 
-  const resolveAlert = (id: string) => {
+  const resolveAlert = async (id: string) => {
     setAlertsList(prev => prev.map(alert => alert.id === id ? { ...alert, resolved: true } : alert));
+    await updateAlertResolved(id, true);
   };
 
-  const clearAllAlerts = () => {
+  const clearAllAlerts = async () => {
+    const resolvedAlerts = alertsList.filter(alert => alert.resolved);
     setAlertsList(prev => prev.filter(alert => !alert.resolved));
+    for (const alert of resolvedAlerts) {
+      await deleteAlertFromFirestore(alert.id);
+    }
   };
 
   const unreadAlertsCount = alertsList.filter(alert => !alert.resolved).length;

@@ -573,3 +573,48 @@ export const recordUserInFirestore = async (user: any) => {
     console.error('Failed to record user sign-in event:', error);
   }
 };
+
+export const addAlertToFirestore = async (
+  userId: string,
+  alert: {
+    alertType: string;
+    message: string;
+    severity: 'critical' | 'warning' | 'normal';
+    location: string;
+  }
+) => {
+  try {
+    const alertsRef = collection(db, 'alerts');
+    await addDoc(alertsRef, {
+      userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      alertType: alert.alertType,
+      message: alert.message,
+      severity: alert.severity,
+      location: alert.location,
+      resolved: false,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('addAlertToFirestore failed:', error);
+  }
+};
+
+export const updateAlertResolved = async (alertId: string, resolved: boolean) => {
+  try {
+    const alertRef = doc(db, 'alerts', alertId);
+    await updateDoc(alertRef, { resolved });
+  } catch (error) {
+    console.error('updateAlertResolved failed:', error);
+  }
+};
+
+export const deleteAlertFromFirestore = async (alertId: string) => {
+  try {
+    const alertRef = doc(db, 'alerts', alertId);
+    await deleteDoc(alertRef);
+  } catch (error) {
+    console.error('deleteAlertFromFirestore failed:', error);
+  }
+};
+
