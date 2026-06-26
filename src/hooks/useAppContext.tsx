@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
+import { parseSafeDate } from '../lib/utils';
 
 export interface Thresholds {
   tempMax: number;
@@ -212,7 +213,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const unsubscribe = subscribeToAlerts(uid, (data) => {
       const mappedAlerts = data.map(a => ({
         id: a.id,
-        time: a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        time: a.timestamp ? parseSafeDate(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         location: a.location || 'Unknown',
         alertType: a.alertType || 'Alert',
         message: a.message || '',

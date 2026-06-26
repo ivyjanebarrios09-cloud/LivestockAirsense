@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { cn } from '../lib/utils';
+import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry } from '../lib/firebase';
@@ -385,7 +385,7 @@ export function Dashboard() {
   }, [selectedDeviceId, refreshInterval, deviceOwnerUid]);
 
   const chartData = telemetryLogs.map(log => ({
-    time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
+    time: log.timestamp ? parseSafeDate(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
     aqi: log.aqi || 0,
     co2: log.co2 || 0,
     temp: log.temperature || 0

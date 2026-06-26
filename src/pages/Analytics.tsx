@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { Sparkles, TrendingUp, TrendingDown, Thermometer, Activity, HelpCircle, Flame, Wind, Layers } from 'lucide-react';
 import { useAppContext } from '../hooks/useAppContext';
-import { cn } from '../lib/utils';
+import { cn, parseSafeDate } from '../lib/utils';
 import { getSensorReadings } from '../lib/firebase';
 
 export function AnalyticsPage() {
@@ -26,7 +26,7 @@ export function AnalyticsPage() {
   // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {
     return telemetryLogs.map(log => ({
-      time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: log.timestamp ? parseSafeDate(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
       aqi: log.aqi,
       temp: log.temperature,
       co2: log.co2,

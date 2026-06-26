@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, parseSafeDate } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
@@ -26,8 +26,8 @@ export function HistoryPage() {
     const logs = await getStatusHistory();
     const formattedLogs = logs.map(log => ({
       ...log,
-      timestamp: new Date(log.timestamp).toLocaleString(),
-      chartLabel: new Date(log.timestamp).toLocaleDateString()
+      timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
+      chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
     }));
     setHistoricalLogs(formattedLogs);
   };
