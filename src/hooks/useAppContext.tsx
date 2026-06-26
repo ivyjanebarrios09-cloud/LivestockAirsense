@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, postSimulatedReading, saveUserSettingsToFirestore, db } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 
@@ -216,34 +216,18 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const unreadAlertsCount = alertsList.filter(alert => !alert.resolved).length;
 
-  useEffect(() => {
-    if (!selectedDeviceId) return;
-
-    const device = devices.find(d => d.id === selectedDeviceId);
-    const deviceName = device?.name || 'ESP32 Node';
-
-    if (firebaseSync) {
-      postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
-    }
-
-    const intervalId = setInterval(() => {
-      if (firebaseSync) {
-        postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(intervalId);
-  }, [selectedDeviceId, devices, thresholds, refreshInterval, firebaseSync]);
-
   const [isSyncing, setIsSyncing] = useState(false);
   const triggerSync = async () => {
     setIsSyncing(true);
-    if (selectedDeviceId) {
-      const device = devices.find(d => d.id === selectedDeviceId);
-      const deviceName = device?.name || 'ESP32 Node';
-      await postSimulatedReading(selectedDeviceId, deviceName, null, thresholds);
+    try {
+      if (uid) {
+        const updatedDevices = await getDevices(uid);
+        setDevices(updatedDevices);
+      }
+    } catch (e) {
+      console.error('Failed to sync devices:', e);
     }
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     setIsSyncing(false);
   };
 

@@ -93,12 +93,14 @@ service cloud.firestore {
 
     match /locations/{locationId} {
       allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow write: if isSignedIn() && isValidLocation(incoming()); 
+      allow create, update: if isSignedIn() && isValidLocation(incoming());
+      allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
     }
 
     match /devices/{deviceId} {
       allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow write: if isSignedIn() && isValidDevice(incoming());
+      allow create, update: if isSignedIn() && isValidDevice(incoming());
+      allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
     }
 
     match /sensors/{deviceId} {

@@ -10,17 +10,20 @@ const firebaseConfig = {
   appId: "1:40896854963:web:28b33b7405ed78188229c6",
   apiKey: "AIzaSyCVKH_r4VfUrBsiA0RACVG6G3-AOpHbJf4",
   authDomain: "livestockairsense.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-4728dc45-1051-45bb-bc92-b25b860163e0",
+  firestoreDatabaseId: "(default)",
   storageBucket: "livestockairsense.firebasestorage.app",
   messagingSenderId: "40896854963",
 };
 
 const fbApp = initializeApp(firebaseConfig, 'server-fb');
-const dbCustom = initializeFirestore(fbApp, {}, firebaseConfig.firestoreDatabaseId);
+const dbCustom = getFirestore(fbApp);
 const dbDefault = getFirestore(fbApp);
 
 async function fetchAndSaveLatestData() {
   console.log('[Server] Querying Firestore path...');
+  // Wait 2 seconds for Firestore client to initialize connection
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   const output: any = {
     timestamp: new Date().toISOString(),
     customDb: {

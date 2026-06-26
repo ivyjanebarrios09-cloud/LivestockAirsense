@@ -13,7 +13,7 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || autoConfig.measurementId,
   firestoreDatabaseId: (import.meta.env.VITE_FIREBASE_DATABASE_ID && import.meta.env.VITE_FIREBASE_DATABASE_ID !== '(default)')
     ? import.meta.env.VITE_FIREBASE_DATABASE_ID
-    : (autoConfig.firestoreDatabaseId || '(default)')
+    : '(default)'
 };
 
 const app = initializeApp(firebaseConfig);
@@ -27,63 +27,79 @@ export const db = dbId && dbId !== '(default)'
 
 export const subscribeToSensorData = (uid: string, deviceId: string, callback: (data: any) => void) => {
   if (!uid || !deviceId) return () => {};
-  return onSnapshot(doc(db, 'users', uid, 'devices', deviceId), (snapshot) => {
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      const latestReading = data.latestReading || {};
-      
-      callback({
-        id: snapshot.id,
-        deviceId: data.deviceId || snapshot.id,
-        deviceName: data.deviceName || 'AIRSENSE',
-        temperature: latestReading.temperature || 0,
-        temperatureLevel: latestReading.temperatureStatus || 'Normal',
-        humidity: latestReading.humidity || 0,
-        humidityLevel: latestReading.humidityStatus || 'Normal',
-        co2: latestReading.co2 || 0,
-        co2Level: latestReading.co2Status || 'Good',
-        aqi: latestReading.aqi || 0,
-        aqiLevel: latestReading.aqi > 150 ? 'POOR' : 'GOOD',
-        nh3: latestReading.nh3 || 0,
-        nh3Level: latestReading.nh3Status || 'Low',
-        ch4: latestReading.ch4 || 0,
-        ch4Level: latestReading.ch4Status || 'Low',
-        timestamp: latestReading.timestamp || Date.now(),
-        ammonia: latestReading.nh3 || 0,
-        methane: latestReading.ch4 || 0,
-        pm1_0: latestReading.pm1_0 || 0,
-        pm2_5: latestReading.pm2_5 || 0,
-        pm10: latestReading.pm10 || 0
-      });
-    } else {
-      callback({
-        id: deviceId,
-        deviceId: deviceId,
-        temperature: 0,
-        temperatureLevel: 'Normal',
-        humidity: 0,
-        humidityLevel: 'Normal',
-        co2: 0,
-        co2Level: 'Good',
-        aqi: 0,
-        aqiLevel: 'GOOD',
-        nh3: 0,
-        nh3Level: 'Low',
-        ch4: 0,
-        ch4Level: 'Low',
-        timestamp: Date.now()
-      });
+  return onSnapshot(
+    doc(db, 'users', uid, 'devices', deviceId),
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const latestReading = data.latestReading || {};
+        
+        callback({
+          id: snapshot.id,
+          deviceId: data.deviceId || snapshot.id,
+          deviceName: data.deviceName || 'AIRSENSE',
+          temperature: latestReading.temperature || 0,
+          temperatureLevel: latestReading.temperatureStatus || 'Normal',
+          humidity: latestReading.humidity || 0,
+          humidityLevel: latestReading.humidityStatus || 'Normal',
+          co2: latestReading.co2 || 0,
+          co2Level: latestReading.co2Status || 'Good',
+          aqi: latestReading.aqi || 0,
+          aqiLevel: latestReading.aqi > 150 ? 'POOR' : 'GOOD',
+          nh3: latestReading.nh3 || 0,
+          nh3Level: latestReading.nh3Status || 'Low',
+          ch4: latestReading.ch4 || 0,
+          ch4Level: latestReading.ch4Status || 'Low',
+          timestamp: latestReading.timestamp || Date.now(),
+          ammonia: latestReading.nh3 || 0,
+          methane: latestReading.ch4 || 0,
+          pm1_0: latestReading.pm1_0 || 0,
+          pm2_5: latestReading.pm2_5 || 0,
+          pm10: latestReading.pm10 || 0
+        });
+      } else {
+        callback({
+          id: deviceId,
+          deviceId: deviceId,
+          temperature: 0,
+          temperatureLevel: 'Normal',
+          humidity: 0,
+          humidityLevel: 'Normal',
+          co2: 0,
+          co2Level: 'Good',
+          aqi: 0,
+          aqiLevel: 'GOOD',
+          nh3: 0,
+          nh3Level: 'Low',
+          ch4: 0,
+          ch4Level: 'Low',
+          timestamp: Date.now()
+        });
+      }
+    },
+    (error) => {
+      console.warn(`[Firestore] Sensor data subscription stream error or timed out/cancelled for ${deviceId}:`, error);
     }
-  });
+  );
 };
 
 export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void) => {
+  if (!uid || uid === 'guest') {
+    callback([]);
+    return () => {};
+  }
   const alertsRef = collection(db, 'alerts');
-  const q = uid && uid !== 'guest' ? query(alertsRef, where('userId', '==', uid)) : query(alertsRef);
-  return onSnapshot(q, (snapshot) => {
-    const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(alerts);
-  });
+  const q = query(alertsRef, where('userId', '==', uid));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(alerts);
+    },
+    (error) => {
+      console.warn('[Firestore] Alerts subscription stream error or timed out/cancelled:', error);
+    }
+  );
 };
 
 export const addDevice = async (device: any) => {
@@ -369,14 +385,30 @@ export const addDeviceToFirestore = async (device: any) => {
 
 export const deleteDeviceFromFirestore = async (userId: string, id: string) => {
   try {
-    // Delete from all relevant collections
+    // 1. Delete user-specific device (Primary)
     if (userId) {
-      await deleteDoc(doc(db, 'users', userId, 'devices', id));
+      try {
+        await deleteDoc(doc(db, 'users', userId, 'devices', id));
+      } catch (err) {
+        console.warn(`[Firestore] Failed to delete primary user device doc:`, err);
+      }
     }
-    await deleteDoc(doc(db, 'deviceRegistry', id));
-    await deleteDoc(doc(db, 'airMonitoring', id));
-    await deleteDoc(doc(db, 'devices', id));
-    await deleteDoc(doc(db, 'sensors', id));
+    
+    // 2. Delete from secondary/legacy collections (swallowing errors to prevent crashing the whole flow if rules are restrictive or documents don't exist)
+    const secondaryDocs = [
+      doc(db, 'deviceRegistry', id),
+      doc(db, 'airMonitoring', id),
+      doc(db, 'devices', id),
+      doc(db, 'sensors', id)
+    ];
+
+    for (const docRef of secondaryDocs) {
+      try {
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.debug(`[Firestore] Swallowed expected permission/not-found warning for secondary path ${docRef.path}:`, err);
+      }
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, 'devices');
   }
@@ -430,149 +462,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
-export const postSimulatedReading = async (
-  deviceId: string,
-  deviceName: string,
-  _location: any,
-  thresholds: any
-) => {
-  try {
-    const baseTemp = 21;
-    const baseHum = 55;
-    const baseCo2 = 450;
-    const baseNh3 = 1.2;
-
-    const temperature = Number((baseTemp + (Math.random() * 2.4 - 1.2)).toFixed(1));
-    const humidity = Math.max(0, Math.min(100, Number((baseHum + (Math.random() * 6 - 3)).toFixed(1))));
-    const co2 = Math.max(0, Math.round(baseCo2 + (Math.random() * 60 - 30)));
-    const nh3 = Math.max(0, Number((baseNh3 + (Math.random() * 1.6 - 0.8)).toFixed(2)));
-    const ch4 = Math.max(0, Number((0.05 + (Math.random() * 0.08 - 0.04)).toFixed(2)));
-    const pm1_0 = Math.round(Math.random() * 5 + 5);
-    const pm2_5 = Number((12.4 + (Math.random() * 3.2 - 1.6)).toFixed(1));
-    const pm10 = Number((22.1 + (Math.random() * 4.8 - 2.4)).toFixed(1));
-
-    const aqi = Math.round(Math.max(10, Math.min(500, 35 + (co2 - 350) / 8 + nh3 * 8)));
-
-    const temperatureStatus = temperature > thresholds.tempMax ? 'High' : 'Normal';
-    const humidityStatus = humidity > thresholds.humidityMax ? 'High' : 'Normal';
-    const co2Status = co2 > thresholds.co2Max ? 'High' : 'Good';
-    const nh3Status = nh3 > thresholds.ammoniaMax ? 'High' : 'Low';
-    const ch4Status = ch4 > thresholds.methaneMax ? 'High' : 'Low';
-
-    const timestampMs = Date.now();
-    const currentUid = auth.currentUser?.uid || '';
-
-    const triggers = [];
-    if (temperature > thresholds.tempMax) triggers.push({ type: 'Temperature', msg: `Temperature of ${temperature}°C exceeded critical threshold limit.` });
-    if (humidity > thresholds.humidityMax) triggers.push({ type: 'Humidity', msg: `Humidity of ${humidity}% exceeded comfort zone limits.` });
-    if (co2 > thresholds.co2Max) triggers.push({ type: 'CO2', msg: `CO2 level reached ${co2} ppm - ventilation adjustment necessary.` });
-    if (nh3 > thresholds.ammoniaMax) triggers.push({ type: 'NH3', msg: `Ammonia density spiked to ${nh3} ppm - hazard to animal airways.` });
-
-    const readingPayload = {
-      temperature,
-      humidity,
-      co2,
-      pm1_0,
-      pm2_5,
-      pm10,
-      aqi,
-      nh3,
-      ch4,
-      timestamp: timestampMs
-    };
-
-    const currentAlertObj = triggers.length > 0 ? {
-      activeAlert: true,
-      lastAlertType: triggers[triggers.length - 1].type,
-      lastAlertValue: (readingPayload as any)[triggers[triggers.length - 1].type.toLowerCase().includes('temp') ? 'temperature' : triggers[triggers.length - 1].type.toLowerCase().includes('hum') ? 'humidity' : triggers[triggers.length - 1].type.toLowerCase().includes('co2') ? 'co2' : 'nh3'] || 0,
-      lastAlertTime: timestampMs
-    } : {
-      activeAlert: false,
-      lastAlertType: '',
-      lastAlertValue: 0,
-      lastAlertTime: 0
-    };
-
-    const dateStr = new Date(timestampMs).toISOString().split('T')[0];
-    const deviceDocRef = doc(db, 'users', currentUid || 'guest', 'devices', deviceId);
-    await setDoc(deviceDocRef, {
-      deviceId,
-      deviceName,
-      latestReading: {
-        ...readingPayload,
-        temperatureStatus,
-        humidityStatus,
-        co2Status,
-        nh3Status,
-        ch4Status
-      },
-      lastSeen: timestampMs,
-      user: {
-        userId: currentUid || 'guest',
-        email: auth.currentUser?.email || '',
-        role: 'Owner'
-      },
-      thresholds: {
-        temperatureMax: thresholds.tempMax,
-        humidityMax: thresholds.humidityMax,
-        co2Max: thresholds.co2Max,
-        pm25Max: thresholds.pm25Max || 35,
-        pm10Max: thresholds.pm10Max || 50,
-        nh3Max: thresholds.ammoniaMax,
-        ch4Max: thresholds.methaneMax
-      },
-      alerts: currentAlertObj
-    }, { merge: true });
-
-    const historyDocRef = doc(db, 'users', currentUid || 'guest', 'devices', deviceId, 'history', dateStr, 'readings', String(timestampMs));
-    await setDoc(historyDocRef, readingPayload);
-
-    // Keep legacy updates for full safety
-    const legacyDeviceDocRef = doc(db, 'airMonitoring', deviceId);
-    await setDoc(legacyDeviceDocRef, { latestReading: readingPayload, lastSeen: timestampMs }, { merge: true });
-    
-    const legacyHistoryDocRef = doc(db, 'airMonitoring', deviceId, 'readings', String(timestampMs));
-    await setDoc(legacyHistoryDocRef, readingPayload);
-
-    const legacyDocRef = doc(db, 'sensors', deviceId);
-    await setDoc(legacyDocRef, { ...readingPayload, deviceId, deviceName, nh3Level: nh3Status, ch4Level: ch4Status }, { merge: true });
-    await addDoc(collection(db, 'sensorReadings'), { ...readingPayload, deviceId, deviceName, userId: currentUid, ammonia: nh3, methane: ch4 });
-
-    // Post to status_history for History Page and CSV/PDF export
-    await addDoc(collection(db, 'status_history'), {
-      timestamp: timestampMs,
-      sensorName: deviceName || 'ESP32 Node',
-      status: triggers.length > 0 ? 'Warning' : 'Normal',
-      reading: `AQI: ${aqi}`,
-      temp: temperature,
-      humidity: humidity,
-      co2: co2,
-      ammonia: nh3,
-      methane: ch4,
-      pm1_0: pm1_0,
-      pm2_5: pm2_5,
-      pm10: pm10,
-      aqi: aqi
-    });
-
-    for (const trigger of triggers) {
-      await addDoc(collection(db, 'alerts'), {
-        timestamp: timestampMs / 1000,
-        alertType: trigger.type,
-        severity: 'critical',
-        message: trigger.msg,
-        location: 'Facility',
-        resolved: false,
-        isRead: false,
-        userId: currentUid
-      });
-    }
-
-  } catch (err) {
-    console.error('Failed to post simulated reading:', err);
-  }
-};
 
 export const saveUserSettingsToFirestore = async (uid: string, settings: any) => {
   if (!uid || uid === 'guest') return;

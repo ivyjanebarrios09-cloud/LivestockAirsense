@@ -4,7 +4,7 @@ import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings } from '../lib/firebase';
-import { Cpu, Plus, Layers, Wifi, Sparkles } from 'lucide-react';
+import { Cpu, Plus, Layers, Wifi } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -233,25 +233,6 @@ export function Dashboard() {
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
 
-  const handleQuickDemoSetup = async () => {
-    setIsOnboardingSaving(true);
-    setOnboardingError(null);
-    try {
-      const devId = `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-      await addDevice({
-        id: devId,
-        deviceId: devId,
-        name: 'ESP32 Main Node',
-        locationId: 'default'
-      });
-      setSelectedDeviceId(devId);
-    } catch (err: any) {
-      setOnboardingError(err.message || 'Failed to complete quick onboarding.');
-    } finally {
-      setIsOnboardingSaving(false);
-    }
-  };
-
   const handleCustomRegisterSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingDevName.trim() || !onboardingDevId.trim()) {
@@ -315,15 +296,19 @@ export function Dashboard() {
       co2: 0, 
       nh3: 0, 
       ch4: 0, 
-      aqi: 0 
+      aqi: 0,
+      pm1_0: 0,
+      pm2_5: 0,
+      pm10: 0
   };
 
   const isTempAlert = lastReading.temperature > thresholds.tempMax;
   const isHumAlert = lastReading.humidity > thresholds.humidityMax;
   const isCo2Alert = lastReading.co2 > thresholds.co2Max;
   const isAmmoniaAlert = lastReading.nh3 > thresholds.ammoniaMax;
+  const isPm25Alert = (lastReading.pm2_5 || 0) > 35;
 
-  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0);
+  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0);
 
   const getStatus = (label: string, val: number) => {
     switch (label) {
@@ -373,7 +358,7 @@ export function Dashboard() {
   const humStatus = getStatus('Humidity', lastReading.humidity);
   const co2Status = getStatus('CO2 Level', lastReading.co2);
   const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
-  const pmStatus = getStatus('PM2.5 Feed Dust', 12.4); // Still simulated
+  const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0);
 
   const metrics = [
     { 
@@ -438,12 +423,16 @@ export function Dashboard() {
     },
     { 
       label: 'PM2.5 Feed Dust', 
-      value: '12.4 µg/m³', 
+      value: (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
       icon: PM25Svg, 
-      color: 'text-purple-500', 
-      bg: 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
-      cardStyle: 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
-      isWarning: false,
+      color: isPm25Alert ? 'text-red-500' : 'text-purple-500', 
+      bg: isPm25Alert 
+        ? 'bg-red-500/15 border-red-500/30' 
+        : 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
+      cardStyle: isPm25Alert 
+        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
+        : 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
+      isWarning: isPm25Alert,
       status: pmStatus,
       limitInfo: '35 µg'
     },
@@ -485,32 +474,8 @@ export function Dashboard() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-10 gap-8 mt-10 relative z-10 border-t border-white/10 pt-8">
-            
-            <div className="md:col-span-4 space-y-5 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/10 pb-8 md:pb-0 md:pr-8">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-system-accent">
-                  <Sparkles className="w-5 h-5" />
-                  <h3 className="font-bold text-sm tracking-wide uppercase font-mono">1-Click Smart Sim</h3>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Instantly provision a simulated Broiler Barn paired with an ESP32 microclimate telemetry node. Ideal for immediate exploring.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleQuickDemoSetup}
-                  disabled={isOnboardingSaving}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-system-accent to-indigo-600 hover:from-system-accent/90 hover:to-indigo-500/95 py-3 px-4 text-xs font-bold tracking-wider text-white shadow-xl hover:shadow-2xl transition-all font-mono uppercase disabled:opacity-50 cursor-pointer"
-                >
-                  {isOnboardingSaving ? 'Provisioning...' : 'Provision Sim Node'}
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleCustomRegisterSetup} className="md:col-span-6 space-y-4">
+          <div className="mt-10 relative z-10 border-t border-white/10 pt-8">
+            <form onSubmit={handleCustomRegisterSetup} className="max-w-md space-y-4">
               <div className="flex items-center gap-2 text-slate-300">
                 <Cpu className="w-5 h-5 text-slate-400" />
                 <h3 className="font-bold text-sm tracking-wide uppercase font-mono">Custom Device Pairing</h3>
@@ -522,18 +487,18 @@ export function Dashboard() {
                 </div>
               )}
 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
-                    <input
-                      type="text"
-                      required
-                      value={onboardingDevId}
-                      onChange={(e) => setOnboardingDevId(e.target.value)}
-                      className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent bg-slate-900"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardingDevId}
+                    onChange={(e) => setOnboardingDevId(e.target.value)}
+                    className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent bg-slate-900"
+                  />
                 </div>
+              </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Friendly Device Name</label>
