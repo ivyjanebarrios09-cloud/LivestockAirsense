@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
@@ -53,6 +53,8 @@ export interface AppContextType {
   refreshInterval: number;
   firebaseSync: boolean;
   saveSystemSettings: (interval: number, sync: boolean) => void;
+  pushEnabled: boolean;
+  savePushEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -75,6 +77,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const [firebaseSync, setFirebaseSync] = useState<boolean>(() => {
     const saved = localStorage.getItem(`las_${uid}_firebase_sync`);
+    return saved === 'true';
+  });
+
+  const [pushEnabled, setPushEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`las_${uid}_push_enabled`);
     return saved === 'true';
   });
 
@@ -115,6 +122,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         }
         if (data.firebaseSync !== undefined) {
           setFirebaseSync(data.firebaseSync);
+        }
+        if (data.pushEnabled !== undefined) {
+          setPushEnabled(data.pushEnabled);
+          localStorage.setItem(`las_${uid}_push_enabled`, String(data.pushEnabled));
         }
       }
     }, (error) => {
@@ -180,11 +191,26 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     saveUserSettingsToFirestore(uid, { refreshInterval: interval, firebaseSync: sync });
   };
 
+  const savePushEnabled = async (enabled: boolean) => {
+    setPushEnabled(enabled);
+    localStorage.setItem(`las_${uid}_push_enabled`, String(enabled));
+    await saveUserSettingsToFirestore(uid, { pushEnabled: enabled });
+  };
+
   const [alertsList, setAlertsList] = useState<Alert[]>([]);
+  const notifiedAlertIdsRef = useRef<Set<string>>(new Set());
+  const lastUidRef = useRef<string>(uid);
+  const isFirstMountRef = useRef<boolean>(true);
 
   useEffect(() => {
+    if (lastUidRef.current !== uid) {
+      notifiedAlertIdsRef.current.clear();
+      lastUidRef.current = uid;
+      isFirstMountRef.current = true;
+    }
+
     const unsubscribe = subscribeToAlerts(uid, (data) => {
-      setAlertsList(data.map(a => ({
+      const mappedAlerts = data.map(a => ({
         id: a.id,
         time: a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         location: a.location || 'Unknown',
@@ -192,10 +218,60 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         message: a.message || '',
         severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
         resolved: a.resolved || false
-      })));
+      }));
+
+      if (isFirstMountRef.current) {
+        data.forEach(a => {
+          if (a.id) notifiedAlertIdsRef.current.add(a.id);
+        });
+        isFirstMountRef.current = false;
+      } else {
+        const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
+        if (storedPush && 'Notification' in window && Notification.permission === 'granted') {
+          mappedAlerts.forEach(alert => {
+            if (alert.severity === 'critical' && !alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                  if (reg) {
+                    reg.showNotification(`Critical Air Quality Alert`, {
+                      body: `${alert.location}: ${alert.message}`,
+                      icon: '/logo.png',
+                      badge: '/logo.png',
+                      tag: alert.id,
+                      vibrate: [200, 100, 200]
+                    } as any);
+                  } else {
+                    new Notification(`Critical Air Quality Alert`, {
+                      body: `${alert.location}: ${alert.message}`,
+                      icon: '/logo.png'
+                    });
+                  }
+                }).catch(() => {
+                  new Notification(`Critical Air Quality Alert`, {
+                    body: `${alert.location}: ${alert.message}`,
+                    icon: '/logo.png'
+                  });
+                });
+              } else {
+                new Notification(`Critical Air Quality Alert`, {
+                  body: `${alert.location}: ${alert.message}`,
+                  icon: '/logo.png'
+                });
+              }
+              notifiedAlertIdsRef.current.add(alert.id);
+            }
+          });
+        }
+
+        data.forEach(a => {
+          if (a.id) notifiedAlertIdsRef.current.add(a.id);
+        });
+      }
+
+      setAlertsList(mappedAlerts);
     });
     return () => unsubscribe();
-  }, [uid]);
+  }, [uid, pushEnabled]);
 
   const addAlert = (alert: Omit<Alert, 'id' | 'time'>) => {
     const newAlert: Alert = {
@@ -250,7 +326,9 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       unreadAlertsCount,
       refreshInterval,
       firebaseSync,
-      saveSystemSettings
+      saveSystemSettings,
+      pushEnabled,
+      savePushEnabled
     }}>
       {children}
     </AppContext.Provider>

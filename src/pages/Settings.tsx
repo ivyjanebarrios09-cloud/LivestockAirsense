@@ -25,7 +25,9 @@ export function SettingsPage() {
     deleteDevice,
     refreshInterval,
     firebaseSync,
-    saveSystemSettings
+    saveSystemSettings,
+    pushEnabled,
+    savePushEnabled
   } = useAppContext();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -69,18 +71,13 @@ export function SettingsPage() {
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
 
-  const [pushEnabled, setPushEnabled] = useState(() => {
-    return localStorage.getItem(`las_${uid}_push_enabled`) === 'true';
-  });
-
   const handlePushToggle = async (e: ChangeEvent<HTMLInputElement>) => {
     const isEnabled = e.target.checked;
     if (isEnabled) {
       if ('Notification' in window) {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
-          setPushEnabled(true);
-          localStorage.setItem(`las_${uid}_push_enabled`, 'true');
+          await savePushEnabled(true);
           
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistration().then(reg => {
@@ -101,15 +98,14 @@ export function SettingsPage() {
             new Notification('AirSense', { body: 'Enabled', icon: '/logo.png' });
           }
         } else {
-          setPushEnabled(false);
+          await savePushEnabled(false);
           alert('Notification permission was denied. Please update your browser settings.');
         }
       } else {
         alert('Your browser does not support notifications.');
       }
     } else {
-      setPushEnabled(false);
-      localStorage.setItem(`las_${uid}_push_enabled`, 'false');
+      await savePushEnabled(false);
     }
   };
 
