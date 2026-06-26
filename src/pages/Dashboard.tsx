@@ -361,6 +361,7 @@ export function Dashboard() {
 
   const [deviceData, setDeviceData] = useState<any>(null);
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   
   const currentDevice = devices.find(d => d.id === selectedDeviceId);
   const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
@@ -376,20 +377,24 @@ export function Dashboard() {
   useEffect(() => {
     if (!deviceOwnerUid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 12);
+      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
     const interval = setInterval(fetchData, refreshInterval + 100);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, refreshInterval, deviceOwnerUid]);
+  }, [selectedDeviceId, refreshInterval, deviceOwnerUid, selectedDate]);
 
-  const chartData = telemetryLogs.map(log => ({
-    time: log.timestamp ? parseSafeDate(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
-    aqi: log.aqi || 0,
-    co2: log.co2 || 0,
-    temp: log.temperature || 0
-  }));
+  const chartData = telemetryLogs.map(log => {
+    const d = log.timestamp ? parseSafeDate(log.timestamp) : new Date();
+    return {
+      time: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
+      timeWithTime: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      aqi: log.aqi || 0,
+      co2: log.co2 || 0,
+      temp: log.temperature || 0
+    };
+  });
 
   const lastReading = deviceData || { 
       temperature: 0, 
@@ -893,14 +898,20 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Microclimate Graph (CO2 / AQI Trend)</h3>
-              <p className="text-xs text-system-muted">Real-time edge telemetry tracking (6s interval)</p>
+              <p className="text-xs text-system-muted">Telemetry monitoring per day</p>
             </div>
-            <span className="text-[10px] font-mono bg-system-bg border border-system-border px-2.5 py-1 rounded-lg text-system-muted">
-              Live Feed
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-system-muted uppercase">Select Day:</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="bg-system-bg border border-system-border px-2.5 py-1 text-xs font-mono rounded-lg text-system-text outline-none focus:border-system-accent focus:ring-1 focus:ring-system-accent cursor-pointer transition-all"
+              />
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 w-full relative">
@@ -926,6 +937,10 @@ export function Dashboard() {
                   tickLine={false}
                 />
                 <Tooltip 
+                  labelFormatter={(value, payload) => {
+                    const item = payload && payload[0]?.payload;
+                    return item ? item.timeWithTime : value;
+                  }}
                   contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   itemStyle={{ color: '#0f172a' }}
                 />

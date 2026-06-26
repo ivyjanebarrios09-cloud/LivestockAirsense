@@ -9,6 +9,7 @@ export function AnalyticsPage() {
   const { uid, devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [chartMetric, setChartMetric] = useState<'aqi' | 'temp' | 'co2' | 'ammonia'>('aqi');
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
 
@@ -17,22 +18,26 @@ export function AnalyticsPage() {
   useEffect(() => {
     if (!deviceOwnerUid) return;
     const fetchData = async () => {
-      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 12);
+      const logs = await getSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate);
       setTelemetryLogs(logs.reverse());
     };
     fetchData();
-  }, [selectedDeviceId, deviceOwnerUid]);
+  }, [selectedDeviceId, deviceOwnerUid, selectedDate]);
 
   // Use telemetryLogs instead of dynamicTimelineData
   const dynamicTimelineData = useMemo(() => {
-    return telemetryLogs.map(log => ({
-      time: log.timestamp ? parseSafeDate(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-      aqi: log.aqi,
-      temp: log.temperature,
-      co2: log.co2,
-      ammonia: log.ammonia,
-      humidity: log.humidity
-    }));
+    return telemetryLogs.map(log => {
+      const d = log.timestamp ? parseSafeDate(log.timestamp) : new Date();
+      return {
+        time: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
+        timeWithTime: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        aqi: log.aqi,
+        temp: log.temperature,
+        co2: log.co2,
+        ammonia: log.ammonia,
+        humidity: log.humidity
+      };
+    });
   }, [telemetryLogs]);
 
   const averageAqi = useMemo(() => {
@@ -124,32 +129,44 @@ export function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 lg:col-span-2 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Live 12-Hour Telemetry Correlation</h3>
-              <p className="text-xs text-system-muted">Select microclimate sensors to evaluate historical trends.</p>
+              <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Daily Telemetry Evaluation</h3>
+              <p className="text-xs text-system-muted">Select a day and microclimate sensors to evaluate trends.</p>
             </div>
             
-            <div className="flex bg-system-bg border border-system-border rounded-xl p-1 shrink-0 select-none">
-              {[
-                { id: 'aqi', val: 'AQI' },
-                { id: 'temp', val: 'Temp' },
-                { id: 'co2', val: 'CO2' },
-                { id: 'ammonia', val: 'NH₃' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setChartMetric(opt.id as any)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer",
-                    chartMetric === opt.id 
-                      ? "bg-system-accent text-white shadow-sm" 
-                      : "text-system-muted hover:text-system-text"
-                  )}
-                >
-                  {opt.val}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1 shrink-0 select-none">
+                <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Select Day:</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-mono text-system-text outline-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex bg-system-bg border border-system-border rounded-xl p-1 shrink-0 select-none">
+                {[
+                  { id: 'aqi', val: 'AQI' },
+                  { id: 'temp', val: 'Temp' },
+                  { id: 'co2', val: 'CO2' },
+                  { id: 'ammonia', val: 'NH₃' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setChartMetric(opt.id as any)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer",
+                      chartMetric === opt.id 
+                        ? "bg-system-accent text-white shadow-sm" 
+                        : "text-system-muted hover:text-system-text"
+                    )}
+                  >
+                    {opt.val}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -169,6 +186,10 @@ export function AnalyticsPage() {
                   tick={{ fontSize: 10, fill: '#8b949e', fontWeight: 'bold', fontFamily: 'monospace' }}
                 />
                 <Tooltip 
+                  labelFormatter={(value, payload) => {
+                    const item = payload && payload[0]?.payload;
+                    return item ? item.timeWithTime : value;
+                  }}
                   contentStyle={{ 
                     backgroundColor: 'rgb(15, 23, 42)', 
                     borderColor: 'rgba(255, 255, 255, 0.1)', 

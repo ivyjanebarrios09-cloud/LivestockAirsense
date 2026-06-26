@@ -129,11 +129,11 @@ export const addDevice = async (device: any) => {
   }
 };
 
-export const getSensorReadings = async (uid: string, deviceId: string, limitCount: number = 100): Promise<any[]> => {
+export const getSensorReadings = async (uid: string, deviceId: string, limitCount: number = 100, selectedDateStr?: string): Promise<any[]> => {
     if (!uid || !deviceId) return [];
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'history', today, 'readings');
+        const targetDate = selectedDateStr || new Date().toISOString().split('T')[0];
+        const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'history', targetDate, 'readings');
         const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(limitCount));
         const querySnapshot = await getDocs(q);
         
