@@ -53,9 +53,9 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
           timestamp: latestReading.timestamp || Date.now(),
           ammonia: latestReading.nh3 || 0,
           methane: latestReading.ch4 || 0,
-          pm1_0: latestReading.pm1_0 || 0,
-          pm2_5: latestReading.pm2_5 || 0,
-          pm10: latestReading.pm10 || 0
+          pm1_0: latestReading.pm1_0 ?? latestReading.pm10 ?? latestReading['pm1.0'] ?? latestReading['pm1_0'] ?? latestReading.pm1 ?? 0,
+          pm2_5: latestReading.pm2_5 ?? latestReading.pm25 ?? latestReading['pm2.5'] ?? latestReading['pm2_5'] ?? 0,
+          pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
         });
       } else {
         callback({
@@ -142,8 +142,11 @@ export const getSensorReadings = async (uid: string, deviceId: string, limitCoun
           return {
             id: docSnap.id,
             ...data,
-            ammonia: data.nh3,
-            methane: data.ch4,
+            pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
+            pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
+            pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
+            ammonia: data.nh3 ?? data.ammonia,
+            methane: data.ch4 ?? data.methane,
             deviceId: deviceId
           };
         });
@@ -153,13 +156,19 @@ export const getSensorReadings = async (uid: string, deviceId: string, limitCoun
             const legacyRef = collection(db, 'airMonitoring', deviceId, 'readings');
             const legacyQ = query(legacyRef, orderBy('timestamp', 'desc'), limit(limitCount));
             const legacySnap = await getDocs(legacyQ);
-            docs = legacySnap.docs.map(doc => ({ 
-              id: doc.id, 
-              deviceId: deviceId,
-              ...doc.data(),
-              ammonia: (doc.data() as any).nh3,
-              methane: (doc.data() as any).ch4
-            }));
+            docs = legacySnap.docs.map(docSnap => {
+              const data = docSnap.data();
+              return { 
+                id: docSnap.id, 
+                deviceId: deviceId,
+                ...data,
+                pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
+                pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
+                pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
+                ammonia: data.nh3 ?? data.ammonia,
+                methane: data.ch4 ?? data.methane
+              };
+            });
         }
 
         return docs;
