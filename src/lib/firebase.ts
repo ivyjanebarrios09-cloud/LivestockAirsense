@@ -11,9 +11,7 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || autoConfig.messagingSenderId,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || autoConfig.appId,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || autoConfig.measurementId,
-  firestoreDatabaseId: (import.meta.env.VITE_FIREBASE_DATABASE_ID && import.meta.env.VITE_FIREBASE_DATABASE_ID !== '(default)')
-    ? import.meta.env.VITE_FIREBASE_DATABASE_ID
-    : '(default)'
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || autoConfig.firestoreDatabaseId || '(default)'
 };
 
 const app = initializeApp(firebaseConfig);

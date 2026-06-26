@@ -3,7 +3,7 @@
   "appId": "1:40896854963:web:28b33b7405ed78188229c6",
   "apiKey": "AIzaSyCVKH_r4VfUrBsiA0RACVG6G3-AOpHbJf4",
   "authDomain": "livestockairsense.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-4728dc45-1051-45bb-bc92-b25b860163e0",
+  "firestoreDatabaseId": "default",
   "storageBucket": "livestockairsense.firebasestorage.app",
   "messagingSenderId": "40896854963",
   "measurementId": ""
