@@ -54,6 +54,9 @@ export function HistoryPage() {
     if (!activeDevice) return;
     const headers = [
       'Timestamp', 
+      'Sensor Name',
+      'Status',
+      'Reading',
       'Device Name', 
       'Device ID', 
       'Temp (°C)', 
@@ -69,6 +72,9 @@ export function HistoryPage() {
     
     const rows = historicalLogs.map(row => [
       row.timestamp,
+      row.sensorName ?? '-',
+      row.status ?? '-',
+      row.reading ?? '-',
       activeDevice.name,
       activeDevice.id,
       row.temp ?? '-',
@@ -111,17 +117,17 @@ export function HistoryPage() {
     doc.line(14, 30, 196, 30);
 
     autoTable(doc, {
-      head: [['Timestamp', 'Temp', 'Humidity', 'CO2', 'NH3', 'CH4', 'PM1.0', 'PM2.5', 'PM10', 'AQI']],
+      head: [['Timestamp', 'Sensor', 'Status', 'Reading', 'Temp', 'Humidity', 'CO2', 'NH3', 'CH4', 'AQI']],
       body: historicalLogs.map(row => [
         row.timestamp, 
+        row.sensorName ?? '-',
+        row.status ?? '-',
+        row.reading ?? '-',
         row.temp !== undefined ? `${row.temp} °C` : '-', 
         row.humidity !== undefined ? `${row.humidity} %` : '-', 
         row.co2 !== undefined ? `${row.co2} ppm` : '-', 
         row.ammonia !== undefined ? `${row.ammonia} ppm` : '-', 
         row.methane !== undefined ? `${row.methane} ppm` : '-', 
-        row.pm1_0 !== undefined ? `${row.pm1_0} µg` : '-', 
-        row.pm2_5 !== undefined ? `${row.pm2_5} µg` : '-', 
-        row.pm10 !== undefined ? `${row.pm10} µg` : '-', 
         row.aqi !== undefined ? String(row.aqi) : '-'
       ]),
       startY: 35,

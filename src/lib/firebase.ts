@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = dbId && dbId !== '(default)'
+export const db = dbId && dbId !== '(default)' && dbId !== 'default'
   ? initializeFirestore(app, {}, dbId)
   : getFirestore(app);
 

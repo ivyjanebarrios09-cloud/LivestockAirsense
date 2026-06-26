@@ -420,8 +420,8 @@ export function Dashboard() {
         currStatus: string,
         prevStatus: string
       ) => {
-        if (currVal !== prevVal || currStatus !== prevStatus) {
-          console.log(`[Status Change] Sensor ${sensorName} changed from ${prevVal} (${prevStatus}) to ${currVal} (${currStatus})`);
+        if (currStatus !== prevStatus) {
+          console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
           await recordStatusChange(sensorName, currStatus, currVal, {
             temp: curr.temperature ?? 0,
             humidity: curr.humidity ?? 0,
@@ -434,7 +434,7 @@ export function Dashboard() {
             aqi: curr.aqi ?? 0
           });
 
-          if (currStatus !== prevStatus && uid) {
+          if (uid) {
             let severity: 'critical' | 'warning' | 'normal' = 'normal';
             if (currStatus === 'Dangerous' || currStatus === 'Hazardous' || currStatus === 'Very Poor') {
               severity = 'critical';
@@ -745,12 +745,68 @@ export function Dashboard() {
       </div>
 
       {isSyncing && (
-        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm">
+        <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm mb-4">
           Synchronizing air quality data streams with cloud database...
         </div>
       )}
 
-      <div className="mt-8 md:mt-12 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
+      <div className="mt-8 flex flex-wrap gap-2.5">
+        {metrics.filter(m => m.status.label === 'Good').length > 0 && (
+          <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-500">
+              {metrics.filter(m => m.status.label === 'Good').length} Sensor{metrics.filter(m => m.status.label === 'Good').length > 1 ? 's' : ''} Normal
+            </span>
+          </div>
+        )}
+        {metrics.filter(m => m.status.label === 'Moderate').length > 0 && (
+          <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+            </span>
+            <span className="text-xs font-mono font-bold text-yellow-600 dark:text-yellow-500">
+              {metrics.filter(m => m.status.label === 'Moderate').length} Sensor{metrics.filter(m => m.status.label === 'Moderate').length > 1 ? 's' : ''} Moderate
+            </span>
+          </div>
+        )}
+        {metrics.filter(m => m.status.label === 'Poor').length > 0 && (
+          <div className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-2 select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+            </span>
+            <span className="text-xs font-mono font-bold text-orange-600 dark:text-orange-500">
+              {metrics.filter(m => m.status.label === 'Poor').length} Sensor{metrics.filter(m => m.status.label === 'Poor').length > 1 ? 's' : ''} Poor
+            </span>
+          </div>
+        )}
+        {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
+          <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <span className="text-xs font-mono font-bold text-red-600 dark:text-red-500">
+              {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
+            </span>
+          </div>
+        )}
+        {metrics.filter(m => m.status.label === 'Dangerous').length > 0 && (
+          <div className="px-3 py-1.5 rounded-lg bg-gray-800/10 border border-gray-800/20 flex items-center gap-2 select-none shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-900 dark:bg-gray-400"></span>
+            </span>
+            <span className="text-xs font-mono font-bold text-gray-900 dark:text-gray-400">
+              {metrics.filter(m => m.status.label === 'Dangerous').length} Sensor{metrics.filter(m => m.status.label === 'Dangerous').length > 1 ? 's' : ''} Critical
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 md:mt-6 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
           const statusStyles = getStylesByStatus(metric.status);
