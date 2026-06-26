@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
-import { recordStatusChange, subscribeToSensorData, getSensorReadings, updateDeviceTelemetry, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -256,107 +256,6 @@ export function Dashboard() {
     }
   };
 
-  // Telemetry Simulator States
-  const [simTemp, setSimTemp] = useState(24.5);
-  const [simHum, setSimHum] = useState(62.0);
-  const [simCo2, setSimCo2] = useState(650);
-  const [simNh3, setSimNh3] = useState(5.5);
-  const [simCh4, setSimCh4] = useState(12.0);
-  const [simPm25, setSimPm25] = useState(15.0);
-  const [isPublishingSim, setIsPublishingSim] = useState(false);
-  const [simSuccessMessage, setSimSuccessMessage] = useState('');
-
-  const applyPreset = (presetName: string) => {
-    switch (presetName) {
-      case 'optimal':
-        setSimTemp(22.0);
-        setSimHum(55.0);
-        setSimCo2(420);
-        setSimNh3(1.2);
-        setSimCh4(5.0);
-        setSimPm25(8.0);
-        break;
-      case 'heat':
-        setSimTemp(38.5);
-        setSimHum(82.0);
-        setSimCo2(900);
-        setSimNh3(15.0);
-        setSimCh4(25.0);
-        setSimPm25(24.0);
-        break;
-      case 'poor_ventilation':
-        setSimTemp(28.0);
-        setSimHum(78.5);
-        setSimCo2(2450);
-        setSimNh3(32.0);
-        setSimCh4(85.0);
-        setSimPm25(64.5);
-        break;
-      case 'methane_leak':
-        setSimTemp(25.0);
-        setSimHum(60.0);
-        setSimCo2(1100);
-        setSimNh3(12.0);
-        setSimCh4(215.0);
-        setSimPm25(18.0);
-        break;
-      case 'dust_surge':
-        setSimTemp(24.0);
-        setSimHum(52.0);
-        setSimCo2(720);
-        setSimNh3(8.0);
-        setSimCh4(14.0);
-        setSimPm25(115.0);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handlePublishSimulation = async () => {
-    if (!selectedDeviceId || !deviceOwnerUid) return;
-    setIsPublishingSim(true);
-    setSimSuccessMessage('');
-
-    const tempStatusStr = getStatus('Temperature', simTemp).label;
-    const humStatusStr = getStatus('Humidity', simHum).label;
-    const co2StatusStr = getStatus('CO2 Level', simCo2).label;
-    const nh3StatusStr = getStatus('Ammonia NH3', simNh3).label;
-    const ch4StatusStr = getStatus('Methane CH4', simCh4).label;
-
-    const pmWeight = simPm25 >= 35.5 ? 4.0 : simPm25 >= 12.1 ? 2.5 : 1.0;
-    const co2Weight = simCo2 >= 1200 ? 0.15 : 0.05;
-    const nh3Weight = simNh3 >= 20 ? 4.0 : 1.0;
-    const estimatedAqi = Math.round(Math.min(999, Math.max(10, simPm25 * pmWeight + simCo2 * co2Weight + simNh3 * nh3Weight)));
-
-    const readings = {
-      temperature: simTemp,
-      humidity: simHum,
-      co2: simCo2,
-      nh3: simNh3,
-      ch4: simCh4,
-      pm1_0: Math.round(simPm25 * 0.4),
-      pm2_5: simPm25,
-      pm10: Math.round(simPm25 * 1.8),
-      aqi: estimatedAqi,
-      temperatureStatus: tempStatusStr,
-      humidityStatus: humStatusStr,
-      co2Status: co2StatusStr,
-      nh3Status: nh3StatusStr,
-      ch4Status: ch4StatusStr
-    };
-
-    try {
-      await updateDeviceTelemetry(deviceOwnerUid, selectedDeviceId, readings);
-      setSimSuccessMessage('Simulated telemetry successfully published! Sensor readings and health status changed.');
-      setTimeout(() => setSimSuccessMessage(''), 5000);
-    } catch (err) {
-      console.error('Failed to publish simulation:', err);
-    } finally {
-      setIsPublishingSim(false);
-    }
-  };
-
   const registeredDevices = devices;
 
   const [deviceData, setDeviceData] = useState<any>(null);
@@ -389,7 +288,9 @@ export function Dashboard() {
       timeWithTime: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       aqi: log.aqi || 0,
       co2: log.co2 || 0,
-      temp: log.temperature || 0
+      temp: log.temperature || 0,
+      humidity: log.humidity || 0,
+      ammonia: log.ammonia || 0
     };
   });
 
@@ -897,7 +798,7 @@ export function Dashboard() {
         <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Microclimate Graph (CO2 / AQI Trend)</h3>
+              <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Microclimate Graph (All Sensors Trend)</h3>
               <p className="text-xs text-system-muted">Telemetry monitoring per day</p>
             </div>
             <div className="flex items-center gap-2">
@@ -913,13 +814,7 @@ export function Dashboard() {
 
           <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorAqiDashboard" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-system-accent)" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="var(--color-system-accent)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <LineChart data={chartData} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eaf0f6" />
                 <XAxis 
                   dataKey="time" 
@@ -941,17 +836,43 @@ export function Dashboard() {
                   contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   itemStyle={{ color: '#0f172a' }}
                 />
-                <Area 
+                <Line 
                   type="monotone" 
                   dataKey="aqi" 
-                  name="Air Quality Index"
+                  name="AQI"
                   stroke="var(--color-system-accent)" 
                   strokeWidth={2.5}
-                  fillOpacity={1} 
-                  fill="url(#colorAqiDashboard)" 
+                  dot={false}
                   isAnimationActive={false}
                 />
-              </AreaChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="co2" 
+                  name="CO2"
+                  stroke="#3b82f6" 
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="temp" 
+                  name="Temp (°C)"
+                  stroke="#ef4444" 
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="humidity" 
+                  name="Humidity (%)"
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -1032,164 +953,7 @@ export function Dashboard() {
 
       </div>
 
-      {/* Interactive Edge Node Telemetry Simulator & Status Changer */}
-      {selectedDeviceId && (
-        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 mt-6 select-none">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-system-border pb-4 mb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-system-accent" />
-                <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Edge Node Telemetry Simulator</h3>
-              </div>
-              <p className="text-xs text-system-muted mt-1">Configure and publish simulated sensor readings and health states to Firestore in real-time.</p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[10px] font-bold text-system-muted font-mono uppercase tracking-wider self-center mr-1">Presets:</span>
-              <button onClick={() => applyPreset('optimal')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 rounded-lg transition-all cursor-pointer">Optimal</button>
-              <button onClick={() => applyPreset('heat')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-orange-500/20 bg-orange-500/10 text-orange-500 hover:bg-orange-500/15 rounded-lg transition-all cursor-pointer">Heat Stress</button>
-              <button onClick={() => applyPreset('poor_ventilation')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-purple-500/20 bg-purple-500/10 text-purple-500 hover:bg-purple-500/15 rounded-lg transition-all cursor-pointer">Poor Vent</button>
-              <button onClick={() => applyPreset('methane_leak')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/15 rounded-lg transition-all cursor-pointer">CH4 Leak</button>
-              <button onClick={() => applyPreset('dust_surge')} className="px-2.5 py-1 text-[10px] font-bold font-mono uppercase border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500/15 rounded-lg transition-all cursor-pointer">Dust Surge</button>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Temperature Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">Temperature</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Temperature', simTemp)).bgClass, getStylesByStatus(getStatus('Temperature', simTemp)).textClass)}>
-                  {simTemp.toFixed(1)} °C ({getStatus('Temperature', simTemp).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="10" 
-                max="50" 
-                step="0.1" 
-                value={simTemp}
-                onChange={(e) => setSimTemp(parseFloat(e.target.value))}
-                className="w-full accent-orange-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* Humidity Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">Humidity</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Humidity', simHum)).bgClass, getStylesByStatus(getStatus('Humidity', simHum)).textClass)}>
-                  {simHum.toFixed(1)} % ({getStatus('Humidity', simHum).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                step="0.1" 
-                value={simHum}
-                onChange={(e) => setSimHum(parseFloat(e.target.value))}
-                className="w-full accent-blue-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* CO2 Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">CO2 Level</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('CO2 Level', simCo2)).bgClass, getStylesByStatus(getStatus('CO2 Level', simCo2)).textClass)}>
-                  {simCo2} ppm ({getStatus('CO2 Level', simCo2).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="300" 
-                max="6000" 
-                step="10" 
-                value={simCo2}
-                onChange={(e) => setSimCo2(parseInt(e.target.value))}
-                className="w-full accent-emerald-550 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* Ammonia Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">Ammonia NH3</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Ammonia NH3', simNh3)).bgClass, getStylesByStatus(getStatus('Ammonia NH3', simNh3)).textClass)}>
-                  {simNh3.toFixed(1)} ppm ({getStatus('Ammonia NH3', simNh3).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="120" 
-                step="0.1" 
-                value={simNh3}
-                onChange={(e) => setSimNh3(parseFloat(e.target.value))}
-                className="w-full accent-yellow-600 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* Methane Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">Methane CH4</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('Methane CH4', simCh4)).bgClass, getStylesByStatus(getStatus('Methane CH4', simCh4)).textClass)}>
-                  {simCh4.toFixed(1)} ppm ({getStatus('Methane CH4', simCh4).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="500" 
-                step="0.5" 
-                value={simCh4}
-                onChange={(e) => setSimCh4(parseFloat(e.target.value))}
-                className="w-full accent-slate-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* PM2.5 Slider */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-system-text font-mono">PM2.5 Feed Dust</span>
-                <span className={cn("px-2 py-0.5 rounded text-[10px] font-mono font-bold", getStylesByStatus(getStatus('PM2.5 Feed Dust', simPm25)).bgClass, getStylesByStatus(getStatus('PM2.5 Feed Dust', simPm25)).textClass)}>
-                  {simPm25.toFixed(1)} µg/m³ ({getStatus('PM2.5 Feed Dust', simPm25).label})
-                </span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="200" 
-                step="0.5" 
-                value={simPm25}
-                onChange={(e) => setSimPm25(parseFloat(e.target.value))}
-                className="w-full accent-purple-500 h-1.5 bg-system-border rounded-lg cursor-pointer"
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-system-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-[11px] text-system-muted font-mono">
-              ⚡ Publishing will trigger immediate updates on active dials, gauge colors, live animations, populate historic charts and record history logs.
-            </div>
-            <button
-              onClick={handlePublishSimulation}
-              disabled={isPublishingSim}
-              className="px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider text-white bg-system-accent hover:bg-system-accent-hover active:scale-[0.98] disabled:opacity-50 disabled:scale-100 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Zap className={cn("w-4 h-4", isPublishingSim && "animate-bounce")} />
-              {isPublishingSim ? 'Publishing Telemetry...' : 'Publish Simulated Reading'}
-            </button>
-          </div>
-
-          {simSuccessMessage && (
-            <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-bold font-mono tracking-tight animate-in fade-in duration-300">
-              ✓ {simSuccessMessage}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
