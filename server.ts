@@ -88,8 +88,26 @@ async function startServer() {
       // Update global airMonitoring (Shared stream)
       const canonicalId = deviceId.includes('LAS-001') ? 'LAS-001' : deviceId;
       const globalRef = doc(db, 'airMonitoring', canonicalId);
-      await setDoc(globalRef, { latestReading: processedData, lastUpdate: timestamp }, { merge: true });
-      await addDoc(collection(db, 'airMonitoring', canonicalId, 'readings'), processedData);
+      
+      const flatReading = {
+        ...readings,
+        deviceId: canonicalId,
+        lastUpdate: timestamp,
+        timestamp,
+        alerts: {
+          activeAlert: (readings.temperature > 38 || readings.nh3 > 25),
+          lastAlertTime: timestamp,
+          lastAlertType: readings.temperature > 38 ? 'High Temp' : (readings.nh3 > 25 ? 'High NH3' : ''),
+          lastAlertValue: readings.temperature > 38 ? readings.temperature : readings.nh3
+        }
+      };
+
+      await setDoc(globalRef, { 
+        ...flatReading,
+        latestReading: flatReading 
+      }, { merge: true });
+      
+      await addDoc(collection(db, 'airMonitoring', canonicalId, 'readings'), flatReading);
       
       // Update Registry lookup to find which user owns this prototype
       const registryRef = doc(db, 'deviceRegistry', deviceId);
@@ -98,12 +116,17 @@ async function startServer() {
         const ownerId = registrySnap.data().ownerId;
         if (ownerId && ownerId !== 'guest') {
           const userDevRef = doc(db, 'users', ownerId, 'devices', deviceId);
-          await setDoc(userDevRef, { latestReading: processedData, lastSeen: timestamp, status: 'Online' }, { merge: true });
+          await setDoc(userDevRef, { 
+            ...flatReading,
+            latestReading: flatReading,
+            status: 'Online',
+            lastSeen: timestamp
+          }, { merge: true });
           
           // History tracking for the user
           const today = new Date().toISOString().split('T')[0];
           const historyRef = collection(db, 'users', ownerId, 'devices', deviceId, 'history', today, 'readings');
-          await addDoc(historyRef, processedData);
+          await addDoc(historyRef, flatReading);
         }
       }
 

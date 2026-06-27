@@ -509,14 +509,27 @@ export const updateDeviceTelemetry = async (
       timestamp: Date.now()
     });
 
-    // 3. Update legacy collections for full compatibility
-    const oldDocRef = doc(db, 'airMonitoring', canonicalId);
-    await setDoc(oldDocRef, {
+    // 3. Update legacy and shared collections for full compatibility
+    // Flat document structure as seen in user's screenshot
+    const telemetryDoc = {
+      deviceId: canonicalId,
+      lastUpdate: Date.now(),
+      alerts: {
+        activeAlert: (readings.temperature > 38 || readings.nh3 > 25),
+        lastAlertTime: Date.now(),
+        lastAlertType: readings.temperature > 38 ? 'High Temp' : (readings.nh3 > 25 ? 'High NH3' : ''),
+        lastAlertValue: readings.temperature > 38 ? readings.temperature : readings.nh3
+      },
       latestReading: {
         ...readings,
         timestamp: Date.now()
-      }
-    }, { merge: true });
+      },
+      ...readings, // Flattened for easy console viewing as requested
+      timestamp: Date.now()
+    };
+
+    const oldDocRef = doc(db, 'airMonitoring', canonicalId);
+    await setDoc(oldDocRef, telemetryDoc, { merge: true });
 
     const legacyReadingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     await addDoc(legacyReadingsRef, {
@@ -620,77 +633,51 @@ export const addDeviceToFirestore = async (device: any) => {
     
     if (!deviceId) throw new Error("Device ID is required for registration");
 
-    // 1. Add to Device Registry (Source of Truth for Ownership)
-    // This allows prototypes to be registered to specific users dynamically
+    // 1. Add to Device Registry (Primary Source for Registration)
     const registryRef = doc(db, 'deviceRegistry', deviceId);
-    await setDoc(registryRef, {
+    const registrationData = {
       ownerId: userId,
       deviceId: deviceId,
-      deviceName: device.name || 'AIRSENSE',
-      status: 'Online',
-      lastRegisteredAt: Date.now(),
-      metadata: {
-        type: device.type || 'Livestock Air Sensor',
-        location: device.location || 'Default'
-      }
-    }, { merge: true });
-
-    // 2. Add to user's devices collection for UI display
-    const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
-    
-    const structuredDoc = {
-      deviceId: deviceId,
-      deviceName: device.name || 'AIRSENSE',
+      deviceName: device.name || 'Livestock AirSense',
       deviceType: device.type || 'Livestock Air Sensor',
       firmwareVersion: '1.0.0',
       status: 'Online',
-      lastSeen: Date.now(),
+      lastRegisteredAt: Date.now(),
       createdAt: Date.now(),
-      sharedFromUid: device.sharedFromUid || '',
-      user: {
-        userId: userId,
-        email: device.email || '',
-        role: 'Owner'
+      metadata: {
+        type: device.type || 'Livestock Air Sensor',
+        location: device.location || 'Default',
+        facilityId: 'default'
       },
+      alerts: {
+        activeAlert: false,
+        lastAlertTime: 0,
+        lastAlertType: '',
+        lastAlertValue: 0
+      }
+    };
+    await setDoc(registryRef, registrationData, { merge: true });
+
+    // 2. Add to user's devices subcollection for easy listing
+    const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
+    await setDoc(userDeviceRef, registrationData, { merge: true });
+
+    // 3. Initialize airMonitoring entry
+    const airMonRef = doc(db, 'airMonitoring', deviceId);
+    await setDoc(airMonRef, {
+      ...registrationData,
       latestReading: {
         temperature: 0,
         humidity: 0,
         co2: 0,
-        pm1_0: 0,
-        pm2_5: 0,
-        pm10: 0,
-        aqi: 0,
         nh3: 0,
-        ch4: 0,
         timestamp: Date.now()
-      },
-      thresholds: {
-        temperatureMax: 35,
-        humidityMax: 90,
-        co2Max: 1000,
-        pm25Max: 35,
-        pm10Max: 50,
-        nh3Max: 25,
-        ch4Max: 200
       }
-    };
-    
-    await setDoc(userDeviceRef, structuredDoc, { merge: true });
-
-    // 3. Initialize Global Air Monitoring entry for historical data
-    const canonicalId = getCanonicalDeviceId(deviceId);
-    const oldDocRef = doc(db, 'airMonitoring', canonicalId);
-    await setDoc(oldDocRef, {
-      id: canonicalId,
-      deviceId: deviceId,
-      ownerId: userId,
-      deviceName: device.name || 'AIRSENSE',
-      lastUpdate: Date.now()
     }, { merge: true });
 
     return true;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'users/devices');
+    handleFirestoreError(error, OperationType.WRITE, 'deviceRegistry');
     throw error;
   }
 };
