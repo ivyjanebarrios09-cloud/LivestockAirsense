@@ -4,14 +4,14 @@ import { getFirestore, initializeFirestore, collection, addDoc, query, orderBy, 
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || autoConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || autoConfig.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || autoConfig.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || autoConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || autoConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || autoConfig.appId,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || autoConfig.measurementId,
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || autoConfig.firestoreDatabaseId || '(default)'
+  apiKey: autoConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: autoConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: autoConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: autoConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: autoConfig.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: autoConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: autoConfig.measurementId || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  firestoreDatabaseId: autoConfig.firestoreDatabaseId || import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)'
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,6 +25,13 @@ export const db = (dbId && dbId !== '(default)' && dbId !== 'default' && dbId.tr
 
 const getCanonicalDeviceId = (id: string) => {
   if (!id) return id;
+  // If it's a long string like "AIRSENSE LAS-001 - LAS-001", extract the core ID
+  if (id.includes(' - ')) {
+    const parts = id.split(' - ');
+    const lastPart = parts[parts.length - 1].trim();
+    if (lastPart) return lastPart;
+  }
+  // Fallback for LAS-001 specifically as requested
   if (id.includes('LAS-001')) return 'LAS-001';
   return id;
 };
@@ -77,7 +84,7 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
     const aqi = ensureNumber(getValue(rData, ['aqi', 'air_quality_index']));
     
     // PM values
-    const pm1_0 = ensureNumber(getValue(rData, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
+    const pm1_0 = ensureNumber(getValue(rData, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0', 'pm01'])) ?? 0;
     const pm2_5 = ensureNumber(getValue(rData, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
     const pm10 = ensureNumber(getValue(rData, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
 
@@ -88,17 +95,17 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
       ...lastMetadata,
       ...rData,
       temperature: temp ?? 0,
-      temperatureLevel: 'Normal',
+      temperatureLevel: (temp ?? 0) > 35 ? 'Warning' : 'Normal',
       humidity: hum ?? 0,
-      humidityLevel: 'Normal',
+      humidityLevel: (hum ?? 0) > 80 ? 'High' : 'Normal',
       co2: co2 ?? 0,
-      co2Level: 'Good',
+      co2Level: (co2 ?? 0) > 1000 ? 'Warning' : 'Good',
       aqi: aqi ?? 0,
       aqiLevel: (aqi || 0) > 150 ? 'POOR' : 'GOOD',
       nh3: nh3 ?? 0,
-      nh3Level: 'Low',
+      nh3Level: (nh3 ?? 0) > 25 ? 'High' : 'Low',
       ch4: ch4 ?? 0,
-      ch4Level: 'Low',
+      ch4Level: (ch4 ?? 0) > 100 ? 'High' : 'Low',
       timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
       ammonia: nh3 ?? 0,
       methane: ch4 ?? 0,
@@ -109,10 +116,9 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
   };
 
   const setupReadingsListener = (id: string) => {
-    if (innerUnsubscribe) return;
+    if (!id || innerUnsubscribe) return;
     
     // Listen to the shared readings collection as the primary source for live data
-    // We try to order by timestamp, but if it fails (e.g. no index or no field), we'll try without it in a fallback
     const readingsRef = collection(db, 'airMonitoring', id, 'readings');
     const readingsQ = query(readingsRef, orderBy('timestamp', 'desc'), limit(1));
     
