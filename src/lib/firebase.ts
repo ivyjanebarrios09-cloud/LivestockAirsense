@@ -182,6 +182,45 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
   };
 };
 
+export const subscribeToDeviceStatus = (uid: string, deviceId: string, callback: (status: { status: string; lastSeen: number }) => void) => {
+  if (!uid || !deviceId) {
+    callback({ status: 'Unknown', lastSeen: 0 });
+    return () => {};
+  }
+
+  // Listen to the user's specific device document for status and lastSeen
+  const deviceRef = doc(db, 'users', uid, 'devices', deviceId);
+  
+  return onSnapshot(deviceRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      callback({
+        status: data.status || 'Offline',
+        lastSeen: data.lastSeen || 0
+      });
+    } else {
+      // Fallback to checking deviceRegistry if user doc isn't found
+      const registryRef = doc(db, 'deviceRegistry', deviceId);
+      getDoc(registryRef).then(regSnap => {
+        if (regSnap.exists()) {
+          const regData = regSnap.data();
+          callback({
+            status: regData.status || 'Offline',
+            lastSeen: regData.lastSeen || 0
+          });
+        } else {
+          callback({ status: 'Disconnected', lastSeen: 0 });
+        }
+      }).catch(() => {
+        callback({ status: 'Offline', lastSeen: 0 });
+      });
+    }
+  }, (error) => {
+    console.warn(`[Firestore] Device status listener error for ${deviceId}:`, error);
+    callback({ status: 'Error', lastSeen: 0 });
+  });
+};
+
 export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void) => {
   if (!uid || uid === 'guest') {
     callback([]);

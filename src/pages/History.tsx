@@ -194,7 +194,8 @@ export function HistoryPage() {
           </span>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Responsive view: Table for desktop, cards for mobile */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border">
               <tr>
@@ -215,6 +216,48 @@ export function HistoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View: Stacked cards */}
+        <div className="md:hidden divide-y divide-system-border">
+          {paginatedLogs.length === 0 ? (
+            <div className="p-8 text-center text-xs text-system-muted font-mono uppercase">
+              No records found
+            </div>
+          ) : (
+            paginatedLogs.map((row, i) => (
+              <div key={i} className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Timestamp</p>
+                    <p className="text-xs font-bold text-system-text font-mono">{row.timestamp}</p>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Status</p>
+                    <span className={cn(
+                      "inline-flex px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase",
+                      row.status === 'Online' || row.status === 'Active' || row.status === 'Normal'
+                        ? "bg-emerald-500/10 text-emerald-400" 
+                        : "bg-red-500/10 text-red-400"
+                    )}>
+                      {row.status}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-end gap-4 pt-1">
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Sensor</p>
+                    <p className="text-xs font-semibold text-system-text font-mono">{row.sensorName}</p>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Reading</p>
+                    <p className="text-sm font-black text-system-accent font-mono">{row.reading}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="px-6 py-4 border-t border-system-border bg-system-bg flex flex-col sm:flex-row items-center justify-between gap-4">

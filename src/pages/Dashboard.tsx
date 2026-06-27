@@ -4,9 +4,9 @@ import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { AirLoading } from '../components/AirLoading';
-import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
+import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings, subscribeToDeviceStatus } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
+import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -216,6 +216,53 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
   );
 };
 
+const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: string }) => {
+  const [timeAgo, setTimeAgo] = useState('');
+  const isOnline = status === 'Online' && (Date.now() - lastSeen < 120000); // 2 minutes threshold
+
+  useEffect(() => {
+    const update = () => {
+      if (!lastSeen) {
+        setTimeAgo('Never');
+        return;
+      }
+      const diff = Math.floor((Date.now() - lastSeen) / 1000);
+      if (diff < 60) setTimeAgo('Just now');
+      else if (diff < 3600) setTimeAgo(`${Math.floor(diff / 60)}m ago`);
+      else setTimeAgo(`${Math.floor(diff / 3600)}h ago`);
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [lastSeen]);
+
+  return (
+    <div className="inline-flex flex-col items-start gap-1">
+      <div className={cn(
+        "inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-wide border uppercase select-none transition-colors duration-500",
+        isOnline 
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+          : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+      )}>
+        <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
+          {isOnline && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          )}
+          <span className={cn(
+            "relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2",
+            isOnline ? "bg-emerald-400" : "bg-slate-500"
+          )}></span>
+        </span>
+        {isOnline ? 'Online' : 'Offline'}
+      </div>
+      <div className="flex items-center gap-1 text-[7px] md:text-[9px] text-slate-400 font-mono pl-1">
+        <Clock className="w-2.5 h-2.5" />
+        <span className="uppercase tracking-tighter opacity-80">Last seen: {timeAgo}</span>
+      </div>
+    </div>
+  );
+};
+
 export function Dashboard() {
   const { 
     uid, 
@@ -281,6 +328,7 @@ export function Dashboard() {
   const registeredDevices = devices;
 
   const [deviceData, setDeviceData] = useState<any>(null);
+  const [connectionStatus, setConnectionStatus] = useState({ status: 'Connecting', lastSeen: 0 });
   
   const currentDevice = devices.find(d => d.id === selectedDeviceId);
   const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
@@ -293,10 +341,18 @@ export function Dashboard() {
     const exists = devices.some(d => d.id === selectedDeviceId);
     if (!exists) return;
 
-    const unsubscribe = subscribeToSensorData(deviceOwnerUid, selectedDeviceId, (data) => {
+    const unsubscribeData = subscribeToSensorData(deviceOwnerUid, selectedDeviceId, (data) => {
         setDeviceData(data);
     });
-    return () => unsubscribe();
+
+    const unsubscribeStatus = subscribeToDeviceStatus(deviceOwnerUid, selectedDeviceId, (status) => {
+        setConnectionStatus(status);
+    });
+
+    return () => {
+      unsubscribeData();
+      unsubscribeStatus();
+    };
   }, [selectedDeviceId, deviceOwnerUid, devices.length]);
 
   const lastReading = deviceData || { 
@@ -712,13 +768,7 @@ export function Dashboard() {
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
           <div className="flex items-center gap-4">
-            <div className="inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-white/10 text-emerald-450 text-[8px] md:text-[10px] font-bold tracking-wide border border-white/5 uppercase select-none">
-              <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-emerald-400"></span>
-              </span>
-              Live Node
-            </div>
+            <NodeStatusIndicator lastSeen={connectionStatus.lastSeen} status={connectionStatus.status} />
 
             <button 
               onClick={() => setIsAddingDevicePopup(true)}
