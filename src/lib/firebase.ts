@@ -19,9 +19,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = (dbId && dbId !== '(default)' && dbId !== 'default' && dbId.trim() !== '')
-  ? initializeFirestore(app, { experimentalForceLongPolling: true }, dbId)
-  : initializeFirestore(app, { experimentalForceLongPolling: true });
+export const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
+  ? initializeFirestore(app, {}, dbId)
+  : getFirestore(app);
 
 const getCanonicalDeviceId = (id: string) => {
   if (!id) return id;
