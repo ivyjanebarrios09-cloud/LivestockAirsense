@@ -1,11 +1,21 @@
 import { Wind, Activity, Cloud, BarChart3, ShieldCheck, Star, MonitorDown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useAuthState } from '../hooks/useAuthState';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { cn } from '../lib/utils';
 
 export function LandingPage() {
   const { isInstallable, install } = usePWAInstall();
+  const { user, loading } = useAuthState();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/app/dashboard');
+    }
+  }, [user, loading, navigate]);
 
   return (
     <div className="min-h-screen bg-system-bg text-system-text flex flex-col font-sans selection:bg-system-accent/30">
