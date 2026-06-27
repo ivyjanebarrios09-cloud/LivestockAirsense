@@ -23,7 +23,8 @@ export function HistoryPage() {
   }, [timeRange, activeDevice]);
 
   const fetchData = async () => {
-    const logs = await getStatusHistory();
+    if (!activeDevice) return;
+    const logs = await getStatusHistory(activeDevice.id);
     const formattedLogs = logs.map(log => ({
       ...log,
       timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',

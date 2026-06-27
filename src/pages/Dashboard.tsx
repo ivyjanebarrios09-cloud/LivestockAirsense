@@ -423,7 +423,7 @@ export function Dashboard() {
       ) => {
         if (currStatus !== prevStatus) {
           console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
-          await recordStatusChange(sensorName, currStatus, currVal, {
+          await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
             temp: curr.temperature ?? 0,
             humidity: curr.humidity ?? 0,
             co2: curr.co2 ?? 0,
