@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = (dbId && dbId !== '(default)' && dbId !== 'default' && dbId.trim() !== '')
+export const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
   ? initializeFirestore(app, {}, dbId)
   : getFirestore(app);
 
@@ -627,6 +627,7 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
 };
 
 export const addDeviceToFirestore = async (device: any) => {
+  console.log('addDeviceToFirestore started for device:', device.deviceId || device.id);
   try {
     const userId = device.userId || 'guest';
     const deviceId = device.deviceId || device.id;
@@ -656,13 +657,17 @@ export const addDeviceToFirestore = async (device: any) => {
         lastAlertValue: 0
       }
     };
+    
+    console.log('Writing to deviceRegistry:', deviceId);
     await setDoc(registryRef, registrationData, { merge: true });
 
     // 2. Add to user's devices subcollection for easy listing
+    console.log('Writing to users devices:', userId, deviceId);
     const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     await setDoc(userDeviceRef, registrationData, { merge: true });
 
     // 3. Initialize airMonitoring entry
+    console.log('Writing to airMonitoring:', deviceId);
     const airMonRef = doc(db, 'airMonitoring', deviceId);
     await setDoc(airMonRef, {
       ...registrationData,
@@ -675,8 +680,10 @@ export const addDeviceToFirestore = async (device: any) => {
       }
     }, { merge: true });
 
+    console.log('addDeviceToFirestore completed successfully');
     return true;
   } catch (error) {
+    console.error('addDeviceToFirestore failed:', error);
     handleFirestoreError(error, OperationType.WRITE, 'deviceRegistry');
     throw error;
   }

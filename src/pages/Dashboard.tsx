@@ -237,10 +237,12 @@ export function Dashboard() {
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
 
-  const handleCustomRegisterSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCustomRegisterSetup = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     const devId = onboardingDevId.trim();
     const devName = onboardingDevName.trim();
+
+    console.log('Starting registration for:', devId, devName);
 
     if (!devName || !devId) {
       setOnboardingError('Please fill in all the registration fields.');
@@ -253,6 +255,7 @@ export function Dashboard() {
     const toastId = toast.loading('Registering hardware node...');
 
     try {
+      console.log('Calling addDevice...');
       await addDevice({
          id: devId,
          deviceId: devId,
@@ -261,10 +264,12 @@ export function Dashboard() {
          type: 'Livestock Air Sensor'
       });
       
+      console.log('addDevice successful');
       toast.success('Device registered successfully!', { id: toastId });
       setSelectedDeviceId(devId);
       setIsAddingDevicePopup(false);
     } catch (err: any) {
+      console.error('Registration error in Dashboard:', err);
       const errMsg = err.message || 'Failed to register the custom telemetry device.';
       setOnboardingError(errMsg);
       toast.error(errMsg, { id: toastId });

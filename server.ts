@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc } from 'firebase/firestore';
 import autoConfig from './firebase-applet-config.json';
 
 const app = express();
@@ -23,7 +23,10 @@ const firebaseConfig = {
 console.log('[Server] Initializing Firebase with Project ID:', firebaseConfig.projectId);
 
 const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(fbApp);
+const dbId = firebaseConfig.firestoreDatabaseId;
+const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
+  ? initializeFirestore(fbApp, {}, dbId)
+  : getFirestore(fbApp);
 
 async function startServer() {
   app.use(express.json());
