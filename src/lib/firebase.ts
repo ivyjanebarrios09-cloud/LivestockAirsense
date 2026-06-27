@@ -62,81 +62,50 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
         });
       } else {
         if (!innerUnsubscribe) {
-          const legacyRef = doc(db, 'airMonitoring', deviceId);
-          innerUnsubscribe = onSnapshot(legacyRef, (legacySnap) => {
-            if (legacySnap.exists()) {
-              const data = legacySnap.data();
-              const latestReading = data.latestReading || {};
+          const readingsQ = query(collection(db, 'airMonitoring', deviceId, 'readings'), orderBy('timestamp', 'desc'), limit(1));
+          innerUnsubscribe = onSnapshot(readingsQ, (readingsSnap) => {
+            if (!readingsSnap.empty) {
+              const rData = readingsSnap.docs[0].data();
               callback({
-                id: legacySnap.id,
-                deviceId: data.deviceId || legacySnap.id,
-                deviceName: data.deviceName || 'AIRSENSE',
-                temperature: latestReading.temperature || 0,
-                temperatureLevel: latestReading.temperatureStatus || 'Normal',
-                humidity: latestReading.humidity || 0,
-                humidityLevel: latestReading.humidityStatus || 'Normal',
-                co2: latestReading.co2 || 0,
-                co2Level: latestReading.co2Status || 'Good',
-                aqi: latestReading.aqi || 0,
-                aqiLevel: latestReading.aqi > 150 ? 'POOR' : 'GOOD',
-                nh3: latestReading.nh3 || 0,
-                nh3Level: latestReading.nh3Status || 'Low',
-                ch4: latestReading.ch4 || 0,
-                ch4Level: latestReading.ch4Status || 'Low',
-                timestamp: latestReading.timestamp || Date.now(),
-                ammonia: latestReading.nh3 || 0,
-                methane: latestReading.ch4 || 0,
-                pm1_0: latestReading.pm1_0 ?? latestReading.pm10 ?? latestReading['pm1.0'] ?? latestReading['pm1_0'] ?? latestReading.pm1 ?? 0,
-                pm2_5: latestReading.pm2_5 ?? latestReading.pm25 ?? latestReading['pm2.5'] ?? latestReading['pm2_5'] ?? 0,
-                pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
+                id: deviceId,
+                deviceId: deviceId,
+                deviceName: 'AIRSENSE',
+                temperature: rData.temperature || rData.temp || 0,
+                temperatureLevel: 'Normal',
+                humidity: rData.humidity || rData.hum || 0,
+                humidityLevel: 'Normal',
+                co2: rData.co2 || 0,
+                co2Level: 'Good',
+                aqi: rData.aqi || 0,
+                aqiLevel: rData.aqi > 150 ? 'POOR' : 'GOOD',
+                nh3: rData.nh3 || rData.ammonia || 0,
+                nh3Level: 'Low',
+                ch4: rData.ch4 || rData.methane || 0,
+                ch4Level: 'Low',
+                timestamp: rData.timestamp || Date.now(),
+                ammonia: rData.nh3 || rData.ammonia || 0,
+                methane: rData.ch4 || rData.methane || 0,
+                pm1_0: rData.pm1_0 ?? rData.pm10 ?? rData['pm1.0'] ?? rData['pm1_0'] ?? rData.pm1 ?? 0,
+                pm2_5: rData.pm2_5 ?? rData.pm25 ?? rData['pm2.5'] ?? rData['pm2_5'] ?? 0,
+                pm10: rData.pm10 ?? rData.pm2_5 ?? rData['pm10'] ?? rData['pm10_0'] ?? rData.pm10_0 ?? 0
               });
             } else {
-              const readingsQ = query(collection(db, 'airMonitoring', deviceId, 'readings'), orderBy('timestamp', 'desc'), limit(1));
-              getDocs(readingsQ).then(readingsSnap => {
-                if (!readingsSnap.empty) {
-                  const rData = readingsSnap.docs[0].data();
-                  callback({
-                    id: deviceId,
-                    deviceId: deviceId,
-                    deviceName: 'AIRSENSE',
-                    temperature: rData.temperature || rData.temp || 0,
-                    temperatureLevel: 'Normal',
-                    humidity: rData.humidity || rData.hum || 0,
-                    humidityLevel: 'Normal',
-                    co2: rData.co2 || 0,
-                    co2Level: 'Good',
-                    aqi: rData.aqi || 0,
-                    aqiLevel: rData.aqi > 150 ? 'POOR' : 'GOOD',
-                    nh3: rData.nh3 || rData.ammonia || 0,
-                    nh3Level: 'Low',
-                    ch4: rData.ch4 || rData.methane || 0,
-                    ch4Level: 'Low',
-                    timestamp: rData.timestamp || Date.now(),
-                    ammonia: rData.nh3 || rData.ammonia || 0,
-                    methane: rData.ch4 || rData.methane || 0,
-                    pm1_0: rData.pm1_0 ?? rData.pm10 ?? rData['pm1.0'] ?? rData['pm1_0'] ?? rData.pm1 ?? 0,
-                    pm2_5: rData.pm2_5 ?? rData.pm25 ?? rData['pm2.5'] ?? rData['pm2_5'] ?? 0,
-                    pm10: rData.pm10 ?? rData.pm2_5 ?? rData['pm10'] ?? rData['pm10_0'] ?? rData.pm10_0 ?? 0
-                  });
-                } else {
-                  callback({
-                    id: deviceId,
-                    deviceId: deviceId,
-                    temperature: 0,
-                    temperatureLevel: 'Normal',
-                    humidity: 0,
-                    humidityLevel: 'Normal',
-                    co2: 0,
-                    co2Level: 'Good',
-                    aqi: 0,
-                    aqiLevel: 'GOOD',
-                    nh3: 0,
-                    nh3Level: 'Low',
-                    ch4: 0,
-                    ch4Level: 'Low',
-                    timestamp: Date.now()
-                  });
-                }
+              callback({
+                id: deviceId,
+                deviceId: deviceId,
+                temperature: 0,
+                temperatureLevel: 'Normal',
+                humidity: 0,
+                humidityLevel: 'Normal',
+                co2: 0,
+                co2Level: 'Good',
+                aqi: 0,
+                aqiLevel: 'GOOD',
+                nh3: 0,
+                nh3Level: 'Low',
+                ch4: 0,
+                ch4Level: 'Low',
+                timestamp: Date.now()
               });
             }
           });
@@ -520,27 +489,11 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
 
     // Fallback: forcefully fetch LAS-001 if it didn't come up in collection query
     if (!devicesMap.has('LAS-001')) {
-      try {
-        const docRef = doc(db, 'airMonitoring', 'LAS-001');
-        const docSnap = await getDoc(docRef);
-        // Add it regardless of whether the parent document explicitly exists, 
-        // since the subcollections might exist.
-        const data = docSnap.exists() ? docSnap.data() as any : {};
-        devicesMap.set('LAS-001', {
-          id: 'LAS-001',
-          deviceId: data.deviceId || 'LAS-001',
-          name: data.deviceName || 'AIRSENSE (LAS-001)',
-          ...data
-        });
-      } catch (e) {
-        console.error('Error fetching fallback LAS-001:', e);
-        // Force add anyway so UI doesn't get stuck if we know they have data
-        devicesMap.set('LAS-001', {
-          id: 'LAS-001',
-          deviceId: 'LAS-001',
-          name: 'AIRSENSE (LAS-001)'
-        });
-      }
+      devicesMap.set('LAS-001', {
+        id: 'LAS-001',
+        deviceId: 'LAS-001',
+        name: 'AIRSENSE (LAS-001)'
+      });
     }
 
     if (uid && uid !== 'guest') {
@@ -561,10 +514,18 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
       }
     }
     
-    return Array.from(devicesMap.values());
+    const result = Array.from(devicesMap.values());
+    console.log('getDevices returning:', result);
+    return result;
   } catch (error) {
-    console.error('getDevices failed:', error);
-    return [];
+    console.error('getDevices failed with outer catch:', error);
+    return [
+      {
+        id: 'LAS-001',
+        deviceId: 'LAS-001',
+        name: 'AIRSENSE (LAS-001)'
+      }
+    ];
   }
 };
 
