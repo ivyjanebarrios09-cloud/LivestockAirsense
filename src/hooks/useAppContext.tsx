@@ -234,6 +234,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const unsubscribe = subscribeToAlerts(uid, (data) => {
       const mappedAlerts = data.map(a => ({
         id: a.id,
+        timestamp: a.timestamp,
         time: a.timestamp ? parseSafeDate(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
         location: a.location || 'Unknown',
         alertType: a.alertType || 'Alert',

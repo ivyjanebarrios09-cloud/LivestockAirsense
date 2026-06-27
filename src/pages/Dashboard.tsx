@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
@@ -721,13 +722,6 @@ export function Dashboard() {
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsAddingDevicePopup(true)}
-              className="p-1.5 md:p-2 rounded-xl bg-system-accent hover:bg-opacity-90 text-system-bg transition-all shadow-lg shadow-system-accent/20"
-              title="Register New AirSense Node"
-            >
-              <Plus className="w-4 h-4 md:w-5 md:h-5" />
-            </button>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -908,21 +902,12 @@ export function Dashboard() {
                 <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
                   Registered Hardware Nodes
                 </div>
-                <button 
-                  onClick={() => setIsAddingDevicePopup(true)}
-                  className="text-[9px] font-bold text-system-accent uppercase hover:underline"
-                >
-                  Register New
-                </button>
               </div>
               <div className="grid grid-cols-1 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
                 {devices.length === 0 ? (
-                  <button 
-                    onClick={() => setIsAddingDevicePopup(true)}
-                    className="w-full p-2 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono hover:bg-white/5 transition-colors"
-                  >
-                    No hardware mapped. Click to register a node.
-                  </button>
+                  <div className="w-full p-4 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono">
+                    No hardware mapped.
+                  </div>
                 ) : (
                   devices.map((dev: any) => {
                     return (
@@ -940,34 +925,57 @@ export function Dashboard() {
 
             <div className="border-t border-system-border/40 my-1 shrink-0" />
 
-            <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold shrink-0">
-              Microclimate Feed Stream
+            <div className="flex items-center justify-between shrink-0">
+              <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
+                Microclimate Feed Stream
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                </span>
+                <span className="text-[8px] font-black text-emerald-400 uppercase font-mono tracking-tighter">Live</span>
+              </div>
             </div>
 
             {/* Warn/Telemetry Events */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
-              {alertsList.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                  <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal.</p>
-                </div>
-              ) : (
-                alertsList
-                  .slice(0, 4)
-                  .map((log, i) => (
-                    <div key={log.id || i} className="flex gap-2.5 text-xs pb-2 border-b border-system-bg last:border-0">
-                      <span className="font-mono text-[9px] text-system-muted w-12 shrink-0 mt-0.5">{log.time}</span>
-                      <div className="flex-1 space-y-0.5 min-w-0">
-                        <p className={cn(
-                          "font-semibold break-words whitespace-normal text-[11px]",
-                          log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-500" : "text-yellow-600"
-                        )}>
-                          {log.alertType}
-                        </p>
-                        <p className="text-system-muted text-[10px] leading-normal break-words whitespace-normal">{log.message}</p>
-                      </div>
-                    </div>
-                  ))
-              )}
+              <AnimatePresence mode="popLayout">
+                {alertsList.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full flex flex-col items-center justify-center text-center p-4"
+                  >
+                    <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal.</p>
+                  </motion.div>
+                ) : (
+                  alertsList
+                    .slice(0, 10)
+                    .map((log, i) => (
+                      <motion.div 
+                        key={log.id || i} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }}
+                        className="flex gap-2.5 text-xs pb-2 border-b border-system-bg last:border-0"
+                      >
+                        <span className="font-mono text-[9px] text-system-muted w-12 shrink-0 mt-0.5">{log.time}</span>
+                        <div className="flex-1 space-y-0.5 min-w-0">
+                          <p className={cn(
+                            "font-semibold break-words whitespace-normal text-[11px]",
+                            log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-500" : "text-yellow-600"
+                          )}>
+                            {log.alertType}
+                          </p>
+                          <p className="text-system-muted text-[10px] leading-normal break-words whitespace-normal">{log.message}</p>
+                        </div>
+                      </motion.div>
+                    ))
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>

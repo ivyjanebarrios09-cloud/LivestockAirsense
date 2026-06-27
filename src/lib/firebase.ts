@@ -227,7 +227,12 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
     return () => {};
   }
   const alertsRef = collection(db, 'alerts');
-  const q = query(alertsRef, where('userId', '==', uid));
+  const q = query(
+    alertsRef, 
+    where('userId', '==', uid),
+    orderBy('timestamp', 'desc'),
+    limit(50)
+  );
   return onSnapshot(
     q,
     (snapshot) => {
