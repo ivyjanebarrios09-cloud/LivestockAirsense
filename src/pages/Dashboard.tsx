@@ -226,7 +226,8 @@ export function Dashboard() {
     setSelectedDeviceId,
     devices, 
     refreshInterval,
-    addDevice 
+    addDevice,
+    isDevicesLoading
   } = useAppContext();
 
   const [onboardingDevId, setOnboardingDevId] = useState(() => `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
@@ -568,6 +569,15 @@ export function Dashboard() {
       limitInfo: `${thresholds.methaneMax} ppm`
     },
   ];
+
+  if (isDevicesLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
+        <div className="w-8 h-8 border-4 border-system-accent border-t-transparent rounded-full animate-spin" />
+        <p className="text-system-muted font-mono uppercase tracking-wider text-xs font-bold">Synchronizing Nodes...</p>
+      </div>
+    );
+  }
 
   if (devices.length === 0) {
     return (

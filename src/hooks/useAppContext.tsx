@@ -56,15 +56,21 @@ export interface AppContextType {
   saveSystemSettings: (interval: number, sync: boolean) => void;
   pushEnabled: boolean;
   savePushEnabled: (enabled: boolean) => Promise<void>;
+  isDevicesLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
   const [devices, setDevices] = useState<any[]>([]);
+  const [isDevicesLoading, setIsDevicesLoading] = useState(true);
 
   useEffect(() => {
-    getDevices(uid).then(setDevices);
+    setIsDevicesLoading(true);
+    getDevices(uid).then(res => {
+      setDevices(res);
+      setIsDevicesLoading(false);
+    });
   }, [uid]);
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
@@ -355,7 +361,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       firebaseSync,
       saveSystemSettings,
       pushEnabled,
-      savePushEnabled
+      savePushEnabled,
+      isDevicesLoading
     }}>
       {children}
     </AppContext.Provider>
