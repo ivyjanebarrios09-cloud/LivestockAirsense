@@ -3,18 +3,21 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { useAuthState } from '../hooks/useAuthState';
+import { useAppContext } from '../hooks/useAppContext';
 
 import { AirLoading } from './AirLoading';
 
 export function Layout() {
   const { user, loading } = useAuthState();
+  const { uid } = useAppContext();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Only redirect if we are not in guest mode
+    if (!loading && !user && uid !== 'guest') {
       navigate('/login');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, uid]);
 
   if (loading) {
     return (
@@ -24,7 +27,7 @@ export function Layout() {
     );
   }
 
-  if (!user) {
+  if (!user && uid !== 'guest') {
     return null;
   }
 

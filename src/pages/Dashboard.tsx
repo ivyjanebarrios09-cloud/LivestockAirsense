@@ -231,6 +231,7 @@ export function Dashboard() {
     isDevicesLoading
   } = useAppContext();
 
+  const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
   const [onboardingDevId, setOnboardingDevId] = useState(() => `EP-ESP32-${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
   const [onboardingDevName, setOnboardingDevName] = useState('ESP32 Main Node');
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
@@ -262,6 +263,7 @@ export function Dashboard() {
       
       toast.success('Device registered successfully!', { id: toastId });
       setSelectedDeviceId(devId);
+      setIsAddingDevicePopup(false);
     } catch (err: any) {
       const errMsg = err.message || 'Failed to register the custom telemetry device.';
       setOnboardingError(errMsg);
@@ -693,7 +695,8 @@ export function Dashboard() {
   // }
 
   return (
-    <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
+    <>
+      <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
@@ -703,7 +706,7 @@ export function Dashboard() {
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <div className="inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-white/10 text-emerald-450 text-[8px] md:text-[10px] font-bold tracking-wide border border-white/5 uppercase select-none">
               <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -711,6 +714,14 @@ export function Dashboard() {
               </span>
               Live Node
             </div>
+
+            <button 
+              onClick={() => setIsAddingDevicePopup(true)}
+              className="p-1.5 md:p-2 rounded-xl bg-system-accent hover:bg-opacity-90 text-system-bg transition-all shadow-lg shadow-system-accent/20"
+              title="Register New AirSense Node"
+            >
+              <Plus className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -887,14 +898,25 @@ export function Dashboard() {
 
             {/* List of hardware nodes */}
             <div className="space-y-2 shrink-0">
-              <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
-                Registered Hardware Node Devices
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
+                  Registered Hardware Nodes
+                </div>
+                <button 
+                  onClick={() => setIsAddingDevicePopup(true)}
+                  className="text-[9px] font-bold text-system-accent uppercase hover:underline"
+                >
+                  Register New
+                </button>
               </div>
               <div className="grid grid-cols-1 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
                 {devices.length === 0 ? (
-                  <div className="p-2 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono">
-                    No hardware mapped. Register a node in settings page.
-                  </div>
+                  <button 
+                    onClick={() => setIsAddingDevicePopup(true)}
+                    className="w-full p-2 border border-dashed border-system-border rounded-xl text-center text-[10px] text-system-muted font-mono hover:bg-white/5 transition-colors"
+                  >
+                    No hardware mapped. Click to register a node.
+                  </button>
                 ) : (
                   devices.map((dev: any) => (
                     <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
@@ -949,5 +971,66 @@ export function Dashboard() {
 
 
     </div>
-  );
+
+    {/* Register Device Popup Modal */}
+    {isAddingDevicePopup && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-system-accent" />
+              <h2 className="text-white font-bold uppercase font-mono tracking-tight">Register AirSense Node</h2>
+            </div>
+            <button 
+              onClick={() => setIsAddingDevicePopup(false)}
+              className="p-2 hover:bg-white/5 rounded-full text-slate-400 transition-all"
+            >
+              <Plus className="w-5 h-5 rotate-45" />
+            </button>
+          </div>
+          
+          <div className="p-6 space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">
+                Hardware Token ID
+              </label>
+              <input
+                type="text"
+                value={onboardingDevId}
+                onChange={(e) => setOnboardingDevId(e.target.value)}
+                className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-system-accent"
+                placeholder="e.g. LAS-XXX"
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">
+                Friendly Node Name
+              </label>
+              <input
+                type="text"
+                value={onboardingDevName}
+                onChange={(e) => setOnboardingDevName(e.target.value)}
+                className="w-full text-xs rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-system-accent"
+                placeholder="e.g. Barn A - East Wing"
+              />
+            </div>
+
+            {onboardingError && (
+              <p className="text-[10px] text-red-500 font-mono">{onboardingError}</p>
+            )}
+
+            <button
+              onClick={handleCustomRegisterSetup}
+              disabled={isOnboardingSaving}
+              className="w-full py-3 bg-system-accent text-system-bg font-bold uppercase tracking-widest text-xs rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50 mt-2"
+            >
+              {isOnboardingSaving ? 'Registering...' : 'Complete Registration'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+);
 }
