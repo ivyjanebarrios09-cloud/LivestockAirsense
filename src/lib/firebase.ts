@@ -25,10 +25,15 @@ export const db = dbId && dbId !== '(default)' && dbId !== 'default'
 
 export const subscribeToSensorData = (uid: string, deviceId: string, callback: (data: any) => void) => {
   if (!uid || !deviceId) return () => {};
-  return onSnapshot(
+  let innerUnsubscribe: (() => void) | null = null;
+  const outerUnsubscribe = onSnapshot(
     doc(db, 'users', uid, 'devices', deviceId),
     (snapshot) => {
       if (snapshot.exists()) {
+        if (innerUnsubscribe) {
+          innerUnsubscribe();
+          innerUnsubscribe = null;
+        }
         const data = snapshot.data();
         const latestReading = data.latestReading || {};
         
@@ -56,29 +61,69 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
           pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
         });
       } else {
-        callback({
-          id: deviceId,
-          deviceId: deviceId,
-          temperature: 0,
-          temperatureLevel: 'Normal',
-          humidity: 0,
-          humidityLevel: 'Normal',
-          co2: 0,
-          co2Level: 'Good',
-          aqi: 0,
-          aqiLevel: 'GOOD',
-          nh3: 0,
-          nh3Level: 'Low',
-          ch4: 0,
-          ch4Level: 'Low',
-          timestamp: Date.now()
-        });
+        if (!innerUnsubscribe) {
+          const legacyRef = doc(db, 'airMonitoring', deviceId);
+          innerUnsubscribe = onSnapshot(legacyRef, (legacySnap) => {
+            if (legacySnap.exists()) {
+              const data = legacySnap.data();
+              const latestReading = data.latestReading || {};
+              callback({
+                id: legacySnap.id,
+                deviceId: data.deviceId || legacySnap.id,
+                deviceName: data.deviceName || 'AIRSENSE',
+                temperature: latestReading.temperature || 0,
+                temperatureLevel: latestReading.temperatureStatus || 'Normal',
+                humidity: latestReading.humidity || 0,
+                humidityLevel: latestReading.humidityStatus || 'Normal',
+                co2: latestReading.co2 || 0,
+                co2Level: latestReading.co2Status || 'Good',
+                aqi: latestReading.aqi || 0,
+                aqiLevel: latestReading.aqi > 150 ? 'POOR' : 'GOOD',
+                nh3: latestReading.nh3 || 0,
+                nh3Level: latestReading.nh3Status || 'Low',
+                ch4: latestReading.ch4 || 0,
+                ch4Level: latestReading.ch4Status || 'Low',
+                timestamp: latestReading.timestamp || Date.now(),
+                ammonia: latestReading.nh3 || 0,
+                methane: latestReading.ch4 || 0,
+                pm1_0: latestReading.pm1_0 ?? latestReading.pm10 ?? latestReading['pm1.0'] ?? latestReading['pm1_0'] ?? latestReading.pm1 ?? 0,
+                pm2_5: latestReading.pm2_5 ?? latestReading.pm25 ?? latestReading['pm2.5'] ?? latestReading['pm2_5'] ?? 0,
+                pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
+              });
+            } else {
+              callback({
+                id: deviceId,
+                deviceId: deviceId,
+                temperature: 0,
+                temperatureLevel: 'Normal',
+                humidity: 0,
+                humidityLevel: 'Normal',
+                co2: 0,
+                co2Level: 'Good',
+                aqi: 0,
+                aqiLevel: 'GOOD',
+                nh3: 0,
+                nh3Level: 'Low',
+                ch4: 0,
+                ch4Level: 'Low',
+                timestamp: Date.now()
+              });
+            }
+          });
+        }
       }
     },
     (error) => {
       console.warn(`[Firestore] Sensor data subscription stream error or timed out/cancelled for ${deviceId}:`, error);
     }
   );
+
+  return () => {
+    outerUnsubscribe();
+    if (innerUnsubscribe) {
+      innerUnsubscribe();
+    }
+  };
 };
 
 export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void) => {
