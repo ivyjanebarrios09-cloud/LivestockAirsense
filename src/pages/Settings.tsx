@@ -5,6 +5,7 @@ import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../lib/firebase';
+import { toast } from 'sonner';
 
 interface Device {
   id: string;
@@ -150,13 +151,17 @@ export function SettingsPage() {
     }
     if (!deviceNameInput.trim()) {
       setDeviceError('Please enter a Device Name.');
+      toast.error('Device Name is required');
       return;
     }
 
+    const toastId = toast.loading('Registering hardware node...');
     try {
       if (isEditingNew) {
         if (devices.some(d => d.id.toLowerCase() === deviceIdInput.trim().toLowerCase())) {
-          setDeviceError('A device with this Device ID Token already exists. Please choose a unique token.');
+          const err = 'A device with this Device ID Token already exists.';
+          setDeviceError(err);
+          toast.error(err, { id: toastId });
           return;
         }
         const newD: Device = {
@@ -172,15 +177,17 @@ export function SettingsPage() {
         setIsEditingNew(false);
         setIsAddingDevicePopup(false); 
         setDeviceFeedbackText('Device registered successfully!');
+        toast.success('Device registered successfully!', { id: toastId });
       } else {
         const updatedD: Device = {
-          id: selectedDeviceId,
-          deviceId: selectedDeviceId,
+          id: selectedDeviceId || '',
+          deviceId: selectedDeviceId || '',
           name: deviceNameInput.trim(),
           locationId: 'default'
         };
         await addDevice(updatedD);
         setDeviceFeedbackText('Device properties updated!');
+        toast.success('Device properties updated!', { id: toastId });
       }
 
       setShowDeviceSavedFeedback(true);
@@ -188,13 +195,8 @@ export function SettingsPage() {
     } catch (err: any) {
       console.error('Save device error:', err);
       let msg = err?.message || 'Failed to register the telemetry node in Firestore.';
-      if (typeof msg === 'string' && msg.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(msg);
-          msg = `Firestore Error: ${parsed.error || parsed.message} (Operation: ${parsed.operationType}, Path: ${parsed.path})`;
-        } catch (_) {}
-      }
       setDeviceError(msg);
+      toast.error(msg, { id: toastId });
     }
   };
 

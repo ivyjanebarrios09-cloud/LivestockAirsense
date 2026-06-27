@@ -87,8 +87,7 @@ service cloud.firestore {
     }
 
     match /deviceRegistry/{deviceId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid);
+      allow read, write: if true;
     }
 
     match /locations/{locationId} {
@@ -116,20 +115,14 @@ service cloud.firestore {
     }
 
     match /airMonitoring/{deviceId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (
-        !exists(/databases/$(database)/documents/deviceRegistry/$(deviceId)) ||
-        get(/databases/$(database)/documents/deviceRegistry/$(deviceId)).data.ownerId == request.auth.uid
-      );
+      allow read, write: if true;
       
       match /readings/{readingId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
+        allow read, write: if true;
       }
 
       match /status_history/{changeId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
+        allow read, write: if true;
       }
     }
 

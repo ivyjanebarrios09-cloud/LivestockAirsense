@@ -3,6 +3,7 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
+import { AirLoading } from '../components/AirLoading';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
@@ -237,22 +238,34 @@ export function Dashboard() {
 
   const handleCustomRegisterSetup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onboardingDevName.trim() || !onboardingDevId.trim()) {
+    const devId = onboardingDevId.trim();
+    const devName = onboardingDevName.trim();
+
+    if (!devName || !devId) {
       setOnboardingError('Please fill in all the registration fields.');
+      toast.error('Registration fields are required');
       return;
     }
+
     setIsOnboardingSaving(true);
     setOnboardingError(null);
+    const toastId = toast.loading('Registering hardware node...');
+
     try {
       await addDevice({
-         id: onboardingDevId.trim(),
-         deviceId: onboardingDevId.trim(),
-         name: onboardingDevName.trim(),
-         locationId: 'default'
+         id: devId,
+         deviceId: devId,
+         name: devName,
+         locationId: 'default',
+         type: 'Livestock Air Sensor'
       });
-      setSelectedDeviceId(onboardingDevId.trim());
+      
+      toast.success('Device registered successfully!', { id: toastId });
+      setSelectedDeviceId(devId);
     } catch (err: any) {
-      setOnboardingError(err.message || 'Failed to register the custom telemetry device.');
+      const errMsg = err.message || 'Failed to register the custom telemetry device.';
+      setOnboardingError(errMsg);
+      toast.error(errMsg, { id: toastId });
     } finally {
       setIsOnboardingSaving(false);
     }
@@ -266,12 +279,18 @@ export function Dashboard() {
   const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
 
   useEffect(() => {
-    if (!selectedDeviceId || !deviceOwnerUid) return;
+    // Only subscribe if we have a valid selection and the device actually exists in our list
+    if (!selectedDeviceId || !deviceOwnerUid || devices.length === 0) return;
+    
+    // Safety check: ensure selectedDeviceId is in the current devices list
+    const exists = devices.some(d => d.id === selectedDeviceId);
+    if (!exists) return;
+
     const unsubscribe = subscribeToSensorData(deviceOwnerUid, selectedDeviceId, (data) => {
         setDeviceData(data);
     });
     return () => unsubscribe();
-  }, [selectedDeviceId, deviceOwnerUid]);
+  }, [selectedDeviceId, deviceOwnerUid, devices.length]);
 
   const lastReading = deviceData || { 
       temperature: 0, 
@@ -572,9 +591,12 @@ export function Dashboard() {
 
   if (isDevicesLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <div className="w-8 h-8 border-4 border-system-accent border-t-transparent rounded-full animate-spin" />
-        <p className="text-system-muted font-mono uppercase tracking-wider text-xs font-bold">Synchronizing Nodes...</p>
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-300 pb-28 min-h-[80vh] flex flex-col items-center justify-center bg-system-bg">
+        <AirLoading />
+        <div className="space-y-2 text-center -mt-4">
+          <p className="text-system-accent font-bold font-mono uppercase tracking-widest text-[10px]">Synchronizing Nodes</p>
+          <p className="text-system-muted text-[8px] font-mono uppercase tracking-tighter">Establishing Secure Telemetry Tunnel...</p>
+        </div>
       </div>
     );
   }
@@ -596,11 +618,11 @@ export function Dashboard() {
             </div>
             
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-              Register Your AirSense Device
+              Register Your AirSense Node
             </h1>
             
             <p className="text-sm md:text-base text-slate-300 leading-relaxed">
-              Welcome to <strong>Livestock AirSense</strong>! You have successfully signed up. Let's register your first physical ESP32 edge telemetry hardware node so you can monitor animal comfort and air quality indices.
+              Connect your physical ESP32 edge telemetry hardware to your account. Enter your device's unique token below to begin receiving live livestock environment data.
             </p>
           </div>
 
@@ -619,7 +641,10 @@ export function Dashboard() {
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Hardware Token ID</label>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-mono font-bold block flex items-center justify-between">
+                    Hardware Token ID
+                    <span className="text-[9px] lowercase font-normal opacity-60">Found on device label</span>
+                  </label>
                   <input
                     type="text"
                     required
