@@ -558,13 +558,6 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
 
     const addDeviceToMap = (id: string, data: any) => {
       const canonical = getCanonicalDeviceId(id) || getCanonicalDeviceId(data.deviceId);
-      // We want to prioritize the user's specific ID if it's unique, 
-      // but still group by canonical ID if multiple docs point to same device.
-      // However, the user said "registr device its AIRSENSE LAS-001 - LAS-001"
-      // If we use LAS-001 as targetId, we lose the long name.
-      // If we use the original ID, we might have duplicates if they have multiple entries.
-      // Let's use the original ID but ensure LAS-001 is always present.
-      
       const targetId = id;
       
       const existing = devicesMap.get(targetId);
@@ -577,23 +570,25 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
       });
     };
 
-    // Always fetch global airMonitoring devices
-    try {
-      const airMonitoringRef = collection(db, 'airMonitoring');
-      const airSnap = await getDocs(query(airMonitoringRef));
-      airSnap.docs.forEach(docSnap => {
-        addDeviceToMap(docSnap.id, docSnap.data());
-      });
-    } catch (e) {
-      console.error('Error fetching global devices:', e);
-    }
+    // If user is guest or not logged in, show global airMonitoring devices as demo
+    if (!uid || uid === 'guest') {
+      try {
+        const airMonitoringRef = collection(db, 'airMonitoring');
+        const airSnap = await getDocs(query(airMonitoringRef, limit(10)));
+        airSnap.docs.forEach(docSnap => {
+          addDeviceToMap(docSnap.id, docSnap.data());
+        });
+      } catch (e) {
+        console.error('Error fetching global devices:', e);
+      }
 
-    // Forcefully fetch LAS-001 if it didn't come up
-    if (!devicesMap.has('LAS-001')) {
-      addDeviceToMap('LAS-001', { deviceId: 'LAS-001', name: 'AIRSENSE' });
-    }
-
-    if (uid && uid !== 'guest') {
+      // Forcefully fetch LAS-001 if it didn't come up (only for guests/demo)
+      if (devicesMap.size === 0 && !devicesMap.has('LAS-001')) {
+        addDeviceToMap('LAS-001', { deviceId: 'LAS-001', name: 'AIRSENSE' });
+      }
+    } else {
+      // For logged-in users, ONLY fetch their own devices
+      // This ensures a dynamic experience where users only see what they register
       try {
         const userDevicesRef = collection(db, 'users', uid, 'devices');
         const userSnap = await getDocs(query(userDevicesRef));
@@ -608,7 +603,7 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
     return Array.from(devicesMap.values());
   } catch (error) {
     console.error('getDevices failed:', error);
-    return [{ id: 'LAS-001', deviceId: 'LAS-001', name: 'AIRSENSE' }];
+    return [];
   }
 };
 
@@ -617,16 +612,24 @@ export const addDeviceToFirestore = async (device: any) => {
     const userId = device.userId || 'guest';
     const deviceId = device.deviceId || device.id;
     
-    // 1. Add to Device Registry
+    if (!deviceId) throw new Error("Device ID is required for registration");
+
+    // 1. Add to Device Registry (Source of Truth for Ownership)
+    // This allows prototypes to be registered to specific users dynamically
     const registryRef = doc(db, 'deviceRegistry', deviceId);
     await setDoc(registryRef, {
       ownerId: userId,
+      deviceId: deviceId,
       deviceName: device.name || 'AIRSENSE',
       status: 'Online',
-      createdAt: Date.now()
+      lastRegisteredAt: Date.now(),
+      metadata: {
+        type: device.type || 'Livestock Air Sensor',
+        location: device.location || 'Default'
+      }
     }, { merge: true });
 
-    // 2. Add to user's devices
+    // 2. Add to user's devices collection for UI display
     const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     
     const structuredDoc = {
@@ -640,10 +643,7 @@ export const addDeviceToFirestore = async (device: any) => {
       sharedFromUid: device.sharedFromUid || '',
       user: {
         userId: userId,
-        firstName: '',
-        lastName: '',
         email: device.email || '',
-        contactNumber: '',
         role: 'Owner'
       },
       latestReading: {
@@ -656,11 +656,6 @@ export const addDeviceToFirestore = async (device: any) => {
         aqi: 0,
         nh3: 0,
         ch4: 0,
-        temperatureStatus: 'Normal',
-        humidityStatus: 'Normal',
-        co2Status: 'Good',
-        nh3Status: 'Low',
-        ch4Status: 'Low',
         timestamp: Date.now()
       },
       thresholds: {
@@ -671,39 +666,85 @@ export const addDeviceToFirestore = async (device: any) => {
         pm10Max: 50,
         nh3Max: 25,
         ch4Max: 200
-      },
-      statistics: {
-        dailyAverageCO2: 0,
-        dailyAverageNH3: 0,
-        dailyAverageCH4: 0,
-        dailyAverageTemp: 0,
-        dailyAverageHumidity: 0
-      },
-      alerts: {
-        activeAlert: false,
-        lastAlertType: '',
-        lastAlertValue: 0,
-        lastAlertTime: 0
       }
     };
-
+    
     await setDoc(userDeviceRef, structuredDoc, { merge: true });
-    
-    // Maintain legacy collections for compatibility during transition
-    const oldDocRef = doc(db, 'airMonitoring', deviceId);
-    await setDoc(oldDocRef, structuredDoc, { merge: true });
-    
-    const cleanDevice = Object.fromEntries(
-      Object.entries(device).filter(([_, v]) => v !== undefined)
-    );
-    const legacyDeviceRef = doc(db, 'devices', deviceId);
-    await setDoc(legacyDeviceRef, { ...cleanDevice, deviceId: deviceId }, { merge: true });
-    
-    const sensorsRef = doc(db, 'sensors', deviceId);
-    await setDoc(sensorsRef, { deviceId: deviceId, deviceName: device.name || 'AIRSENSE', timestamp: Date.now() }, { merge: true });
 
+    // 3. Initialize Global Air Monitoring entry for historical data
+    const canonicalId = getCanonicalDeviceId(deviceId);
+    const oldDocRef = doc(db, 'airMonitoring', canonicalId);
+    await setDoc(oldDocRef, {
+      id: canonicalId,
+      deviceId: deviceId,
+      ownerId: userId,
+      deviceName: device.name || 'AIRSENSE',
+      lastUpdate: Date.now()
+    }, { merge: true });
+
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'users/devices');
+    throw error;
+  }
+};
+
+/**
+ * Dynamic Prototype Data Routing
+ * This allows any prototype to send data using its deviceId.
+ * The system automatically routes it to the registered owner's dashboard.
+ */
+export const updateDeviceDataById = async (deviceId: string, readings: any) => {
+  if (!deviceId) return;
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  
+  try {
+    // 1. Find the owner from the registry
+    const registryRef = doc(db, 'deviceRegistry', deviceId);
+    const registrySnap = await getDoc(registryRef);
+    
+    const timestamp = readings.timestamp || Date.now();
+    const processedReadings = {
+      ...readings,
+      timestamp
+    };
+
+    // 2. Update Shared Global Collection (airMonitoring)
+    const airMonitoringRef = doc(db, 'airMonitoring', canonicalId);
+    await setDoc(airMonitoringRef, {
+      latestReading: processedReadings,
+      lastUpdate: timestamp
+    }, { merge: true });
+
+    // Add to history
+    const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
+    await addDoc(readingsRef, processedReadings);
+
+    // 3. Update the owner's user-specific document if registered
+    if (registrySnap.exists()) {
+      const ownerId = registrySnap.data().ownerId;
+      if (ownerId && ownerId !== 'guest') {
+        const userDeviceRef = doc(db, 'users', ownerId, 'devices', deviceId);
+        await setDoc(userDeviceRef, {
+          latestReading: processedReadings,
+          status: 'Online',
+          lastSeen: timestamp
+        }, { merge: true });
+        
+        // Status history tracking
+        const statusHistoryRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+        await addDoc(statusHistoryRef, {
+          timestamp,
+          status: 'Online',
+          sensorName: registrySnap.data().deviceName || 'AIRSENSE'
+        });
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error routing prototype data for ${deviceId}:`, error);
+    return false;
   }
 };
 
