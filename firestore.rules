@@ -15,7 +15,7 @@ service cloud.firestore {
     }
     
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
     
     function incoming() {
@@ -116,16 +116,18 @@ service cloud.firestore {
     }
 
     match /airMonitoring/{deviceId} {
-      allow read: if isSignedIn() && (
-        !exists(/databases/$(database)/documents/deviceRegistry/$(deviceId)) ||
-        get(/databases/$(database)/documents/deviceRegistry/$(deviceId)).data.ownerId == request.auth.uid
-      );
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && (
         !exists(/databases/$(database)/documents/deviceRegistry/$(deviceId)) ||
         get(/databases/$(database)/documents/deviceRegistry/$(deviceId)).data.ownerId == request.auth.uid
       );
       
       match /readings/{readingId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+      }
+
+      match /status_history/{changeId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn();
       }

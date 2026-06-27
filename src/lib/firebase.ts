@@ -19,64 +19,128 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = dbId && dbId !== '(default)' && dbId !== 'default'
+export const db = (dbId && dbId !== '(default)' && dbId !== 'default' && dbId.trim() !== '')
   ? initializeFirestore(app, {}, dbId)
   : getFirestore(app);
+
+const getCanonicalDeviceId = (id: string) => {
+  if (!id) return id;
+  if (id.includes('LAS-001')) return 'LAS-001';
+  return id;
+};
+
+const ensureNumber = (val: any) => {
+  if (val === undefined || val === null || val === '') return undefined;
+  const n = Number(val);
+  return isNaN(n) ? undefined : n;
+};
+
+const getValue = (data: any, keys: string[]) => {
+  if (!data) return undefined;
+  // Try direct keys first
+  for (const key of keys) {
+    if (data[key] !== undefined) return data[key];
+  }
+  // Try case-insensitive keys
+  const dataKeys = Object.keys(data);
+  for (const key of keys) {
+    const foundKey = dataKeys.find(dk => dk.toLowerCase() === key.toLowerCase());
+    if (foundKey) return data[foundKey];
+  }
+  // Also check nested in 'data' object or 'payload' object
+  const containers = [data.data, data.payload, data.state, data.readings];
+  for (const container of containers) {
+    if (container && typeof container === 'object') {
+      for (const key of keys) {
+        if (container[key] !== undefined) return container[key];
+        const cKeys = Object.keys(container);
+        const foundKey = cKeys.find(ck => ck.toLowerCase() === key.toLowerCase());
+        if (foundKey) return container[foundKey];
+      }
+    }
+  }
+  return undefined;
+};
 
 export const subscribeToSensorData = (uid: string, deviceId: string, callback: (data: any) => void) => {
   if (!uid || !deviceId) return () => {};
   let innerUnsubscribe: (() => void) | null = null;
   let lastMetadata: any = {};
+  const canonicalId = getCanonicalDeviceId(deviceId);
+
+  const mapReadings = (rData: any, id: string) => {
+    const temp = ensureNumber(getValue(rData, ['temperature', 'temp', 'temp_c', 't']));
+    const hum = ensureNumber(getValue(rData, ['humidity', 'hum', 'rel_hum', 'h']));
+    const co2 = ensureNumber(getValue(rData, ['co2', 'carbon_dioxide', 'c']));
+    const nh3 = ensureNumber(getValue(rData, ['nh3', 'ammonia', 'NH3', 'n']));
+    const ch4 = ensureNumber(getValue(rData, ['ch4', 'methane', 'CH4', 'm']));
+    const aqi = ensureNumber(getValue(rData, ['aqi', 'air_quality_index']));
+    
+    // PM values
+    const pm1_0 = ensureNumber(getValue(rData, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
+    const pm2_5 = ensureNumber(getValue(rData, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
+    const pm10 = ensureNumber(getValue(rData, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+
+    return {
+      id: deviceId, // Keep original ID for UI
+      deviceId: id,
+      deviceName: lastMetadata.deviceName || lastMetadata.name || 'AIRSENSE',
+      ...lastMetadata,
+      ...rData,
+      temperature: temp ?? 0,
+      temperatureLevel: 'Normal',
+      humidity: hum ?? 0,
+      humidityLevel: 'Normal',
+      co2: co2 ?? 0,
+      co2Level: 'Good',
+      aqi: aqi ?? 0,
+      aqiLevel: (aqi || 0) > 150 ? 'POOR' : 'GOOD',
+      nh3: nh3 ?? 0,
+      nh3Level: 'Low',
+      ch4: ch4 ?? 0,
+      ch4Level: 'Low',
+      timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
+      ammonia: nh3 ?? 0,
+      methane: ch4 ?? 0,
+      pm1_0,
+      pm2_5,
+      pm10
+    };
+  };
 
   const setupReadingsListener = (id: string) => {
     if (innerUnsubscribe) return;
     
     // Listen to the shared readings collection as the primary source for live data
-    const readingsQ = query(collection(db, 'airMonitoring', id, 'readings'), orderBy('timestamp', 'desc'), limit(1));
+    // We try to order by timestamp, but if it fails (e.g. no index or no field), we'll try without it in a fallback
+    const readingsRef = collection(db, 'airMonitoring', id, 'readings');
+    const readingsQ = query(readingsRef, orderBy('timestamp', 'desc'), limit(1));
+    
     innerUnsubscribe = onSnapshot(readingsQ, (readingsSnap) => {
       if (!readingsSnap.empty) {
-        const rData = readingsSnap.docs[0].data();
-        callback({
-          id: id,
-          deviceId: id,
-          deviceName: lastMetadata.deviceName || 'AIRSENSE',
-          ...lastMetadata,
-          ...rData,
-          temperature: rData.temperature || rData.temp || 0,
-          temperatureLevel: 'Normal',
-          humidity: rData.humidity || rData.hum || 0,
-          humidityLevel: 'Normal',
-          co2: rData.co2 || 0,
-          co2Level: 'Good',
-          aqi: rData.aqi || 0,
-          aqiLevel: rData.aqi > 150 ? 'POOR' : 'GOOD',
-          nh3: rData.nh3 || rData.ammonia || 0,
-          nh3Level: 'Low',
-          ch4: rData.ch4 || rData.methane || 0,
-          ch4Level: 'Low',
-          timestamp: rData.timestamp || Date.now(),
-          ammonia: rData.nh3 || rData.ammonia || 0,
-          methane: rData.ch4 || rData.methane || 0,
-          pm1_0: rData.pm1_0 ?? rData.pm10 ?? rData['pm1.0'] ?? rData['pm1_0'] ?? rData.pm1 ?? 0,
-          pm2_5: rData.pm2_5 ?? rData.pm25 ?? rData['pm2.5'] ?? rData['pm2_5'] ?? 0,
-          pm10: rData.pm10 ?? rData.pm2_5 ?? rData['pm10'] ?? rData['pm10_0'] ?? rData.pm10_0 ?? 0
-        });
-      } else if (lastMetadata.latestReading) {
-        // Fallback to latestReading field in the document if subcollection is empty
-        const lr = lastMetadata.latestReading;
-        callback({
-          id: id,
-          deviceId: id,
-          deviceName: lastMetadata.deviceName || 'AIRSENSE',
-          ...lastMetadata,
-          ...lr,
-          temperature: lr.temperature || 0,
-          humidity: lr.humidity || 0,
-          timestamp: lr.timestamp || Date.now()
+        callback(mapReadings(readingsSnap.docs[0].data(), id));
+      } else {
+        // Try without orderBy as a fallback in case timestamp field is missing
+        const fallbackQ = query(readingsRef, limit(1));
+        getDocs(fallbackQ).then(snap => {
+          if (!snap.empty) {
+             callback(mapReadings(snap.docs[0].data(), id));
+          } else if (lastMetadata.latestReading) {
+            callback(mapReadings(lastMetadata.latestReading, id));
+          }
+        }).catch(() => {
+          if (lastMetadata.latestReading) {
+            callback(mapReadings(lastMetadata.latestReading, id));
+          }
         });
       }
     }, (err) => {
       console.warn(`[Firestore] Inner readings listener error for ${id}:`, err);
+      // Fallback to simpler query if the first one failed (likely index issue)
+      const fallbackQ = query(readingsRef, limit(1));
+      getDocs(fallbackQ).then(snap => {
+        if (!snap.empty) callback(mapReadings(snap.docs[0].data(), id));
+      }).catch(console.error);
     });
   };
 
@@ -89,41 +153,18 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
         const latestReading = data.latestReading || {};
         
         // Initial callback from metadata
-        callback({
-          id: snapshot.id,
-          deviceId: data.deviceId || snapshot.id,
-          deviceName: data.deviceName || 'AIRSENSE',
-          temperature: latestReading.temperature || 0,
-          temperatureLevel: latestReading.temperatureStatus || 'Normal',
-          humidity: latestReading.humidity || 0,
-          humidityLevel: latestReading.humidityStatus || 'Normal',
-          co2: latestReading.co2 || 0,
-          co2Level: latestReading.co2Status || 'Good',
-          aqi: latestReading.aqi || 0,
-          aqiLevel: latestReading.aqi > 150 ? 'POOR' : 'GOOD',
-          nh3: latestReading.nh3 || 0,
-          nh3Level: latestReading.nh3Status || 'Low',
-          ch4: latestReading.ch4 || 0,
-          ch4Level: latestReading.ch4Status || 'Low',
-          timestamp: latestReading.timestamp || Date.now(),
-          ammonia: latestReading.nh3 || 0,
-          methane: latestReading.ch4 || 0,
-          pm1_0: latestReading.pm1_0 ?? latestReading.pm10 ?? latestReading['pm1.0'] ?? latestReading['pm1_0'] ?? latestReading.pm1 ?? 0,
-          pm2_5: latestReading.pm2_5 ?? latestReading.pm25 ?? latestReading['pm2.5'] ?? latestReading['pm2_5'] ?? 0,
-          pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
-        });
+        callback(mapReadings(latestReading, data.deviceId || deviceId));
 
-        // Setup the inner listener for subcollection if not already doing so
-        setupReadingsListener(deviceId);
+        // Setup the inner listener for subcollection using canonical ID
+        setupReadingsListener(data.deviceId || canonicalId);
       } else {
-        // Fallback for global devices not registered to user
-        setupReadingsListener(deviceId);
+        // Try the canonical path if user doc doesn't exist
+        setupReadingsListener(canonicalId);
       }
     },
     (error) => {
       console.warn(`[Firestore] User device doc listener error for ${deviceId}:`, error);
-      // Even if user doc fails (e.g. permission), try to listen to global readings
-      setupReadingsListener(deviceId);
+      setupReadingsListener(canonicalId);
     }
   );
 
@@ -183,16 +224,17 @@ export const addDevice = async (device: any) => {
 
 export const getSensorReadings = async (uid: string, deviceId: string, limitCount: number = 100, selectedDateStr?: string): Promise<any[]> => {
     if (!uid || !deviceId) return [];
+    const canonicalId = getCanonicalDeviceId(deviceId);
     try {
         // Primary source: shared readings as requested by the user
-        const legacyRef = collection(db, 'airMonitoring', deviceId, 'readings');
+        const legacyRef = collection(db, 'airMonitoring', canonicalId, 'readings');
         const legacyQ = query(legacyRef, orderBy('timestamp', 'desc'), limit(limitCount));
         const legacySnap = await getDocs(legacyQ);
         let docs = legacySnap.docs.map(docSnap => {
           const data = docSnap.data();
           return { 
             id: docSnap.id, 
-            deviceId: deviceId,
+            deviceId: canonicalId,
             ...data,
             pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
             pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
@@ -242,9 +284,10 @@ export const subscribeToSensorReadings = (
     callback([]);
     return () => {};
   }
+  const canonicalId = getCanonicalDeviceId(deviceId);
   
   // Primary source: shared readings as requested
-  const sharedRef = collection(db, 'airMonitoring', deviceId, 'readings');
+  const sharedRef = collection(db, 'airMonitoring', canonicalId, 'readings');
   const sharedQ = query(sharedRef, orderBy('timestamp', 'desc'), limit(limitCount));
 
   let innerUnsubscribe: (() => void) | null = null;
@@ -258,15 +301,29 @@ export const subscribeToSensorReadings = (
         }
         let docs = snapshot.docs.map(docSnap => {
           const data = docSnap.data();
+          const temp = ensureNumber(getValue(data, ['temperature', 'temp', 'temp_c', 't']));
+          const hum = ensureNumber(getValue(data, ['humidity', 'hum', 'rel_hum', 'h']));
+          const aqi = ensureNumber(getValue(data, ['aqi', 'air_quality_index']));
+          const nh3 = ensureNumber(getValue(data, ['nh3', 'ammonia', 'NH3', 'n']));
+          const ch4 = ensureNumber(getValue(data, ['ch4', 'methane', 'CH4', 'm']));
+          const pm1_0 = ensureNumber(getValue(data, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
+          const pm2_5 = ensureNumber(getValue(data, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
+          const pm10 = ensureNumber(getValue(data, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+
           return {
             id: docSnap.id,
-            deviceId: deviceId,
+            deviceId: canonicalId,
             ...data,
-            pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
-            pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
-            pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
-            ammonia: data.nh3 ?? data.ammonia,
-            methane: data.ch4 ?? data.methane
+            temperature: temp ?? 0,
+            humidity: hum ?? 0,
+            aqi: aqi ?? 0,
+            nh3: nh3 ?? 0,
+            ch4: ch4 ?? 0,
+            pm1_0,
+            pm2_5,
+            pm10,
+            ammonia: nh3 ?? 0,
+            methane: ch4 ?? 0
           };
         });
         callback(docs);
@@ -279,15 +336,29 @@ export const subscribeToSensorReadings = (
           innerUnsubscribe = onSnapshot(userQ, (userSnap) => {
             let docs = userSnap.docs.map(docSnap => {
               const data = docSnap.data();
+              const temp = ensureNumber(getValue(data, ['temperature', 'temp', 'temp_c', 't']));
+              const hum = ensureNumber(getValue(data, ['humidity', 'hum', 'rel_hum', 'h']));
+              const aqi = ensureNumber(getValue(data, ['aqi', 'air_quality_index']));
+              const nh3 = ensureNumber(getValue(data, ['nh3', 'ammonia', 'NH3', 'n']));
+              const ch4 = ensureNumber(getValue(data, ['ch4', 'methane', 'CH4', 'm']));
+              const pm1_0 = ensureNumber(getValue(data, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
+              const pm2_5 = ensureNumber(getValue(data, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
+              const pm10 = ensureNumber(getValue(data, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+
               return { 
                 id: docSnap.id, 
                 deviceId: deviceId,
                 ...data,
-                pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
-                pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
-                pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
-                ammonia: data.nh3 ?? data.ammonia,
-                methane: data.ch4 ?? data.methane
+                temperature: temp ?? 0,
+                humidity: hum ?? 0,
+                aqi: aqi ?? 0,
+                nh3: nh3 ?? 0,
+                ch4: ch4 ?? 0,
+                pm1_0,
+                pm2_5,
+                pm10,
+                ammonia: nh3 ?? 0,
+                methane: ch4 ?? 0
               };
             });
             callback(docs);
@@ -376,8 +447,9 @@ export const recordStatusChange = async (
   }
 ) => {
   if (!deviceId) return;
+  const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', deviceId, 'status_history');
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
     await addDoc(historyRef, {
       timestamp: Date.now(),
       sensorName,
@@ -412,6 +484,7 @@ export const updateDeviceTelemetry = async (
 ) => {
   try {
     if (!userId || !deviceId) return;
+    const canonicalId = getCanonicalDeviceId(deviceId);
     const today = new Date().toISOString().split('T')[0];
     const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     
@@ -431,7 +504,7 @@ export const updateDeviceTelemetry = async (
     });
 
     // 3. Update legacy collections for full compatibility
-    const oldDocRef = doc(db, 'airMonitoring', deviceId);
+    const oldDocRef = doc(db, 'airMonitoring', canonicalId);
     await setDoc(oldDocRef, {
       latestReading: {
         ...readings,
@@ -439,7 +512,7 @@ export const updateDeviceTelemetry = async (
       }
     }, { merge: true });
 
-    const legacyReadingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
+    const legacyReadingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     await addDoc(legacyReadingsRef, {
       ...readings,
       timestamp: Date.now()
@@ -483,31 +556,41 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
   try {
     const devicesMap = new Map<string, any>();
 
+    const addDeviceToMap = (id: string, data: any) => {
+      const canonical = getCanonicalDeviceId(id) || getCanonicalDeviceId(data.deviceId);
+      // We want to prioritize the user's specific ID if it's unique, 
+      // but still group by canonical ID if multiple docs point to same device.
+      // However, the user said "registr device its AIRSENSE LAS-001 - LAS-001"
+      // If we use LAS-001 as targetId, we lose the long name.
+      // If we use the original ID, we might have duplicates if they have multiple entries.
+      // Let's use the original ID but ensure LAS-001 is always present.
+      
+      const targetId = id;
+      
+      const existing = devicesMap.get(targetId);
+      devicesMap.set(targetId, {
+        ...existing,
+        ...data,
+        id: targetId,
+        deviceId: data.deviceId || canonical || targetId,
+        name: data.deviceName || data.name || (targetId === 'LAS-001' ? 'AIRSENSE' : 'AIRSENSE NODE')
+      });
+    };
+
     // Always fetch global airMonitoring devices
     try {
       const airMonitoringRef = collection(db, 'airMonitoring');
       const airSnap = await getDocs(query(airMonitoringRef));
-      console.log('Fetched airMonitoring docs:', airSnap.docs.length);
       airSnap.docs.forEach(docSnap => {
-        const data = docSnap.data() as any;
-        devicesMap.set(docSnap.id, {
-          id: docSnap.id,
-          deviceId: data.deviceId || docSnap.id,
-          name: (docSnap.id === 'LAS-001') ? 'AIRSENSE' : (data.deviceName || 'AIRSENSE'),
-          ...data
-        });
+        addDeviceToMap(docSnap.id, docSnap.data());
       });
     } catch (e) {
       console.error('Error fetching global devices:', e);
     }
 
-    // Fallback: forcefully fetch LAS-001 if it didn't come up in collection query
+    // Forcefully fetch LAS-001 if it didn't come up
     if (!devicesMap.has('LAS-001')) {
-      devicesMap.set('LAS-001', {
-        id: 'LAS-001',
-        deviceId: 'LAS-001',
-        name: 'AIRSENSE'
-      });
+      addDeviceToMap('LAS-001', { deviceId: 'LAS-001', name: 'AIRSENSE' });
     }
 
     if (uid && uid !== 'guest') {
@@ -515,31 +598,17 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
         const userDevicesRef = collection(db, 'users', uid, 'devices');
         const userSnap = await getDocs(query(userDevicesRef));
         userSnap.docs.forEach(docSnap => {
-          const data = docSnap.data() as any;
-          devicesMap.set(docSnap.id, {
-            id: docSnap.id,
-            deviceId: data.deviceId || docSnap.id,
-            name: (docSnap.id === 'LAS-001') ? 'AIRSENSE' : (data.deviceName || 'AIRSENSE'),
-            ...data
-          });
+          addDeviceToMap(docSnap.id, docSnap.data());
         });
       } catch (e) {
         console.error('Error fetching user devices:', e);
       }
     }
     
-    const result = Array.from(devicesMap.values());
-    console.log('getDevices returning:', result);
-    return result;
+    return Array.from(devicesMap.values());
   } catch (error) {
-    console.error('getDevices failed with outer catch:', error);
-    return [
-      {
-        id: 'LAS-001',
-        deviceId: 'LAS-001',
-        name: 'AIRSENSE (LAS-001)'
-      }
-    ];
+    console.error('getDevices failed:', error);
+    return [{ id: 'LAS-001', deviceId: 'LAS-001', name: 'AIRSENSE' }];
   }
 };
 
@@ -671,8 +740,9 @@ export const deleteDeviceFromFirestore = async (userId: string, id: string) => {
 
 export const getStatusHistory = async (deviceId: string): Promise<any[]> => {
   if (!deviceId) return [];
+  const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', deviceId, 'status_history');
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
     const q = query(historyRef, orderBy('timestamp', 'desc'), limit(100));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -684,9 +754,10 @@ export const getStatusHistory = async (deviceId: string): Promise<any[]> => {
 
 export const getHistoricalDailyAverages = async (deviceId: string, days: number = 7): Promise<any[]> => {
   if (!deviceId) return [];
+  const canonicalId = getCanonicalDeviceId(deviceId);
   try {
     // We will aggregate from the legacy readings which contains all history
-    const readingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
+    const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     
     // We get readings for the last 'days' days.
     const cutoffDate = new Date();
@@ -735,19 +806,22 @@ export const getHistoricalDailyAverages = async (deviceId: string, days: number 
       }
 
       const day = dailyData.get(date)!;
-      if (data.aqi !== undefined) { day.aqiSum += data.aqi; day.aqiCount++; }
-      if (data.co2 !== undefined) { day.co2Sum += data.co2; day.co2Count++; }
+      const aqi = ensureNumber(getValue(data, ['aqi', 'air_quality_index']));
+      if (aqi !== undefined) { day.aqiSum += aqi; day.aqiCount++; }
       
-      const temp = data.temperature ?? data.temp;
+      const co2 = ensureNumber(getValue(data, ['co2', 'carbon_dioxide', 'c']));
+      if (co2 !== undefined) { day.co2Sum += co2; day.co2Count++; }
+      
+      const temp = ensureNumber(getValue(data, ['temperature', 'temp', 'temp_c', 't']));
       if (temp !== undefined) { day.tempSum += temp; day.tempCount++; }
       
-      const hum = data.humidity ?? data.hum;
+      const hum = ensureNumber(getValue(data, ['humidity', 'hum', 'rel_hum', 'h']));
       if (hum !== undefined) { day.humSum += hum; day.humCount++; }
 
-      const nh3 = data.nh3 ?? data.ammonia;
+      const nh3 = ensureNumber(getValue(data, ['nh3', 'ammonia', 'NH3', 'n']));
       if (nh3 !== undefined) { day.nh3Sum += nh3; day.nh3Count++; }
 
-      const ch4 = data.ch4 ?? data.methane;
+      const ch4 = ensureNumber(getValue(data, ['ch4', 'methane', 'CH4', 'm']));
       if (ch4 !== undefined) { day.ch4Sum += ch4; day.ch4Count++; }
     });
 
