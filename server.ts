@@ -24,9 +24,9 @@ console.log('[Server] Initializing Firebase with Project ID:', firebaseConfig.pr
 
 const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const dbId = firebaseConfig.firestoreDatabaseId;
-const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
-  ? initializeFirestore(fbApp, {}, dbId)
-  : getFirestore(fbApp);
+const db = (dbId && dbId !== '(default)' && dbId !== 'default' && dbId.trim() !== '')
+  ? initializeFirestore(fbApp, { experimentalForceLongPolling: true }, dbId)
+  : initializeFirestore(fbApp, { experimentalForceLongPolling: true });
 
 async function startServer() {
   app.use(express.json());

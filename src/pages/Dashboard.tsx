@@ -218,11 +218,11 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
 
 const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: string }) => {
   const [timeAgo, setTimeAgo] = useState('');
-  const isOnline = status === 'Online' && (Date.now() - lastSeen < 120000); // 2 minutes threshold
+  const isOnline = status === 'Online' && lastSeen > 0 && (Date.now() - lastSeen < 180000); // 3 minutes threshold
 
   useEffect(() => {
     const update = () => {
-      if (!lastSeen) {
+      if (!lastSeen || lastSeen === 0) {
         setTimeAgo('Never');
         return;
       }
@@ -239,10 +239,10 @@ const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: s
   return (
     <div className="inline-flex flex-col items-start gap-1">
       <div className={cn(
-        "inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-wide border uppercase select-none transition-colors duration-500",
+        "inline-flex items-center gap-1.5 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-wide border uppercase select-none transition-colors duration-500 shadow-sm",
         isOnline 
           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-          : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
       )}>
         <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
           {isOnline && (
@@ -250,14 +250,14 @@ const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: s
           )}
           <span className={cn(
             "relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2",
-            isOnline ? "bg-emerald-400" : "bg-slate-500"
+            isOnline ? "bg-emerald-400" : "bg-rose-500"
           )}></span>
         </span>
-        {isOnline ? 'Online' : 'Offline'}
+        {isOnline ? 'Active Receiver' : 'Inactive Device'}
       </div>
       <div className="flex items-center gap-1 text-[7px] md:text-[9px] text-slate-400 font-mono pl-1">
         <Clock className="w-2.5 h-2.5" />
-        <span className="uppercase tracking-tighter opacity-80">Last seen: {timeAgo}</span>
+        <span className="uppercase tracking-tighter opacity-80">{lastSeen > 0 ? `Last Heartbeat: ${timeAgo}` : 'No Readings Received'}</span>
       </div>
     </div>
   );
@@ -973,17 +973,26 @@ export function Dashboard() {
                     No hardware mapped. Click to register a node.
                   </button>
                 ) : (
-                  devices.map((dev: any) => (
-                    <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
-                      <div className="min-w-0">
-                        <p className="font-bold truncate text-system-text">{dev.name}</p>
-                        <p className="font-mono text-[9px] text-system-muted truncate">{dev.id}</p>
+                  devices.map((dev: any) => {
+                    const devIsOnline = dev.status === 'Online' && dev.lastSeen > 0 && (Date.now() - dev.lastSeen < 300000); // 5 mins threshold for list
+                    
+                    return (
+                      <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <p className="font-bold truncate text-system-text">{dev.name || dev.deviceName}</p>
+                          <p className="font-mono text-[9px] text-system-muted truncate uppercase">{dev.id}</p>
+                        </div>
+                        <span className={cn(
+                          "px-1.5 py-0.5 border text-[8px] font-mono font-bold uppercase rounded transition-colors duration-300",
+                          devIsOnline 
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                            : "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                        )}>
+                          {devIsOnline ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
-                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-550/20 text-[8px] font-mono font-bold uppercase rounded">
-                        CONNECTED
-                      </span>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
