@@ -1,56 +1,34 @@
 import { useState, useMemo, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import { Sparkles, TrendingUp, TrendingDown, Thermometer, Activity, HelpCircle, Flame, Wind, Layers } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Sparkles, Thermometer, Activity, Wind, Layers } from 'lucide-react';
 import { useAppContext } from '../hooks/useAppContext';
-import { cn, parseSafeDate } from '../lib/utils';
-import { getSensorReadings, subscribeToSensorReadings } from '../lib/firebase';
+import { cn } from '../lib/utils';
+import { getHistoricalDailyAverages } from '../lib/firebase';
 
 export function AnalyticsPage() {
-  const { uid, devices, selectedDeviceId } = useAppContext();
+  const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [chartMetric, setChartMetric] = useState<'aqi' | 'temp' | 'co2' | 'ammonia'>('aqi');
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [days, setDays] = useState<number>(7);
 
-  const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
-
-  const deviceOwnerUid = activeDevice?.sharedFromUid || uid;
+  const [dailyAverages, setDailyAverages] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!deviceOwnerUid || !selectedDeviceId) return;
-    const unsubscribe = subscribeToSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate, (logs) => {
-      setTelemetryLogs([...logs].reverse());
-    });
-    return () => unsubscribe();
-  }, [selectedDeviceId, deviceOwnerUid, selectedDate]);
-
-  // Use telemetryLogs instead of dynamicTimelineData
-  const dynamicTimelineData = useMemo(() => {
-    return telemetryLogs.map(log => {
-      const d = log.timestamp ? parseSafeDate(log.timestamp) : new Date();
-      return {
-        time: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
-        timeWithTime: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        aqi: log.aqi,
-        temp: log.temperature,
-        co2: log.co2,
-        ammonia: log.ammonia,
-        humidity: log.humidity
-      };
-    });
-  }, [telemetryLogs]);
+    if (!activeDevice?.id) return;
+    getHistoricalDailyAverages(activeDevice.id, days).then(setDailyAverages);
+  }, [activeDevice?.id, days]);
 
   const averageAqi = useMemo(() => {
-    if (dynamicTimelineData.length === 0) return 0;
-    const sum = dynamicTimelineData.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
-    return Math.round(sum / dynamicTimelineData.length);
-  }, [dynamicTimelineData]);
+    if (dailyAverages.length === 0) return 0;
+    const sum = dailyAverages.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
+    return Math.round(sum / dailyAverages.length);
+  }, [dailyAverages]);
 
   const maxTemp = useMemo(() => {
-    if (dynamicTimelineData.length === 0) return 0;
-    const temps = dynamicTimelineData.map(item => item.temp).filter(t => typeof t === 'number' && !isNaN(t));
+    if (dailyAverages.length === 0) return 0;
+    const temps = dailyAverages.map(item => item.temp).filter(t => typeof t === 'number' && !isNaN(t));
     if (temps.length === 0) return 0;
     return Math.max(...temps);
-  }, [dynamicTimelineData]);
+  }, [dailyAverages]);
 
   const breedInsights = useMemo(() => {
     return {
@@ -130,48 +108,29 @@ export function AnalyticsPage() {
         <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 lg:col-span-2 space-y-5">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Daily Telemetry Evaluation</h3>
-              <p className="text-xs text-system-muted">Select a day and microclimate sensors to evaluate trends.</p>
+              <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Microclimate Graph (All Sensors Trend)</h3>
+              <p className="text-xs text-system-muted">Average readings per day</p>
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1 shrink-0 select-none">
-                <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Select Day:</span>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Time Range:</span>
+                <select
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
                   className="bg-transparent border-none text-xs font-mono text-system-text outline-none cursor-pointer"
-                />
-              </div>
-
-              <div className="flex bg-system-bg border border-system-border rounded-xl p-1 shrink-0 select-none">
-                {[
-                  { id: 'aqi', val: 'AQI' },
-                  { id: 'temp', val: 'Temp' },
-                  { id: 'co2', val: 'CO2' },
-                  { id: 'ammonia', val: 'NH₃' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setChartMetric(opt.id as any)}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer",
-                      chartMetric === opt.id 
-                        ? "bg-system-accent text-white shadow-sm" 
-                        : "text-system-muted hover:text-system-text"
-                    )}
-                  >
-                    {opt.val}
-                  </button>
-                ))}
+                >
+                  <option value={7}>Last 7 Days</option>
+                  <option value={14}>Last 14 Days</option>
+                  <option value={30}>Last 30 Days</option>
+                </select>
               </div>
             </div>
           </div>
 
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dynamicTimelineData}>
+              <LineChart data={dailyAverages}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.12)" />
                 <XAxis 
                   dataKey="time" 
@@ -187,7 +146,7 @@ export function AnalyticsPage() {
                 <Tooltip 
                   labelFormatter={(value, payload) => {
                     const item = payload && payload[0]?.payload;
-                    return item ? item.timeWithTime : value;
+                    return item ? item.dateStr : value;
                   }}
                   contentStyle={{ 
                     backgroundColor: 'rgb(15, 23, 42)', 
@@ -204,46 +163,42 @@ export function AnalyticsPage() {
                   iconType="circle"
                   wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', textTransform: 'uppercase' }}
                 />
-                {chartMetric === 'aqi' && (
-                  <Line 
-                    name="Air Quality Index" 
-                    type="monotone" 
-                    dataKey="aqi" 
-                    stroke="var(--color-system-accent, #3b82f6)" 
-                    strokeWidth={3} 
-                    dot={{ r: 5, strokeWidth: 2 }} 
-                  />
-                )}
-                {chartMetric === 'temp' && (
-                  <Line 
-                    name="Temperature (°C)" 
-                    type="monotone" 
-                    dataKey="temp" 
-                    stroke="#f97316" 
-                    strokeWidth={3} 
-                    dot={{ r: 5, strokeWidth: 2 }} 
-                  />
-                )}
-                {chartMetric === 'co2' && (
-                  <Line 
-                    name="Carbon Dioxide (ppm)" 
-                    type="monotone" 
-                    dataKey="co2" 
-                    stroke="#0284c7" 
-                    strokeWidth={3} 
-                    dot={{ r: 5, strokeWidth: 2 }} 
-                  />
-                )}
-                {chartMetric === 'ammonia' && (
-                  <Line 
-                    name="Ammonia NH3 (ppm)" 
-                    type="monotone" 
-                    dataKey="ammonia" 
-                    stroke="#a855f7" 
-                    strokeWidth={3} 
-                    dot={{ r: 5, strokeWidth: 2 }} 
-                  />
-                )}
+                <Line 
+                  name="AQI" 
+                  type="monotone" 
+                  dataKey="aqi" 
+                  stroke="var(--color-system-accent, #3b82f6)" 
+                  strokeWidth={2.5} 
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line 
+                  name="Temp (°C)" 
+                  type="monotone" 
+                  dataKey="temp" 
+                  stroke="#f97316" 
+                  strokeWidth={2.5} 
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line 
+                  name="CO2 (ppm)" 
+                  type="monotone" 
+                  dataKey="co2" 
+                  stroke="#0284c7" 
+                  strokeWidth={2.5} 
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line 
+                  name="NH3 (ppm)" 
+                  type="monotone" 
+                  dataKey="ammonia" 
+                  stroke="#a855f7" 
+                  strokeWidth={2.5} 
+                  dot={false}
+                  isAnimationActive={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = dbId && dbId !== '(default)' && dbId !== 'default'
+export const db = dbId && dbId !== '(default)'
   ? initializeFirestore(app, {}, dbId)
   : getFirestore(app);
 
@@ -91,22 +91,52 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
                 pm10: latestReading.pm10 ?? latestReading.pm2_5 ?? latestReading['pm10'] ?? latestReading['pm10_0'] ?? latestReading.pm10_0 ?? 0
               });
             } else {
-              callback({
-                id: deviceId,
-                deviceId: deviceId,
-                temperature: 0,
-                temperatureLevel: 'Normal',
-                humidity: 0,
-                humidityLevel: 'Normal',
-                co2: 0,
-                co2Level: 'Good',
-                aqi: 0,
-                aqiLevel: 'GOOD',
-                nh3: 0,
-                nh3Level: 'Low',
-                ch4: 0,
-                ch4Level: 'Low',
-                timestamp: Date.now()
+              const readingsQ = query(collection(db, 'airMonitoring', deviceId, 'readings'), orderBy('timestamp', 'desc'), limit(1));
+              getDocs(readingsQ).then(readingsSnap => {
+                if (!readingsSnap.empty) {
+                  const rData = readingsSnap.docs[0].data();
+                  callback({
+                    id: deviceId,
+                    deviceId: deviceId,
+                    deviceName: 'AIRSENSE',
+                    temperature: rData.temperature || rData.temp || 0,
+                    temperatureLevel: 'Normal',
+                    humidity: rData.humidity || rData.hum || 0,
+                    humidityLevel: 'Normal',
+                    co2: rData.co2 || 0,
+                    co2Level: 'Good',
+                    aqi: rData.aqi || 0,
+                    aqiLevel: rData.aqi > 150 ? 'POOR' : 'GOOD',
+                    nh3: rData.nh3 || rData.ammonia || 0,
+                    nh3Level: 'Low',
+                    ch4: rData.ch4 || rData.methane || 0,
+                    ch4Level: 'Low',
+                    timestamp: rData.timestamp || Date.now(),
+                    ammonia: rData.nh3 || rData.ammonia || 0,
+                    methane: rData.ch4 || rData.methane || 0,
+                    pm1_0: rData.pm1_0 ?? rData.pm10 ?? rData['pm1.0'] ?? rData['pm1_0'] ?? rData.pm1 ?? 0,
+                    pm2_5: rData.pm2_5 ?? rData.pm25 ?? rData['pm2.5'] ?? rData['pm2_5'] ?? 0,
+                    pm10: rData.pm10 ?? rData.pm2_5 ?? rData['pm10'] ?? rData['pm10_0'] ?? rData.pm10_0 ?? 0
+                  });
+                } else {
+                  callback({
+                    id: deviceId,
+                    deviceId: deviceId,
+                    temperature: 0,
+                    temperatureLevel: 'Normal',
+                    humidity: 0,
+                    humidityLevel: 'Normal',
+                    co2: 0,
+                    co2Level: 'Good',
+                    aqi: 0,
+                    aqiLevel: 'GOOD',
+                    nh3: 0,
+                    nh3Level: 'Low',
+                    ch4: 0,
+                    ch4Level: 'Low',
+                    timestamp: Date.now()
+                  });
+                }
               });
             }
           });
@@ -484,24 +514,33 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
           ...data
         });
       });
-      
-      // Fallback: forcefully fetch LAS-001 if it didn't come up in collection query
-      if (!devicesMap.has('LAS-001')) {
-        const docRef = doc(db, 'airMonitoring', 'LAS-001');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          console.log('Force fetched LAS-001!');
-          const data = docSnap.data() as any;
-          devicesMap.set(docSnap.id, {
-            id: docSnap.id,
-            deviceId: data.deviceId || docSnap.id,
-            name: data.deviceName || 'AIRSENSE',
-            ...data
-          });
-        }
-      }
     } catch (e) {
       console.error('Error fetching global devices:', e);
+    }
+
+    // Fallback: forcefully fetch LAS-001 if it didn't come up in collection query
+    if (!devicesMap.has('LAS-001')) {
+      try {
+        const docRef = doc(db, 'airMonitoring', 'LAS-001');
+        const docSnap = await getDoc(docRef);
+        // Add it regardless of whether the parent document explicitly exists, 
+        // since the subcollections might exist.
+        const data = docSnap.exists() ? docSnap.data() as any : {};
+        devicesMap.set('LAS-001', {
+          id: 'LAS-001',
+          deviceId: data.deviceId || 'LAS-001',
+          name: data.deviceName || 'AIRSENSE (LAS-001)',
+          ...data
+        });
+      } catch (e) {
+        console.error('Error fetching fallback LAS-001:', e);
+        // Force add anyway so UI doesn't get stuck if we know they have data
+        devicesMap.set('LAS-001', {
+          id: 'LAS-001',
+          deviceId: 'LAS-001',
+          name: 'AIRSENSE (LAS-001)'
+        });
+      }
     }
 
     if (uid && uid !== 'guest') {
@@ -664,6 +703,97 @@ export const getStatusHistory = async (deviceId: string): Promise<any[]> => {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     handleFirestoreError(error, OperationType.READ, 'status_history');
+    return [];
+  }
+};
+
+export const getHistoricalDailyAverages = async (deviceId: string, days: number = 7): Promise<any[]> => {
+  if (!deviceId) return [];
+  try {
+    // We will aggregate from the legacy readings which contains all history
+    const readingsRef = collection(db, 'airMonitoring', deviceId, 'readings');
+    
+    // We get readings for the last 'days' days.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffTime = cutoffDate.getTime();
+
+    // Query without a where clause on timestamp to avoid type mismatches (number vs Firestore Timestamp)
+    const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(1000));
+    const snapshot = await getDocs(q);
+
+    const dailyData = new Map<string, {
+      aqiSum: number, aqiCount: number,
+      co2Sum: number, co2Count: number,
+      tempSum: number, tempCount: number,
+      humSum: number, humCount: number,
+      nh3Sum: number, nh3Count: number,
+      ch4Sum: number, ch4Count: number
+    }>();
+
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      if (!data.timestamp) return;
+      
+      let tsMs = data.timestamp;
+      if (typeof data.timestamp === 'object' && typeof data.timestamp.toMillis === 'function') {
+        tsMs = data.timestamp.toMillis();
+      } else if (typeof data.timestamp === 'object' && data.timestamp.seconds) {
+        tsMs = data.timestamp.seconds * 1000;
+      }
+      
+      const dateObj = new Date(tsMs);
+      if (isNaN(dateObj.getTime())) return;
+      if (dateObj.getTime() < cutoffTime) return;
+      
+      const date = dateObj.toISOString().split('T')[0];
+
+      if (!dailyData.has(date)) {
+        dailyData.set(date, {
+          aqiSum: 0, aqiCount: 0,
+          co2Sum: 0, co2Count: 0,
+          tempSum: 0, tempCount: 0,
+          humSum: 0, humCount: 0,
+          nh3Sum: 0, nh3Count: 0,
+          ch4Sum: 0, ch4Count: 0
+        });
+      }
+
+      const day = dailyData.get(date)!;
+      if (data.aqi !== undefined) { day.aqiSum += data.aqi; day.aqiCount++; }
+      if (data.co2 !== undefined) { day.co2Sum += data.co2; day.co2Count++; }
+      
+      const temp = data.temperature ?? data.temp;
+      if (temp !== undefined) { day.tempSum += temp; day.tempCount++; }
+      
+      const hum = data.humidity ?? data.hum;
+      if (hum !== undefined) { day.humSum += hum; day.humCount++; }
+
+      const nh3 = data.nh3 ?? data.ammonia;
+      if (nh3 !== undefined) { day.nh3Sum += nh3; day.nh3Count++; }
+
+      const ch4 = data.ch4 ?? data.methane;
+      if (ch4 !== undefined) { day.ch4Sum += ch4; day.ch4Count++; }
+    });
+
+    const result = Array.from(dailyData.entries()).map(([dateStr, metrics]) => {
+      const parts = dateStr.split('-');
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return {
+        dateStr,
+        time: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        aqi: metrics.aqiCount > 0 ? Math.round(metrics.aqiSum / metrics.aqiCount) : 0,
+        co2: metrics.co2Count > 0 ? Math.round(metrics.co2Sum / metrics.co2Count) : 0,
+        temp: metrics.tempCount > 0 ? Math.round((metrics.tempSum / metrics.tempCount) * 10) / 10 : 0,
+        humidity: metrics.humCount > 0 ? Math.round((metrics.humSum / metrics.humCount) * 10) / 10 : 0,
+        ammonia: metrics.nh3Count > 0 ? Math.round((metrics.nh3Sum / metrics.nh3Count) * 100) / 100 : 0,
+        methane: metrics.ch4Count > 0 ? Math.round((metrics.ch4Sum / metrics.ch4Count) * 100) / 100 : 0,
+      };
+    }).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+    return result;
+  } catch (error) {
+    console.error('Failed to get historical daily averages:', error);
     return [];
   }
 };

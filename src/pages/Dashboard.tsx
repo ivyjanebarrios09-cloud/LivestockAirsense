@@ -260,8 +260,6 @@ export function Dashboard() {
   const registeredDevices = devices;
 
   const [deviceData, setDeviceData] = useState<any>(null);
-  const [telemetryLogs, setTelemetryLogs] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   
   const currentDevice = devices.find(d => d.id === selectedDeviceId);
   const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
@@ -273,27 +271,6 @@ export function Dashboard() {
     });
     return () => unsubscribe();
   }, [selectedDeviceId, deviceOwnerUid]);
-
-  useEffect(() => {
-    if (!deviceOwnerUid || !selectedDeviceId) return;
-    const unsubscribe = subscribeToSensorReadings(deviceOwnerUid, selectedDeviceId, 100, selectedDate, (logs) => {
-      setTelemetryLogs([...logs].reverse());
-    });
-    return () => unsubscribe();
-  }, [selectedDeviceId, deviceOwnerUid, selectedDate]);
-
-  const chartData = telemetryLogs.map(log => {
-    const d = log.timestamp ? parseSafeDate(log.timestamp) : new Date();
-    return {
-      time: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
-      timeWithTime: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-      aqi: log.aqi || 0,
-      co2: log.co2 || 0,
-      temp: log.temperature || 0,
-      humidity: log.humidity || 0,
-      ammonia: log.ammonia || 0
-    };
-  });
 
   const lastReading = deviceData || { 
       temperature: 0, 
@@ -857,90 +834,8 @@ export function Dashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-md w-full ml-0">
         
-        <div className="lg:col-span-2 bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-sm font-bold tracking-tight text-system-text uppercase font-mono">Microclimate Graph (All Sensors Trend)</h3>
-              <p className="text-xs text-system-muted">Telemetry monitoring per day</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono text-system-muted uppercase">Select Day:</span>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-system-bg border border-system-border px-2.5 py-1 text-xs font-mono rounded-lg text-system-text outline-none focus:border-system-accent focus:ring-1 focus:ring-system-accent cursor-pointer transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 0, left: -22, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eaf0f6" />
-                <XAxis 
-                  dataKey="time" 
-                  tick={{ fontSize: 10, fill: '#64748b' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  minTickGap={25}
-                />
-                <YAxis 
-                  tick={{ fontSize: 10, fill: '#64748b', fontFamily: 'var(--font-mono)' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                />
-                <Tooltip 
-                  labelFormatter={(value, payload) => {
-                    const item = payload && payload[0]?.payload;
-                    return item ? item.timeWithTime : value;
-                  }}
-                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                  itemStyle={{ color: '#0f172a' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="aqi" 
-                  name="AQI"
-                  stroke="var(--color-system-accent)" 
-                  strokeWidth={2.5}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="co2" 
-                  name="CO2"
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="temp" 
-                  name="Temp (°C)"
-                  stroke="#ef4444" 
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="humidity" 
-                  name="Humidity (%)"
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         {/* Recent Node Logs & Status Diagnostics */}
         <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px] overflow-hidden select-none">
           <div className="space-y-4 flex-1 flex flex-col min-h-0">
