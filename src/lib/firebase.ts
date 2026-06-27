@@ -19,9 +19,23 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 const dbId = firebaseConfig.firestoreDatabaseId;
-export const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
-  ? initializeFirestore(app, {}, dbId)
-  : getFirestore(app);
+
+const getDb = () => {
+  try {
+    return initializeFirestore(app, {
+      localCache: {
+        kind: 'persistent',
+        tabManager: {
+          kind: 'multi-tab'
+        }
+      }
+    }, dbId || '(default)');
+  } catch (e) {
+    return getFirestore(app);
+  }
+};
+
+export const db = getDb();
 
 const getCanonicalDeviceId = (id: string) => {
   if (!id) return id;
@@ -122,9 +136,14 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
     const readingsRef = collection(db, 'airMonitoring', id, 'readings');
     const readingsQ = query(readingsRef, orderBy('timestamp', 'desc'), limit(1));
     
-    innerUnsubscribe = onSnapshot(readingsQ, (readingsSnap) => {
+    innerUnsubscribe = onSnapshot(readingsQ, { includeMetadataChanges: true }, (readingsSnap) => {
       if (!readingsSnap.empty) {
-        callback(mapReadings(readingsSnap.docs[0].data(), id));
+        const data = readingsSnap.docs[0].data();
+        callback({
+          ...mapReadings(data, id),
+          _fromCache: readingsSnap.metadata.fromCache,
+          _hasPendingWrites: readingsSnap.metadata.hasPendingWrites
+        });
       } else {
         // Try without orderBy as a fallback in case timestamp field is missing
         const fallbackQ = query(readingsRef, limit(1));
