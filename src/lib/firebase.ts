@@ -680,6 +680,16 @@ export const addDeviceToFirestore = async (device: any) => {
 
     // 1. Add to Device Registry (Primary Source for Registration)
     const registryRef = doc(db, 'deviceRegistry', deviceId);
+    
+    // Check if device is already registered by someone else
+    const registrySnap = await getDoc(registryRef);
+    if (registrySnap.exists()) {
+      const existingData = registrySnap.data();
+      if (existingData.ownerId && existingData.ownerId !== userId) {
+        throw new Error(`Device ID "${deviceId}" is already registered to another account. Please contact support if you believe this is an error.`);
+      }
+    }
+
     const registrationData = {
       ownerId: userId,
       deviceId: deviceId,
