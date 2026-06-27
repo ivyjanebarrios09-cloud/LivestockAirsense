@@ -216,25 +216,28 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
   );
 };
 
-const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: string }) => {
+const NodeStatusIndicator = ({ lastSeen, status, readingTimestamp }: { lastSeen: number; status: string; readingTimestamp?: number }) => {
   const [timeAgo, setTimeAgo] = useState('');
-  const isOnline = status === 'Online' && lastSeen > 0 && (Date.now() - lastSeen < 180000); // 3 minutes threshold
+  
+  // Use the most recent signal: either the last seen event or the latest reading received
+  const effectiveLastSeen = Math.max(lastSeen || 0, readingTimestamp || 0);
+  const isOnline = (status === 'Online' || !!readingTimestamp) && effectiveLastSeen > 0 && (Date.now() - effectiveLastSeen < 180000); // 3 minutes threshold
 
   useEffect(() => {
     const update = () => {
-      if (!lastSeen || lastSeen === 0) {
+      if (!effectiveLastSeen || effectiveLastSeen === 0) {
         setTimeAgo('Never');
         return;
       }
-      const diff = Math.floor((Date.now() - lastSeen) / 1000);
+      const diff = Math.floor((Date.now() - effectiveLastSeen) / 1000);
       if (diff < 60) setTimeAgo('Just now');
       else if (diff < 3600) setTimeAgo(`${Math.floor(diff / 60)}m ago`);
       else setTimeAgo(`${Math.floor(diff / 3600)}h ago`);
     };
     update();
-    const interval = setInterval(update, 30000);
+    const interval = setInterval(update, 15000); // Check more frequently
     return () => clearInterval(interval);
-  }, [lastSeen]);
+  }, [effectiveLastSeen]);
 
   return (
     <div className="inline-flex flex-col items-start gap-1">
@@ -257,7 +260,7 @@ const NodeStatusIndicator = ({ lastSeen, status }: { lastSeen: number; status: s
       </div>
       <div className="flex items-center gap-1 text-[7px] md:text-[9px] text-slate-400 font-mono pl-1">
         <Clock className="w-2.5 h-2.5" />
-        <span className="uppercase tracking-tighter opacity-80">{lastSeen > 0 ? `Last Heartbeat: ${timeAgo}` : 'No Readings Received'}</span>
+        <span className="uppercase tracking-tighter opacity-80">{effectiveLastSeen > 0 ? `Heartbeat: ${timeAgo}` : 'No Readings Received'}</span>
       </div>
     </div>
   );
@@ -768,7 +771,11 @@ export function Dashboard() {
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
           <div className="flex items-center gap-4">
-            <NodeStatusIndicator lastSeen={connectionStatus.lastSeen} status={connectionStatus.status} />
+            <NodeStatusIndicator 
+              lastSeen={connectionStatus.lastSeen} 
+              status={connectionStatus.status} 
+              readingTimestamp={lastReading.timestamp}
+            />
 
             <button 
               onClick={() => setIsAddingDevicePopup(true)}
@@ -974,7 +981,8 @@ export function Dashboard() {
                   </button>
                 ) : (
                   devices.map((dev: any) => {
-                    const devIsOnline = dev.status === 'Online' && dev.lastSeen > 0 && (Date.now() - dev.lastSeen < 300000); // 5 mins threshold for list
+                    const effectiveLastSeen = Math.max(dev.lastSeen || 0, dev.timestamp || 0, dev.latestReading?.timestamp || 0);
+                    const devIsOnline = (dev.status === 'Online' || effectiveLastSeen > 0) && (Date.now() - effectiveLastSeen < 300000); // 5 mins threshold for list
                     
                     return (
                       <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
