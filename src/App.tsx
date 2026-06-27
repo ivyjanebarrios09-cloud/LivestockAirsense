@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { AppContextProvider } from './hooks/useAppContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -28,6 +29,7 @@ export default function App() {
 
   return (
     <AppContextProvider uid={uid}>
+      <Toaster position="top-right" richColors closeButton theme="dark" />
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />

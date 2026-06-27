@@ -4,6 +4,7 @@ import { cn, parseSafeDate } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings } from '../lib/firebase';
+import { toast } from 'sonner';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
@@ -448,6 +449,13 @@ export function Dashboard() {
               severity,
               location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node'
             });
+
+            if (severity === 'critical') {
+              toast.error(`Critical Alert: ${sensorName}`, {
+                description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
+                duration: 8000,
+              });
+            }
           }
         }
       };
