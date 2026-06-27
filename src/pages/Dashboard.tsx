@@ -802,28 +802,28 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="relative shrink-0 w-full md:w-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-lg md:rounded-2xl p-2 md:p-4 flex items-center gap-2 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group">
-          <div className="flex flex-col items-center justify-center bg-white/5 w-10 h-10 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10">
+        <div className="relative shrink-0 w-full md:w-auto bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group shadow-lg">
+          <div className="flex flex-col items-center justify-center bg-white/10 md:bg-white/5 w-14 h-14 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10 p-1 shadow-inner">
             <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
-            <span className="text-lg md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums">{deviceData?.aqi || 0}</span>
-            <span className={cn("text-[8px] md:text-[9px] font-bold mt-0.5", getStatus('AQI', deviceData?.aqi || 0).color)}>
-              {getStatus('AQI', deviceData?.aqi || 0).icon} {getStatus('AQI', deviceData?.aqi || 0).label}
+            <span className="text-base md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums text-white">{deviceData?.aqi || 0}</span>
+            <span className={cn("text-[7px] md:text-[9px] font-bold mt-0.5 truncate max-w-full text-center uppercase tracking-tighter px-0.5", getStatus('AQI', deviceData?.aqi || 0).color)}>
+              {getStatus('AQI', deviceData?.aqi || 0).label}
             </span>
           </div>
-          <div className="w-[1px] h-8 md:h-12 bg-white/10 z-10" />
+          <div className="w-[1px] h-10 md:h-12 bg-white/10 z-10 hidden xs:block" />
           <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
-            <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate">Microclimate</p>
+            <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate font-bold">Climate Safety</p>
             <div className="flex items-center gap-1.5 md:gap-2">
               <span className={cn(
-                "px-1.5 md:px-2.5 py-0.5 rounded md:rounded-lg text-[9px] md:text-xs font-bold shrink-0 uppercase tracking-wider",
+                "px-2 md:px-2.5 py-0.5 rounded md:rounded-lg text-[9px] md:text-xs font-black shrink-0 uppercase tracking-wider border",
                 activeIssueCount > 0 
                   ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
                   : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
               )}>
-                {activeIssueCount > 0 ? `${activeIssueCount} Hazards` : 'Safe'}
+                {activeIssueCount > 0 ? `${activeIssueCount} HAZARDS` : 'SECURE'}
               </span>
             </div>
-            <p className="text-[8px] md:text-[10px] text-slate-300 truncate hidden xs:block">
+            <p className="text-[8px] md:text-[10px] text-slate-300 truncate hidden sm:block opacity-70">
               {activeIssueCount > 0 ? 'Exceeds thresholds!' : 'Ventilation operates efficiently.'}
             </p>
           </div>

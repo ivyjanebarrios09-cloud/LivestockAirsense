@@ -227,32 +227,29 @@ export function HistoryPage() {
           ) : (
             paginatedLogs.map((row, i) => (
               <div key={i} className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors">
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex justify-between items-center mb-1">
                   <div className="space-y-0.5">
-                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Timestamp</p>
-                    <p className="text-xs font-bold text-system-text font-mono">{row.timestamp}</p>
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
+                    <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
                   </div>
-                  <div className="text-right space-y-0.5">
-                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Status</p>
-                    <span className={cn(
-                      "inline-flex px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase",
-                      row.status === 'Online' || row.status === 'Active' || row.status === 'Normal'
-                        ? "bg-emerald-500/10 text-emerald-400" 
-                        : "bg-red-500/10 text-red-400"
-                    )}>
-                      {row.status}
-                    </span>
-                  </div>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
+                    row.status === 'Online' || row.status === 'Active' || row.status === 'Normal'
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                  )}>
+                    {row.status}
+                  </span>
                 </div>
                 
-                <div className="flex justify-between items-end gap-4 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
                   <div className="space-y-0.5">
-                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Sensor</p>
-                    <p className="text-xs font-semibold text-system-text font-mono">{row.sensorName}</p>
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
+                    <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
                   </div>
-                  <div className="text-right space-y-0.5">
-                    <p className="text-[10px] uppercase font-mono font-bold text-system-muted">Reading</p>
-                    <p className="text-sm font-black text-system-accent font-mono">{row.reading}</p>
+                  <div className="space-y-0.5 sm:text-right">
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
+                    <p className="text-xs font-black text-system-accent font-mono">{row.reading}</p>
                   </div>
                 </div>
               </div>
