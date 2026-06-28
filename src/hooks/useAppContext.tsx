@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate } from '../lib/utils';
@@ -58,6 +58,7 @@ export interface AppContextType {
   savePushEnabled: (enabled: boolean) => Promise<void>;
   isDevicesLoading: boolean;
   isOnline: boolean;
+  connectionStatus: { status: string; lastSeen: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -66,6 +67,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   const [devices, setDevices] = useState<any[]>([]);
   const [isDevicesLoading, setIsDevicesLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [connectionStatus, setConnectionStatus] = useState<{ status: string; lastSeen: number }>({ 
+    status: 'Connecting', 
+    lastSeen: 0 
+  });
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -356,6 +361,21 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     setIsSyncing(false);
   };
 
+  useEffect(() => {
+    if (!uid || !selectedDeviceId || devices.length === 0) return;
+    
+    const currentDevice = devices.find(d => d.id === selectedDeviceId);
+    if (!currentDevice) return;
+
+    const deviceOwnerUid = currentDevice.sharedFromUid || uid;
+
+    const unsubscribeStatus = subscribeToDeviceStatus(deviceOwnerUid, selectedDeviceId, (status) => {
+      setConnectionStatus(status);
+    });
+
+    return () => unsubscribeStatus();
+  }, [uid, selectedDeviceId, devices]);
+
   return (
     <AppContext.Provider value={{
       uid,
@@ -379,7 +399,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       pushEnabled,
       savePushEnabled,
       isDevicesLoading,
-      isOnline
+      isOnline,
+      connectionStatus
     }}>
       {children}
     </AppContext.Provider>

@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { UserCircle, Star, MonitorDown, Wifi, WifiOff } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { useNavigate } from 'react-router-dom';
@@ -5,13 +6,25 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { InstallModal } from './InstallModal';
 import { useAppContext } from '../hooks/useAppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { cn, parseSafeDate } from '../lib/utils';
 
 export function Header() {
   const { user, loading } = useAuthState();
-  const { isOnline } = useAppContext();
+  const { isOnline, connectionStatus } = useAppContext();
   const navigate = useNavigate();
   const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
+
+  // Real-time staleness check (30s threshold)
+  const [now, setNow] = useState(Date.now());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isStale = connectionStatus.lastSeen > 0 && (now - connectionStatus.lastSeen > 30000);
+  const effectiveStatus = isStale ? 'Offline' : connectionStatus.status;
+  const isEffectiveOnline = effectiveStatus === 'Online' && !isStale;
 
   return (
     <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-3 md:px-6 shrink-0 z-10 sticky top-0 select-none">
@@ -27,30 +40,53 @@ export function Header() {
         {/* Connection Status Indicator */}
         <div className="flex items-center gap-2 ml-2 pl-3 sm:pl-4 border-l border-system-border h-6">
           <AnimatePresence mode="wait">
-            {isOnline ? (
+            {!isOnline ? (
               <motion.div 
-                key="online"
+                key="system-offline"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
-                className="flex items-center gap-1.5"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-500"
               >
-                <div className="relative flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <div className="absolute w-2 h-2 rounded-full bg-emerald-500 animate-ping opacity-75" />
-                </div>
-                <span className="text-[10px] font-black font-mono text-emerald-500/80 uppercase tracking-widest">Live</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                <span className="text-[9px] font-bold font-mono uppercase tracking-widest">System Offline</span>
               </motion.div>
             ) : (
               <motion.div 
-                key="offline"
+                key="node-status"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
-                className="flex items-center gap-1.5"
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all duration-500",
+                  isEffectiveOnline
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                )}
               >
-                <WifiOff className="w-3 h-3 text-rose-500" />
-                <span className="text-[10px] font-black font-mono text-rose-500 uppercase tracking-widest">Offline</span>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className={cn(
+                    "absolute inline-flex h-full w-full rounded-full opacity-75",
+                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-amber-400"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-1.5 w-1.5",
+                    isEffectiveOnline ? "bg-emerald-500" : "bg-amber-500"
+                  )}></span>
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-widest font-mono whitespace-nowrap">
+                  Node {effectiveStatus}
+                </span>
+                {connectionStatus.lastSeen > 0 && (
+                  <span className={cn(
+                    "text-[8px] sm:text-[9px] font-mono uppercase tracking-tighter border-l border-system-border/50 ml-1.5 pl-1.5",
+                    isStale ? "text-rose-500/80 font-black" : "text-system-muted/60"
+                  )}>
+                    <span className="hidden sm:inline">Heartbeat: </span>
+                    {parseSafeDate(connectionStatus.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {isStale && <span className="ml-1 animate-pulse">(STALE)</span>}
+                  </span>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

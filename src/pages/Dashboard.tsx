@@ -229,7 +229,9 @@ export function Dashboard() {
     devices, 
     refreshInterval,
     addDevice,
-    isDevicesLoading
+    isDevicesLoading,
+    isOnline,
+    connectionStatus
   } = useAppContext();
 
   const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
@@ -282,26 +284,13 @@ export function Dashboard() {
   const registeredDevices = devices;
 
   const [deviceData, setDeviceData] = useState<any>(null);
-  const [connectionStatus, setConnectionStatus] = useState({ status: 'Connecting', lastSeen: 0 });
-  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
 
-  useEffect(() => {
-    const handleStatus = () => setIsOnline(window.navigator.onLine);
-    window.addEventListener('online', handleStatus);
-    window.addEventListener('offline', handleStatus);
-    return () => {
-      window.removeEventListener('online', handleStatus);
-      window.removeEventListener('offline', handleStatus);
-    };
-  }, []);
-  
   const currentDevice = devices.find(d => d.id === selectedDeviceId);
   const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
 
   useEffect(() => {
     // Reset data when switching devices to avoid showing stale data from the previous device
     setDeviceData(null);
-    setConnectionStatus({ status: 'Connecting', lastSeen: 0 });
 
     // Only subscribe if we have a valid selection and the device actually exists in our list
     if (!selectedDeviceId || !deviceOwnerUid || devices.length === 0) return;
@@ -314,13 +303,8 @@ export function Dashboard() {
         setDeviceData(data);
     });
 
-    const unsubscribeStatus = subscribeToDeviceStatus(deviceOwnerUid, selectedDeviceId, (status) => {
-        setConnectionStatus(status);
-    });
-
     return () => {
       unsubscribeData();
-      unsubscribeStatus();
     };
   }, [selectedDeviceId, deviceOwnerUid, devices.length]);
 
