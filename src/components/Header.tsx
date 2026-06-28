@@ -25,7 +25,7 @@ export function Header() {
         </div>
 
         {/* Connection Status Indicator */}
-        <div className="hidden sm:flex items-center gap-2 ml-2 pl-4 border-l border-system-border h-6">
+        <div className="flex items-center gap-2 ml-2 pl-3 sm:pl-4 border-l border-system-border h-6">
           <AnimatePresence mode="wait">
             {isOnline ? (
               <motion.div 

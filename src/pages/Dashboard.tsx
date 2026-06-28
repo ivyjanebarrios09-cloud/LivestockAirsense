@@ -759,61 +759,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Connection & Sync Status Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500",
-            !isOnline 
-              ? "bg-red-500/10 border-red-500/30 text-red-500" 
-              : connectionStatus.status === 'Online' 
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-          )}>
-            <span className="relative flex h-2 w-2">
-              <span className={cn(
-                "absolute inline-flex h-full w-full rounded-full opacity-75",
-                !isOnline ? "bg-red-400" : connectionStatus.status === 'Online' ? "bg-emerald-400 animate-ping" : "bg-amber-400"
-              )}></span>
-              <span className={cn(
-                "relative inline-flex rounded-full h-2 w-2",
-                !isOnline ? "bg-red-500" : connectionStatus.status === 'Online' ? "bg-emerald-500" : "bg-amber-500"
-              )}></span>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest font-mono">
-              {!isOnline ? 'System Offline' : `Node ${connectionStatus.status}`}
-            </span>
-          </div>
-
-          {deviceData?._fromCache && isOnline && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 animate-pulse">
-              <Clock className="w-3 h-3" />
-              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Synchronizing Live Data...</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4 text-system-muted font-mono text-[10px]">
-          <div className="flex items-center gap-1.5">
-            <span className="uppercase tracking-tighter opacity-70">Heartbeat:</span>
-            <span className="font-bold text-system-text/80">
-              {connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).toLocaleTimeString() : '---'}
-            </span>
-          </div>
-          {deviceData?.timestamp && (
-            <div className="flex items-center gap-1.5 border-l border-system-border/30 pl-4">
-              <span className="uppercase tracking-tighter opacity-70">Telemetry:</span>
-              <span className={cn(
-                "font-bold",
-                deviceData?._fromCache ? "text-amber-500/80" : "text-system-text/80"
-              )}>
-                {parseSafeDate(deviceData.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
+      {/* Sync Status Overlay (Only show when syncing) */}
       {isSyncing && (
         <div className="bg-system-accent/10 border border-system-accent/30 text-system-accent rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-semibold animate-pulse shadow-sm mb-4">
           Synchronizing air quality data streams with cloud database...

@@ -25,7 +25,8 @@ import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
-import { getAnalyticsData } from '../lib/firebase';
+import { useAuthState } from '../hooks/useAuthState';
+import { getAnalyticsData, subscribeToSensorReadings } from '../lib/firebase';
 import { cn, parseSafeDate, getSensorStatus } from '../lib/utils';
 
 // Helper component for individual sensor charts
@@ -119,6 +120,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
 
 export function AnalyticsPage() {
   const navigate = useNavigate();
+  const { user } = useAuthState();
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   
@@ -133,22 +135,50 @@ export function AnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [isLive, setIsLive] = useState(false);
 
-  const fetchAnalytics = async (dateStr: string, isLatest: boolean = false) => {
+  // Subscribe to real-time data when in Live Mode or looking at Today
+  useEffect(() => {
+    if (!activeDevice?.id || !user?.uid) return;
+    
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
+    
+    if (isLive || isToday) {
+      setLoading(true);
+      const unsubscribe = subscribeToSensorReadings(
+        user.uid,
+        activeDevice.id,
+        100,
+        selectedDate,
+        (data) => {
+          if (data && data.length > 0) {
+            const chartData = data.map(d => ({
+              ...d,
+              timeLabel: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+            })).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            setAnalyticsData(chartData);
+          } else {
+            setAnalyticsData([]);
+          }
+          setLoading(false);
+        }
+      );
+      return () => unsubscribe();
+    } else {
+      // Historical fetch (already handled by other useEffect or we can merge them)
+      fetchAnalytics(selectedDate);
+    }
+  }, [activeDevice?.id, selectedDate, isLive, user?.uid]);
+
+  const fetchAnalytics = async (dateStr: string) => {
     if (!activeDevice?.id) return;
     
     setLoading(true);
     setHasError(false);
 
-    let start, end;
-    if (isLatest) {
-      start = 0; // Epoch
-      end = Date.now() + 86400000;
-    } else {
-      const [year, month, day] = dateStr.split('-').map(Number);
-      start = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
-      end = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
-    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
+    const end = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
 
     try {
       const data = await getAnalyticsData(activeDevice.id, start, end);
@@ -156,8 +186,8 @@ export function AnalyticsPage() {
         const chartData = data.map(d => ({
           ...d,
           timeLabel: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-        }));
-        setAnalyticsData(isLatest ? chartData.slice(-100) : chartData);
+        })).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        setAnalyticsData(chartData);
       } else {
         setAnalyticsData([]);
       }
@@ -168,10 +198,6 @@ export function AnalyticsPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchAnalytics(selectedDate);
-  }, [activeDevice?.id, selectedDate]);
 
   const summary = useMemo(() => {
     if (analyticsData.length === 0) return null;
@@ -295,18 +321,28 @@ export function AnalyticsPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button 
-            onClick={() => fetchAnalytics(selectedDate)}
+            onClick={() => {
+              setIsLive(false);
+              fetchAnalytics(selectedDate);
+            }}
             className="p-2.5 rounded-xl bg-system-panel border border-system-border hover:border-system-accent/30 transition-all active:scale-95 shadow-sm"
           >
             <RefreshCw className={cn("w-4 h-4 text-system-muted", loading && "animate-spin")} />
           </button>
 
           <button 
-            onClick={() => fetchAnalytics(selectedDate, true)}
-            className="flex items-center gap-2 bg-system-panel border border-system-border rounded-xl px-4 py-2.5 shadow-sm hover:border-system-accent/30 transition-all active:scale-95 group"
+            onClick={() => setIsLive(!isLive)}
+            className={cn(
+              "flex items-center gap-2 border rounded-xl px-4 py-2.5 shadow-sm transition-all active:scale-95 group",
+              isLive 
+                ? "bg-system-accent/10 border-system-accent/30 text-system-accent" 
+                : "bg-system-panel border-system-border text-system-text hover:border-system-accent/30"
+            )}
           >
-            <Clock className="w-4 h-4 text-system-accent" />
-            <span className="text-[10px] font-bold font-mono text-system-text uppercase tracking-widest">Latest 100</span>
+            <Clock className={cn("w-4 h-4", isLive ? "text-system-accent animate-pulse" : "text-system-muted")} />
+            <span className="text-[10px] font-bold font-mono uppercase tracking-widest">
+              {isLive ? 'Live Streaming' : 'Live Data'}
+            </span>
           </button>
 
           <div className="flex items-center gap-3 bg-system-panel border border-system-border rounded-xl px-4 py-2 shadow-sm">
@@ -314,7 +350,10 @@ export function AnalyticsPage() {
             <input 
               type="date" 
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => {
+                setIsLive(false);
+                setSelectedDate(e.target.value);
+              }}
               className="bg-transparent border-none focus:ring-0 text-xs font-black font-mono uppercase text-system-text"
             />
           </div>

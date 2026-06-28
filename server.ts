@@ -36,7 +36,7 @@ async function startServer() {
     res.json({ status: 'ok', projectId: firebaseConfig.projectId, databaseId: firebaseConfig.firestoreDatabaseId });
   });
 
-  // Latest Data API Route - Now dynamic
+// Latest Data API Route - Now dynamic
   app.get('/api/latest-data', async (req, res) => {
     try {
       const deviceId = req.query.deviceId as string || 'LAS-001';
