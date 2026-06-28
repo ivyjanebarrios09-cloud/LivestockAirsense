@@ -50,9 +50,9 @@ export function AlertsPage() {
   };
 
   const severityStyles: Record<string, string> = {
-    'critical': 'bg-severity-critical/10 text-red-700 border-red-500/20 ring-1 ring-red-500/10',
-    'warning': 'bg-severity-warning/10 text-yellow-700 border-yellow-500/20 ring-1 ring-yellow-500/10',
-    'normal': 'bg-severity-normal/10 text-green-700 border-green-500/20 ring-1 ring-green-500/10'
+    'critical': 'bg-red-500/10 text-red-600 border-red-500/20 ring-1 ring-red-500/10',
+    'warning': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 ring-1 ring-yellow-500/10',
+    'normal': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 ring-1 ring-emerald-500/10'
   };
 
   const getSeverityLabel = (sev: string) => {
@@ -63,9 +63,9 @@ export function AlertsPage() {
 
   const getIcon = (sev: string) => {
     switch (sev) {
-      case 'critical': return <ShieldAlert className="w-5 h-5 text-red-600 shrink-0" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" />;
-      default: return <Info className="w-5 h-5 text-green-600 shrink-0" />;
+      case 'critical': return <ShieldAlert className="w-5 h-5 text-red-500 shrink-0" />;
+      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />;
+      default: return <Info className="w-5 h-5 text-emerald-500 shrink-0" />;
     }
   };
 

@@ -333,11 +333,11 @@ export function Dashboard() {
     const status = getSensorStatus(label, val);
     switch (status) {
       case 'DANGER':
-        return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+        return { label: 'Danger', icon: '🔴', color: 'text-red-500' };
       case 'POOR':
         return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
       case 'WARNING':
-        return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+        return { label: 'Warning', icon: '🟡', color: 'text-yellow-500' };
       case 'GOOD':
       default:
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
@@ -350,15 +350,15 @@ export function Dashboard() {
       return {
         borderClass: 'border-emerald-500/25 hover:border-emerald-500/50 shadow-[0_4px_20px_rgba(16,185,129,0.04)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/5',
         bgClass: 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
-        textClass: 'text-emerald-500',
+        textClass: '!text-emerald-500',
         cardBg: 'bg-emerald-500/[0.02] dark:bg-emerald-500/[0.01]'
       };
     }
-    if (label === 'Moderate') {
+    if (label === 'Warning') {
       return {
         borderClass: 'border-yellow-500/25 hover:border-yellow-500/50 shadow-[0_4px_20px_rgba(234,179,8,0.04)] hover:shadow-[0_8px_30px_rgba(234,179,8,0.1)] ring-1 ring-yellow-500/5',
         bgClass: 'bg-yellow-500/10 border border-yellow-500/15 group-hover:bg-yellow-500/15',
-        textClass: 'text-yellow-600 dark:text-yellow-400',
+        textClass: '!text-yellow-500',
         cardBg: 'bg-yellow-500/[0.02] dark:bg-yellow-500/[0.01]'
       };
     }
@@ -366,23 +366,23 @@ export function Dashboard() {
       return {
         borderClass: 'border-orange-500/30 hover:border-orange-500/60 shadow-[0_4px_20px_rgba(249,115,22,0.06)] hover:shadow-[0_8px_30px_rgba(249,115,22,0.12)] ring-1 ring-orange-500/10',
         bgClass: 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
-        textClass: 'text-orange-500',
+        textClass: '!text-orange-500',
         cardBg: 'bg-orange-500/[0.02] dark:bg-orange-500/[0.01]'
       };
     }
-    if (label === 'Warning' || label === 'Very Poor') {
+    if (label === 'Danger' || label === 'Very Poor') {
       return {
         borderClass: 'bg-red-50/5 border-red-500/40 hover:border-red-500/60 shadow-[0_4px_20px_rgba(239,68,68,0.08)] hover:shadow-[0_8px_30px_rgba(239,68,68,0.16)] ring-1 ring-red-500/20',
         bgClass: 'bg-red-500/15 border border-red-500/25 group-hover:bg-red-500/20',
-        textClass: 'text-red-500',
-        cardBg: 'bg-red-550/[0.03] dark:bg-red-550/[0.01]'
+        textClass: '!text-red-500',
+        cardBg: 'bg-red-500/[0.03] dark:bg-red-500/[0.01]'
       };
     }
     // Dangerous / Hazardous
     return {
       borderClass: 'bg-red-100/10 border-red-700/60 hover:border-red-800 shadow-[0_4px_20px_rgba(185,28,28,0.1)] hover:shadow-[0_8px_30px_rgba(185,28,28,0.22)] ring-2 ring-red-600/30',
       bgClass: 'bg-red-700/20 border border-red-700/30 group-hover:bg-red-700/25',
-      textClass: 'text-red-700 dark:text-red-400',
+      textClass: '!text-red-600 dark:!text-red-400',
       cardBg: 'bg-red-700/[0.05] dark:bg-red-700/[0.02]'
     };
   };
@@ -486,13 +486,12 @@ export function Dashboard() {
       label: 'Temperature', 
       value: lastReading.temperature?.toFixed(1) + ' °C', 
       icon: TempSvg, 
-      color: isTempAlert ? 'text-red-500' : 'text-orange-500', 
+      ...getStylesByStatus(tempStatus),
       bg: isTempAlert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(tempStatus).bgClass
         : 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
-      cardStyle: isTempAlert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-orange-500/15 hover:border-orange-500/40 hover:shadow-[0_8px_30px_rgba(249,115,22,0.06)]',
+      cardStyle: getStylesByStatus(tempStatus).borderClass,
+      color: getStylesByStatus(tempStatus).textClass,
       isWarning: isTempAlert,
       status: tempStatus,
       limitInfo: `${thresholds.tempMax}°C`
@@ -501,13 +500,12 @@ export function Dashboard() {
       label: 'Humidity', 
       value: lastReading.humidity?.toFixed(1) + ' %', 
       icon: HumiditySvg, 
-      color: isHumAlert ? 'text-red-500' : 'text-blue-500', 
+      ...getStylesByStatus(humStatus),
       bg: isHumAlert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(humStatus).bgClass
         : 'bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/15',
-      cardStyle: isHumAlert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-blue-500/15 hover:border-blue-500/40 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)]',
+      cardStyle: getStylesByStatus(humStatus).borderClass,
+      color: getStylesByStatus(humStatus).textClass,
       isWarning: isHumAlert,
       status: humStatus,
       limitInfo: `${thresholds.humidityMax}%`
@@ -516,13 +514,12 @@ export function Dashboard() {
       label: 'CO2 Level', 
       value: Math.round(lastReading.co2 || 0) + ' ppm', 
       icon: Co2Svg, 
-      color: isCo2Alert ? 'text-red-500' : 'text-emerald-500', 
+      ...getStylesByStatus(co2Status),
       bg: isCo2Alert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(co2Status).bgClass
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
-      cardStyle: isCo2Alert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-emerald-500/15 hover:border-emerald-500/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)]',
+      cardStyle: getStylesByStatus(co2Status).borderClass,
+      color: getStylesByStatus(co2Status).textClass,
       isWarning: isCo2Alert,
       status: co2Status,
       limitInfo: `${thresholds.co2Max} ppm`
@@ -531,13 +528,12 @@ export function Dashboard() {
       label: 'Ammonia NH3', 
       value: lastReading.nh3?.toFixed(2) + ' ppm', 
       icon: AmmoniaSvg, 
-      color: isAmmoniaAlert ? 'text-red-500' : 'text-yellow-600', 
+      ...getStylesByStatus(ammoniaStatus),
       bg: isAmmoniaAlert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(ammoniaStatus).bgClass
         : 'bg-yellow-600/10 border border-yellow-600/15 group-hover:bg-yellow-650/15',
-      cardStyle: isAmmoniaAlert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-amber-500/15 hover:border-amber-500/40 hover:shadow-[0_8px_30px_rgba(217,119,6,0.06)]',
+      cardStyle: getStylesByStatus(ammoniaStatus).borderClass,
+      color: getStylesByStatus(ammoniaStatus).textClass,
       isWarning: isAmmoniaAlert,
       status: ammoniaStatus,
       limitInfo: `${thresholds.ammoniaMax} ppm`
@@ -546,13 +542,12 @@ export function Dashboard() {
       label: 'PM2.5 Feed Dust', 
       value: (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
       icon: PM25Svg, 
-      color: isPm25Alert ? 'text-red-500' : 'text-purple-500', 
+      ...getStylesByStatus(pmStatus),
       bg: isPm25Alert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(pmStatus).bgClass
         : 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
-      cardStyle: isPm25Alert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
+      cardStyle: getStylesByStatus(pmStatus).borderClass,
+      color: getStylesByStatus(pmStatus).textClass,
       isWarning: isPm25Alert,
       status: pmStatus,
       limitInfo: '12 µg'
@@ -561,13 +556,12 @@ export function Dashboard() {
       label: 'Methane CH4', 
       value: lastReading.ch4?.toFixed(2) + ' ppm', 
       icon: MethaneSvg, 
-      color: isMethaneAlert ? 'text-red-500' : 'text-gray-500', 
+      ...getStylesByStatus(methaneStatus),
       bg: isMethaneAlert 
-        ? 'bg-red-500/15 border-red-500/30' 
+        ? getStylesByStatus(methaneStatus).bgClass
         : 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
-      cardStyle: isMethaneAlert 
-        ? 'bg-red-50 border-red-500/40 hover:border-red-500/60 shadow-[0_8px_30px_rgba(239,68,68,0.12)] ring-1 ring-red-500/20' 
-        : 'border-slate-500/15 hover:border-slate-500/40 hover:shadow-[0_8px_30px_rgba(71,85,105,0.06)]',
+      cardStyle: getStylesByStatus(methaneStatus).borderClass,
+      color: getStylesByStatus(methaneStatus).textClass,
       isWarning: isMethaneAlert,
       status: methaneStatus,
       limitInfo: `${thresholds.methaneMax} ppm`
@@ -827,10 +821,7 @@ export function Dashboard() {
               </div>
 
               <div className="relative z-10 space-y-0.5 mt-1 sm:mt-0">
-                <div className={cn(
-                  "text-sm sm:text-base md:text-lg font-black tracking-tight tabular-nums text-system-text",
-                  metric.isWarning && "text-red-600"
-                )}>
+                <div className="text-sm sm:text-base md:text-lg font-black tracking-tight tabular-nums transition-colors duration-300 text-system-text">
                   {metric.value}
                 </div>
                 <div className="flex items-center justify-between text-[7px] sm:text-[8px] font-mono text-system-muted min-h-[0.75rem]">

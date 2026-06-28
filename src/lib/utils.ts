@@ -74,6 +74,44 @@ export function parseSafeDate(timestamp: any): Date {
   return d;
 }
 
+export function getStatusColor(status: string): string {
+  switch (status.toUpperCase()) {
+    case 'GOOD':
+    case 'EXCELLENT':
+      return '!text-emerald-500';
+    case 'WARNING':
+    case 'MODERATE':
+      return '!text-yellow-500';
+    case 'POOR':
+      return '!text-orange-500';
+    case 'DANGER':
+    case 'CRITICAL':
+    case 'VERY POOR':
+      return '!text-red-500';
+    default:
+      return 'text-system-muted';
+  }
+}
+
+export function getStatusBgColor(status: string): string {
+  switch (status.toUpperCase()) {
+    case 'GOOD':
+    case 'EXCELLENT':
+      return 'bg-emerald-500/10 border-emerald-500/20 !text-emerald-600';
+    case 'WARNING':
+    case 'MODERATE':
+      return 'bg-yellow-500/10 border-yellow-500/20 !text-yellow-600';
+    case 'POOR':
+      return 'bg-orange-500/10 border-orange-500/20 !text-orange-600';
+    case 'DANGER':
+    case 'CRITICAL':
+    case 'VERY POOR':
+      return 'bg-red-500/10 border-red-500/20 !text-red-600';
+    default:
+      return 'bg-system-bg border-system-border text-system-muted';
+  }
+}
+
 export type SensorStatus = 'GOOD' | 'WARNING' | 'POOR' | 'DANGER';
 
 export function getSensorStatus(type: string, value: number): SensorStatus {

@@ -27,7 +27,7 @@ import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { useAuthState } from '../hooks/useAuthState';
 import { getAnalyticsData, subscribeToSensorReadings } from '../lib/firebase';
-import { cn, parseSafeDate, getSensorStatus } from '../lib/utils';
+import { cn, parseSafeDate, getSensorStatus, getStatusBgColor, getStatusColor } from '../lib/utils';
 
 // Helper component for individual sensor charts
 interface SensorChartProps {
@@ -57,7 +57,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
           <div>
             <h3 className="text-[10px] font-black font-mono uppercase tracking-tight text-system-muted">{title}</h3>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-black font-mono tracking-tighter">
+              <span className="text-xl font-black font-mono tracking-tighter transition-colors duration-300 text-system-text">
                 {data.length > 0 ? (data[data.length - 1][dataKey] || 0).toFixed(1) : '--'}
               </span>
               <span className="text-[10px] font-bold text-system-muted/60 uppercase">{unit}</span>
@@ -65,10 +65,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
           </div>
         </div>
         <div className={cn("text-[9px] font-black font-mono px-2 py-0.5 rounded border uppercase tracking-wider", 
-          status === 'GOOD' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
-          status === 'WARNING' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-500" :
-          status === 'POOR' ? "bg-orange-500/10 border-orange-500/20 text-orange-500" :
-          "bg-red-500/10 border-red-500/20 text-red-500"
+          getStatusBgColor(status)
         )}>
           {status}
         </div>

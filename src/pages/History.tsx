@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
-import { cn, parseSafeDate } from '../lib/utils';
+import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
@@ -92,11 +92,14 @@ export function HistoryPage() {
     if (s.includes('good') || s.includes('normal') || s.includes('healthy') || s.includes('online') || s.includes('active')) {
       return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
     }
-    if (s.includes('moderate') || s.includes('warning') || s.includes('fair')) {
-      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    if (s.includes('warning') || s.includes('moderate') || s.includes('fair')) {
+      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
     }
-    if (s.includes('poor') || s.includes('danger') || s.includes('critical') || s.includes('unhealthy') || s.includes('offline') || s.includes('inactive')) {
-      return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+    if (s.includes('poor')) {
+      return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+    }
+    if (s.includes('danger') || s.includes('critical') || s.includes('unhealthy') || s.includes('offline') || s.includes('inactive')) {
+      return "bg-red-500/10 text-red-500 border-red-500/20";
     }
     return "bg-system-muted/10 text-system-muted border-system-muted/20";
   };
@@ -289,7 +292,7 @@ export function HistoryPage() {
                       {row.status}
                     </span>
                   </td>
-                  <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.reading}</td>
+                  <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
                 </tr>
               ))}
             </tbody>
@@ -325,7 +328,7 @@ export function HistoryPage() {
                   </div>
                   <div className="space-y-0.5 sm:text-right">
                     <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
-                    <p className="text-xs font-black text-system-accent font-mono">{row.reading}</p>
+                    <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
                   </div>
                 </div>
               </div>
