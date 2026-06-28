@@ -901,12 +901,26 @@ export const deleteDeviceFromFirestore = async (userId: string, id: string) => {
   }
 };
 
-export const getStatusHistory = async (deviceId: string): Promise<any[]> => {
+export const getStatusHistory = async (
+  deviceId: string, 
+  startTime?: number, 
+  endTime?: number
+): Promise<any[]> => {
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
     const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    const q = query(historyRef, orderBy('timestamp', 'desc'), limit(100));
+    
+    const constraints: any[] = [orderBy('timestamp', 'desc')];
+    if (startTime) constraints.push(where('timestamp', '>=', startTime));
+    if (endTime) constraints.push(where('timestamp', '<=', endTime));
+    
+    // If no range is specified, we still want a limit to prevent loading too much data
+    if (!startTime && !endTime) {
+      constraints.push(limit(100));
+    }
+
+    const q = query(historyRef, ...constraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {

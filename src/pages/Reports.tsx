@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle } from 'lucide-react';
+import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, Sparkles } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
@@ -10,16 +10,66 @@ export function ReportsPage() {
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const latestReading = activeDevice?.latestReading || {};
+  const { thresholds } = useAppContext();
+
+  const getStatus = (val: number, max: number, type: 'low' | 'high' = 'high') => {
+    if (val === undefined || val === null) return 'N/A';
+    if (type === 'high') {
+      if (val > max * 1.2) return 'Critical';
+      if (val > max) return 'Warning';
+      return 'Optimal';
+    } else {
+      // For things where low is bad? Usually everything here is high = bad
+      return 'Optimal';
+    }
+  };
+
   const compiledReportProps = useMemo(() => {
     if (!activeDevice) return [];
+    
     return [
-      { parameter: 'Average Heat Index', value: '22.9 °C', status: 'Optimal' },
-      { parameter: 'Average Humidity Level', value: '62 %', status: 'Optimal' },
-      { parameter: 'Average CO2 gas rating', value: '480 ppm', status: 'Optimal' },
-      { parameter: 'Average Ammonia (NH3) trace', value: '1.2 ppm', status: 'Excellent' },
-      { parameter: 'Safety Threshold Limit', value: 'Active Compliance Check', status: 'Compliant' },
+      { 
+        parameter: 'Air Quality Index (AQI)', 
+        value: `${latestReading.aqi ?? '0'}`, 
+        status: (latestReading.aqi ?? 0) > 150 ? 'Poor' : (latestReading.aqi ?? 0) > 100 ? 'Fair' : 'Good' 
+      },
+      { 
+        parameter: 'Ambient Temperature', 
+        value: `${latestReading.temperature ?? '0'} °C`, 
+        status: getStatus(latestReading.temperature ?? 0, thresholds.tempMax) 
+      },
+      { 
+        parameter: 'Relative Humidity', 
+        value: `${latestReading.humidity ?? '0'} %`, 
+        status: getStatus(latestReading.humidity ?? 0, thresholds.humidityMax) 
+      },
+      { 
+        parameter: 'Carbon Dioxide (CO2)', 
+        value: `${latestReading.co2 ?? '0'} ppm`, 
+        status: getStatus(latestReading.co2 ?? 0, thresholds.co2Max) 
+      },
+      { 
+        parameter: 'Ammonia (NH3) Level', 
+        value: `${latestReading.nh3 ?? latestReading.ammonia ?? '0'} ppm`, 
+        status: getStatus(latestReading.nh3 ?? latestReading.ammonia ?? 0, thresholds.ammoniaMax) 
+      },
     ];
-  }, [activeDevice]);
+  }, [activeDevice, latestReading, thresholds]);
+
+  const airQualitySummary = useMemo(() => {
+    if (!activeDevice) return '';
+    const issues = [];
+    if ((latestReading.aqi ?? 0) > 100) issues.push('elevated air particulate loads');
+    if ((latestReading.temperature ?? 0) > thresholds.tempMax) issues.push('high thermal stress');
+    if ((latestReading.nh3 ?? latestReading.ammonia ?? 0) > thresholds.ammoniaMax) issues.push('ammonia concentration above safety limits');
+    
+    if (issues.length === 0) {
+      return "The air quality is currently OPTIMAL. All monitored parameters are within safe veterinary thresholds, ensuring a healthy microclimate for livestock. Ventilation systems appear to be operating efficiently.";
+    } else {
+      return `The system has detected potential hazards: ${issues.join(', ')}. This indicates compromised air quality which may impact animal health and productivity. Immediate review of ventilation and waste management is recommended.`;
+    }
+  }, [activeDevice, latestReading, thresholds]);
 
   if (!activeDevice) {
     return (
@@ -64,14 +114,21 @@ export function ReportsPage() {
     doc.setFont("helvetica", "normal");
     doc.text(`Report Level: ${title}`, 14, 26);
     doc.text(`Monitored Device: ${activeDevice.name} (${activeDevice.id})`, 14, 31);
-    doc.text(`Generated Standard: 2026-06-16 (UTC)`, 14, 41);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("System Health Summary:", 14, 38);
+    doc.setFont("helvetica", "normal");
+    const splitSummary = doc.splitTextToSize(airQualitySummary, 180);
+    doc.text(splitSummary, 14, 43);
+
+    doc.text(`Generated Date: ${new Date().toLocaleDateString()}`, 14, 55);
     doc.setLineWidth(0.5);
-    doc.line(14, 45, 196, 45);
+    doc.line(14, 58, 196, 58);
 
     autoTable(doc, {
       head: [['System Parameter Under Audit', 'Representative Value', 'Compliance Status']],
       body: compiledReportProps.map(row => [row.parameter, row.value, row.status]),
-      startY: 50,
+      startY: 65,
       theme: 'grid',
       styles: { fontSize: 9, font: 'courier' },
       headStyles: { fillColor: [79, 70, 229] }
@@ -120,14 +177,54 @@ export function ReportsPage() {
         </div>
       )}
 
-      <div className="bg-system-panel border border-system-border rounded-2xl p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Layers className="w-5 h-5 text-indigo-500 shrink-0" />
+      <div className="bg-system-panel border border-system-border rounded-2xl p-4 md:p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-3 border-b border-system-border pb-4">
+          <div className={cn(
+            "p-2 rounded-xl",
+            airQualitySummary.includes('OPTIMAL') ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+          )}>
+            <Activity className="w-5 h-5" />
+          </div>
           <div>
-            <h4 className="font-bold text-xs text-system-text uppercase font-mono">Calibrating Reports Generator context</h4>
-            <p className="text-xs text-system-muted mt-0.5">
-              All files downloaded below will pull dynamic sensor characteristics matched with device: <span className="font-bold text-system-text">{activeDevice.name} ({activeDevice.id})</span>.
+            <h3 className="font-bold text-sm uppercase tracking-tight font-mono text-system-text">Live Air Analysis</h3>
+            <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest">Instant microclimate interpretation</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-black font-mono text-system-muted uppercase tracking-widest flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-system-accent" />
+              Automated Summary
+            </h4>
+            <p className="text-xs text-system-text leading-relaxed font-medium bg-system-bg p-3 rounded-xl border border-system-border/50 italic">
+              "{airQualitySummary}"
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-black font-mono text-system-muted uppercase tracking-widest flex items-center gap-1.5">
+              <Layers className="w-3 h-3 text-indigo-500" />
+              Key Parameter Audit
+            </h4>
+            <div className="space-y-2">
+              {compiledReportProps.slice(0, 4).map((p, idx) => (
+                <div key={idx} className="flex items-center justify-between text-[10px] font-mono uppercase border-b border-system-border/30 pb-1 last:border-0">
+                  <span className="text-system-muted">{p.parameter}:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-system-text font-bold">{p.value}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded text-[8px] font-black border",
+                      p.status === 'Optimal' || p.status === 'Good' 
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    )}>
+                      {p.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

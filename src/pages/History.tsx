@@ -11,20 +11,56 @@ export function HistoryPage() {
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('week');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
   const [historicalLogs, setHistoricalLogs] = useState<any[]>([]);
 
+  const dateRange = useMemo(() => {
+    const baseDate = new Date(selectedDate);
+    if (isNaN(baseDate.getTime())) return { start: new Date(), end: new Date() };
+
+    let start = new Date(baseDate);
+    let end = new Date(baseDate);
+
+    if (timeRange === 'today') {
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (timeRange === 'week') {
+      // User likely wants the week containing the selected date
+      // Let's do Monday to Sunday or just 7 days? 
+      // Let's do 7 days ending on selectedDate (or starting? User said "pick what date it is... reflects to pdf")
+      // Actually, standard is usually the week containing the date.
+      const day = baseDate.getDay();
+      const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      start = new Date(baseDate.setDate(diff));
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else if (timeRange === 'month') {
+      start = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    return { start, end };
+  }, [selectedDate, timeRange]);
+
   useEffect(() => {
     setCurrentPage(1);
     fetchData();
-  }, [timeRange, activeDevice]);
+  }, [dateRange, activeDevice]);
 
   const fetchData = async () => {
     if (!activeDevice) return;
-    const logs = await getStatusHistory(activeDevice.id);
+    const { start, end } = dateRange;
+    const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
     const formattedLogs = logs.map(log => ({
       ...log,
       timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
@@ -67,6 +103,11 @@ export function HistoryPage() {
 
   const downloadCSV = () => {
     if (!activeDevice) return;
+    const { start, end } = dateRange;
+    const dateStr = timeRange === 'today' 
+      ? start.toLocaleDateString() 
+      : `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+
     const headers = [
       'Timestamp', 
       'Sensor Name',
@@ -86,6 +127,7 @@ export function HistoryPage() {
     ]);
     
     const csvContent = [
+      `Report for ${activeDevice.name}, Range: ${dateStr}`,
       headers.join(','),
       ...rows.map(e => e.map(val => `"${val}"`).join(','))
     ].join('\n');
@@ -94,7 +136,7 @@ export function HistoryPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `airsense_${activeDevice.id}_historical_${timeRange}.csv`);
+    link.setAttribute('download', `airsense_${activeDevice.id}_${timeRange}_${selectedDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -103,13 +145,18 @@ export function HistoryPage() {
 
   const downloadPDF = () => {
     if (!activeDevice) return;
+    const { start, end } = dateRange;
+    const dateStr = timeRange === 'today' 
+      ? start.toLocaleDateString() 
+      : `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
+
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.text(`Livestock AirSense: ${activeDevice.name} Report`, 14, 15);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Device ID: ${activeDevice.id}`, 14, 21);
-    doc.text(`Timeline Scope: ${timeRange.toUpperCase()} LOGS`, 14, 26);
+    doc.text(`Time Range: ${timeRange.toUpperCase()} (${dateStr})`, 14, 26);
     doc.setLineWidth(0.5);
     doc.line(14, 30, 196, 30);
 
@@ -127,7 +174,7 @@ export function HistoryPage() {
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    doc.save(`airsense_${activeDevice.id}_historical_${timeRange}.pdf`);
+    doc.save(`airsense_${activeDevice.id}_${timeRange}_${selectedDate}.pdf`);
     triggerFeedback(`Generated PDF for ${activeDevice.name}`);
   };
 
@@ -151,7 +198,17 @@ export function HistoryPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 bg-system-panel border border-system-border rounded-xl px-3 py-1.5 shrink-0">
+            <Calendar className="w-4 h-4 text-system-accent" />
+            <input 
+              type="date" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-transparent border-none text-xs font-bold text-system-text focus:outline-none font-mono cursor-pointer uppercase"
+            />
+          </div>
+
           <div className="flex bg-system-panel border border-system-border rounded-xl p-1 shrink-0 select-none">
             {(['today', 'week', 'month'] as const).map(t => (
               <button
