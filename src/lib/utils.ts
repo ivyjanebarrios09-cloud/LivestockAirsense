@@ -73,3 +73,57 @@ export function parseSafeDate(timestamp: any): Date {
 
   return d;
 }
+
+export type SensorStatus = 'GOOD' | 'WARNING' | 'POOR' | 'DANGER';
+
+export function getSensorStatus(type: string, value: number): SensorStatus {
+  switch (type.toLowerCase()) {
+    case 'temperature':
+    case 'temp':
+      if (value <= 30) return 'GOOD';
+      if (value <= 35) return 'WARNING';
+      if (value <= 40) return 'POOR';
+      return 'DANGER';
+    case 'humidity':
+    case 'hum':
+      if (value <= 70) return 'GOOD';
+      if (value <= 85) return 'WARNING';
+      if (value <= 90) return 'POOR';
+      return 'DANGER';
+    case 'co2':
+      if (value <= 800) return 'GOOD';
+      if (value <= 1200) return 'WARNING';
+      if (value <= 2000) return 'POOR';
+      return 'DANGER';
+    case 'aqi':
+      if (value <= 100) return 'GOOD';
+      if (value <= 200) return 'WARNING';
+      if (value <= 300) return 'POOR';
+      return 'DANGER';
+    case 'nh3':
+    case 'ammonia':
+      if (value < 25) return 'GOOD';
+      if (value <= 50) return 'WARNING';
+      if (value <= 100) return 'POOR';
+      return 'DANGER';
+    case 'ch4':
+    case 'methane':
+      if (value <= 50) return 'GOOD';
+      if (value <= 100) return 'WARNING';
+      if (value <= 500) return 'POOR';
+      return 'DANGER';
+    case 'pm2_5':
+    case 'pm2.5':
+      if (value <= 12) return 'GOOD';
+      if (value <= 35.4) return 'WARNING';
+      if (value <= 55.4) return 'POOR';
+      return 'DANGER';
+    case 'pm10':
+      if (value <= 54) return 'GOOD';
+      if (value <= 154) return 'WARNING';
+      if (value <= 254) return 'POOR';
+      return 'DANGER';
+    default:
+      return 'GOOD';
+  }
+}

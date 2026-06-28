@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { cn, parseSafeDate } from '../lib/utils';
+import { cn, parseSafeDate, getSensorStatus } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { AirLoading } from '../components/AirLoading';
@@ -336,56 +336,25 @@ export function Dashboard() {
       pm10: 0
   };
 
-  const isTempAlert = lastReading.temperature > thresholds.tempMax;
-  const isHumAlert = lastReading.humidity > thresholds.humidityMax;
-  const isCo2Alert = lastReading.co2 > thresholds.co2Max;
-  const isAmmoniaAlert = lastReading.nh3 > thresholds.ammoniaMax;
-  const isPm25Alert = (lastReading.pm2_5 || 0) > 35;
-  const isMethaneAlert = (lastReading.ch4 || 0) > thresholds.methaneMax;
+  const isTempAlert = getSensorStatus('temp', lastReading.temperature) !== 'GOOD';
+  const isHumAlert = getSensorStatus('hum', lastReading.humidity) !== 'GOOD';
+  const isCo2Alert = getSensorStatus('co2', lastReading.co2) !== 'GOOD';
+  const isAmmoniaAlert = getSensorStatus('nh3', lastReading.nh3) !== 'GOOD';
+  const isPm25Alert = getSensorStatus('pm2.5', lastReading.pm2_5 || 0) !== 'GOOD';
+  const isMethaneAlert = getSensorStatus('ch4', lastReading.ch4 || 0) !== 'GOOD';
 
   const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0);
 
   const getStatus = (label: string, val: number) => {
-    switch (label) {
-      case 'Temperature':
-        if (val > 40) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 36) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if (val >= 31) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= 27) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'Humidity':
-        if (val < 10 || val > 90) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if ((val >= 10 && val < 20) || (val > 80 && val <= 90)) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if ((val >= 20 && val < 30) || (val > 70 && val <= 80)) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if ((val >= 30 && val < 40) || (val > 60 && val <= 70)) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'CO2 Level':
-        if (val > 5000) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 2001) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if (val >= 1201) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= 801) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'Ammonia NH3':
-        if (val >= 25) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 10) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'PM2.5 Feed Dust':
-        if (val > 150.4) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 55.5) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        if (val >= 35.5) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= 12.1) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'Methane CH4':
-        if (val > 50) return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 25) return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
-        return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-      case 'AQI':
-        if (val > 900) return { label: 'Hazardous', icon: '⚫', color: 'text-gray-900' };
-        if (val >= 801) return { label: 'Very Poor', icon: '🔴', color: 'text-red-500' };
-        if (val >= 601) return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
-        if (val >= 401) return { label: 'Moderate', icon: '🟡', color: 'text-yellow-500' };
-        if (val >= 201) return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
-        return { label: 'Excellent', icon: '🟢', color: 'text-emerald-500' };
+    const status = getSensorStatus(label, val);
+    switch (status) {
+      case 'DANGER':
+        return { label: 'Dangerous', icon: '⚫', color: 'text-gray-900' };
+      case 'POOR':
+        return { label: 'Poor', icon: '🟠', color: 'text-orange-500' };
+      case 'WARNING':
+        return { label: 'Warning', icon: '🔴', color: 'text-red-500' };
+      case 'GOOD':
       default:
         return { label: 'Good', icon: '🟢', color: 'text-emerald-500' };
     }
@@ -602,7 +571,7 @@ export function Dashboard() {
         : 'border-purple-500/15 hover:border-purple-500/40 hover:shadow-[0_8px_30px_rgba(168,85,247,0.06)]',
       isWarning: isPm25Alert,
       status: pmStatus,
-      limitInfo: '35 µg'
+      limitInfo: '12 µg'
     },
     { 
       label: 'Methane CH4', 

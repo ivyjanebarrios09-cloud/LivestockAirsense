@@ -3,7 +3,7 @@ import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
-import { cn } from '../lib/utils';
+import { cn, getSensorStatus } from '../lib/utils';
 
 export function ReportsPage() {
   const { devices, selectedDeviceId } = useAppContext();
@@ -13,18 +13,6 @@ export function ReportsPage() {
   const latestReading = activeDevice?.latestReading || {};
   const { thresholds } = useAppContext();
 
-  const getStatus = (val: number, max: number, type: 'low' | 'high' = 'high') => {
-    if (val === undefined || val === null) return 'N/A';
-    if (type === 'high') {
-      if (val > max * 1.2) return 'Critical';
-      if (val > max) return 'Warning';
-      return 'Optimal';
-    } else {
-      // For things where low is bad? Usually everything here is high = bad
-      return 'Optimal';
-    }
-  };
-
   const compiledReportProps = useMemo(() => {
     if (!activeDevice) return [];
     
@@ -32,44 +20,53 @@ export function ReportsPage() {
       { 
         parameter: 'Air Quality Index (AQI)', 
         value: `${latestReading.aqi ?? '0'}`, 
-        status: (latestReading.aqi ?? 0) > 150 ? 'Poor' : (latestReading.aqi ?? 0) > 100 ? 'Fair' : 'Good' 
+        status: getSensorStatus('aqi', latestReading.aqi ?? 0) 
       },
       { 
         parameter: 'Ambient Temperature', 
         value: `${latestReading.temperature ?? '0'} °C`, 
-        status: getStatus(latestReading.temperature ?? 0, thresholds.tempMax) 
+        status: getSensorStatus('temp', latestReading.temperature ?? 0) 
       },
       { 
         parameter: 'Relative Humidity', 
         value: `${latestReading.humidity ?? '0'} %`, 
-        status: getStatus(latestReading.humidity ?? 0, thresholds.humidityMax) 
+        status: getSensorStatus('hum', latestReading.humidity ?? 0) 
       },
       { 
         parameter: 'Carbon Dioxide (CO2)', 
         value: `${latestReading.co2 ?? '0'} ppm`, 
-        status: getStatus(latestReading.co2 ?? 0, thresholds.co2Max) 
+        status: getSensorStatus('co2', latestReading.co2 ?? 0) 
       },
       { 
         parameter: 'Ammonia (NH3) Level', 
         value: `${latestReading.nh3 ?? latestReading.ammonia ?? '0'} ppm`, 
-        status: getStatus(latestReading.nh3 ?? latestReading.ammonia ?? 0, thresholds.ammoniaMax) 
+        status: getSensorStatus('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) 
+      },
+      { 
+        parameter: 'Methane (CH4) Level', 
+        value: `${latestReading.ch4 ?? latestReading.methane ?? '0'} ppm`, 
+        status: getSensorStatus('ch4', latestReading.ch4 ?? latestReading.methane ?? 0) 
       },
     ];
-  }, [activeDevice, latestReading, thresholds]);
+  }, [activeDevice, latestReading]);
 
   const airQualitySummary = useMemo(() => {
     if (!activeDevice) return '';
     const issues = [];
-    if ((latestReading.aqi ?? 0) > 100) issues.push('elevated air particulate loads');
-    if ((latestReading.temperature ?? 0) > thresholds.tempMax) issues.push('high thermal stress');
-    if ((latestReading.nh3 ?? latestReading.ammonia ?? 0) > thresholds.ammoniaMax) issues.push('ammonia concentration above safety limits');
+    if (getSensorStatus('aqi', latestReading.aqi ?? 0) !== 'GOOD') issues.push('elevated air particulate loads');
+    if (getSensorStatus('temp', latestReading.temperature ?? 0) !== 'GOOD') issues.push('high thermal stress');
+    if (getSensorStatus('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) !== 'GOOD') issues.push('ammonia concentration above safety limits');
     
     if (issues.length === 0) {
       return "The air quality is currently OPTIMAL. All monitored parameters are within safe veterinary thresholds, ensuring a healthy microclimate for livestock. Ventilation systems appear to be operating efficiently.";
     } else {
+      const isCritical = compiledReportProps.some(p => p.status === 'DANGER' || p.status === 'POOR');
+      if (isCritical) {
+        return `CRITICAL: The system has detected dangerous hazards: ${issues.join(', ')}. Immediate intervention is required to prevent livestock morbidity. Microclimate is COMPROMISED.`;
+      }
       return `The system has detected potential hazards: ${issues.join(', ')}. This indicates compromised air quality which may impact animal health and productivity. Immediate review of ventilation and waste management is recommended.`;
     }
-  }, [activeDevice, latestReading, thresholds]);
+  }, [activeDevice, latestReading, compiledReportProps]);
 
   if (!activeDevice) {
     return (

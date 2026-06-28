@@ -390,7 +390,9 @@ export function AnalyticsPage() {
                   strokeDasharray="3 3"
                   connectNulls={true}
                 />
+                <ReferenceLine y={800} label={{ position: 'right', value: 'CO2 Limit', fill: '#ef4444', fontSize: 8, fontWeight: 'bold' }} stroke="#ef4444" strokeDasharray="3 3" opacity={0.3} />
                 <ReferenceLine y={25} label={{ position: 'right', value: 'NH3 Limit', fill: '#ef4444', fontSize: 8, fontWeight: 'bold' }} stroke="#ef4444" strokeDasharray="3 3" opacity={0.5} />
+                <ReferenceLine y={100} label={{ position: 'right', value: 'AQI Limit', fill: '#ef4444', fontSize: 8, fontWeight: 'bold' }} stroke="#ef4444" strokeDasharray="3 3" opacity={0.4} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

@@ -95,11 +95,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   const [thresholds, setThresholds] = useState<Thresholds>(() => {
     const saved = localStorage.getItem(`las_${uid}_thresholds`);
     let parsed: Thresholds = {
-      tempMax: 26,
+      tempMax: 30,
       humidityMax: 70,
       co2Max: 800,
-      ammoniaMax: 10.0,
-      methaneMax: 25.0
+      ammoniaMax: 25.0,
+      methaneMax: 50.0
     };
     if (saved) {
       try {

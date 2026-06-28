@@ -31,7 +31,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager
 } from 'firebase/firestore';
-import { parseSafeDate } from './utils';
+import { parseSafeDate, getSensorStatus } from './utils';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -131,23 +131,25 @@ const mapReadings = (rData: any, deviceId: string, metadata: any = {}) => {
     ...metadata,
     ...rData,
     temperature: temp ?? 0,
-    temperatureLevel: (temp ?? 0) > 35 ? 'Warning' : 'Normal',
+    temperatureLevel: getSensorStatus('temp', temp ?? 0),
     humidity: hum ?? 0,
-    humidityLevel: (hum ?? 0) > 80 ? 'High' : 'Normal',
+    humidityLevel: getSensorStatus('hum', hum ?? 0),
     co2: co2 ?? 0,
-    co2Level: (co2 ?? 0) > 1000 ? 'Warning' : 'Good',
+    co2Level: getSensorStatus('co2', co2 ?? 0),
     aqi: aqi ?? 0,
-    aqiLevel: (aqi || 0) > 150 ? 'POOR' : 'GOOD',
+    aqiLevel: getSensorStatus('aqi', aqi ?? 0),
     nh3: nh3 ?? 0,
-    nh3Level: (nh3 ?? 0) > 25 ? 'High' : 'Low',
+    nh3Level: getSensorStatus('nh3', nh3 ?? 0),
     ch4: ch4 ?? 0,
-    ch4Level: (ch4 ?? 0) > 100 ? 'High' : 'Low',
+    ch4Level: getSensorStatus('ch4', ch4 ?? 0),
+    pm2_5: pm2_5,
+    pm2_5Level: getSensorStatus('pm2.5', pm2_5),
+    pm10: pm10,
+    pm10Level: getSensorStatus('pm10', pm10),
     timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
     ammonia: nh3 ?? 0,
     methane: ch4 ?? 0,
     pm1_0,
-    pm2_5,
-    pm10
   };
 };
 
