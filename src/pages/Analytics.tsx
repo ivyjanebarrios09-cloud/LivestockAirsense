@@ -53,29 +53,49 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export function AnalyticsPage() {
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Use local date for initialization (YYYY-MM-DD)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
 
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     if (!activeDevice?.id) return;
     
-    const start = new Date(selectedDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(selectedDate);
-    end.setHours(23, 59, 59, 999);
+    // Parse selected date in local timezone
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const end = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     setLoading(true);
-    getAnalyticsData(activeDevice.id, start.getTime(), end.getTime()).then(data => {
-      // Map data for display in chart
-      const chartData = data.map(d => ({
-        ...d,
-        time: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-      }));
-      setAnalyticsData(chartData);
-      setLoading(false);
-    });
+    setHasError(false);
+    
+    getAnalyticsData(activeDevice.id, start.getTime(), end.getTime())
+      .then(data => {
+        if (!data || data.length === 0) {
+          setAnalyticsData([]);
+        } else {
+          const chartData = data.map(d => ({
+            ...d,
+            time: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+          }));
+          setAnalyticsData(chartData);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Analytics fetch error:', err);
+        setHasError(true);
+        setLoading(false);
+      });
   }, [activeDevice?.id, selectedDate]);
 
   const averageAqi = useMemo(() => {
@@ -182,6 +202,29 @@ export function AnalyticsPage() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
+              <button 
+                onClick={() => {
+                  setLoading(true);
+                  // Trigger re-fetch by effectively doing nothing to state but it's fine
+                  // Actually, I'll just call the logic again
+                  const [year, month, day] = selectedDate.split('-').map(Number);
+                  const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+                  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+                  getAnalyticsData(activeDevice.id, start.getTime(), end.getTime()).then(data => {
+                    const chartData = data.map(d => ({
+                      ...d,
+                      time: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+                    }));
+                    setAnalyticsData(chartData);
+                    setLoading(false);
+                  });
+                }}
+                className="p-1.5 rounded-xl bg-system-bg border border-system-border hover:border-system-accent/50 transition-colors"
+                title="Refresh Data"
+              >
+                <Activity className={cn("w-3.5 h-3.5 text-system-muted", loading && "animate-spin")} />
+              </button>
+
               <div className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1.5 shrink-0 select-none shadow-sm">
                 <Calendar className="w-3 h-3 text-system-accent" />
                 <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Date:</span>
@@ -204,6 +247,16 @@ export function AnalyticsPage() {
                 </div>
               </div>
             )}
+            
+            {!loading && analyticsData.length === 0 && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-system-bg/50 rounded-2xl border border-dashed border-system-border">
+                <Activity className="w-8 h-8 text-system-muted/30 mb-3" />
+                <p className="text-xs font-bold text-system-muted uppercase font-mono tracking-tight">No telemetric data for this date</p>
+                <p className="text-[10px] text-system-muted/60 font-mono mt-1">Try selecting a different date or checking device status</p>
+                {hasError && <p className="text-[9px] text-rose-500 font-bold font-mono mt-2 uppercase">Query Error: Indexing might be in progress</p>}
+              </div>
+            )}
+
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -251,7 +304,9 @@ export function AnalyticsPage() {
                   fill="url(#colorAqi)"
                   strokeWidth={3} 
                   activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6' }}
+                  dot={{ r: 2, strokeWidth: 0, fill: '#3b82f6' }}
                   isAnimationActive={true}
+                  connectNulls={true}
                 />
                 <Area 
                   name="Temp" 
@@ -262,7 +317,9 @@ export function AnalyticsPage() {
                   fill="url(#colorTemp)"
                   strokeWidth={3} 
                   activeDot={{ r: 6, strokeWidth: 0, fill: '#f97316' }}
+                  dot={{ r: 2, strokeWidth: 0, fill: '#f97316' }}
                   isAnimationActive={true}
+                  connectNulls={true}
                 />
                 <Line 
                   name="CO2 ppm" 
@@ -270,8 +327,9 @@ export function AnalyticsPage() {
                   dataKey="co2" 
                   stroke="#0ea5e9" 
                   strokeWidth={2} 
-                  dot={false}
+                  dot={{ r: 2, strokeWidth: 0, fill: '#0ea5e9' }}
                   strokeDasharray="5 5"
+                  connectNulls={true}
                 />
                 <Line 
                   name="NH3 ppm" 
@@ -279,8 +337,9 @@ export function AnalyticsPage() {
                   dataKey="nh3" 
                   stroke="#a855f7" 
                   strokeWidth={2} 
-                  dot={false}
+                  dot={{ r: 2, strokeWidth: 0, fill: '#a855f7' }}
                   strokeDasharray="3 3"
+                  connectNulls={true}
                 />
                 <ReferenceLine y={25} label={{ position: 'right', value: 'NH3 Limit', fill: '#ef4444', fontSize: 8, fontWeight: 'bold' }} stroke="#ef4444" strokeDasharray="3 3" opacity={0.5} />
               </AreaChart>

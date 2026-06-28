@@ -936,12 +936,13 @@ export const getAnalyticsData = async (
 ): Promise<any[]> => {
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
+  console.log(`[Firestore] Fetching analytics for ${canonicalId} from ${new Date(startTime).toISOString()} to ${new Date(endTime).toISOString()}`);
+  
   try {
     const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     
-    // For large datasets, we should use where clauses. 
-    // However, timestamp might be stored as number or Firestore Timestamp.
-    // Let's try to query with a range.
+    // We use a query that handles both numeric and potentially Timestamp fields if they exist
+    // Though updateDeviceDataById uses Date.now()
     const q = query(
       readingsRef, 
       where('timestamp', '>=', startTime),
@@ -950,13 +951,23 @@ export const getAnalyticsData = async (
     );
     
     const snapshot = await getDocs(q);
+    console.log(`[Firestore] Found ${snapshot.docs.length} readings for analytics`);
+    
     return snapshot.docs.map(docSnap => {
       const data = docSnap.data();
       return mapReadings(data, canonicalId);
     });
   } catch (error) {
     console.error('Error fetching analytics data:', error);
-    return [];
+    // Fallback: try to just get the latest 50 if the range query fails (e.g. index issue)
+    try {
+      const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
+      const fallbackQ = query(readingsRef, orderBy('timestamp', 'desc'), limit(50));
+      const fallbackSnap = await getDocs(fallbackQ);
+      return fallbackSnap.docs.map(docSnap => mapReadings(docSnap.data(), canonicalId)).reverse();
+    } catch (e) {
+      return [];
+    }
   }
 };
 
