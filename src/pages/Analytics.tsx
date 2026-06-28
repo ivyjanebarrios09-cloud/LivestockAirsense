@@ -95,6 +95,14 @@ export function AnalyticsPage() {
     getAnalyticsData(activeDevice.id, start.getTime(), end.getTime())
       .then(data => {
         if (!data || data.length === 0) {
+          // Fallback: If no data for this date, let's try to fetch the absolute latest 20 to see if anything exists
+          getAnalyticsData(activeDevice.id, Date.now() - 86400000 * 365, Date.now()) // Query a huge range but limited to 100 internally
+            .then(latestData => {
+              if (latestData && latestData.length > 0) {
+                console.log(`[Analytics] No data for selected date, but found ${latestData.length} records in history`);
+                // We don't necessarily want to SHOW them yet, but we can set a state to inform the user
+              }
+            });
           setAnalyticsData([]);
         } else {
           const chartData = data.map(d => ({
@@ -139,8 +147,8 @@ export function AnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Performance Analytics</h1>
-          <p className="text-sm text-system-muted mt-1 leading-relaxed">
-            Detailed correlation metrics and automated veterinary microclimate predictions.
+          <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest mt-1 opacity-70">
+            Microclimate telemetry stream aggregation for node: <span className="text-system-accent font-bold">{activeDevice.id}</span>
           </p>
         </div>
         <div className="flex items-center gap-2 bg-system-panel border border-system-border px-3.5 py-1.5 rounded-xl self-start sm:self-auto shadow-sm">
@@ -237,6 +245,33 @@ export function AnalyticsPage() {
                 title="Refresh Data"
               >
                 <Activity className={cn("w-3.5 h-3.5 text-system-muted", loading && "animate-spin")} />
+              </button>
+
+              <button 
+                onClick={() => {
+                  setLoading(true);
+                  setHasError(false);
+                  // Using a huge range to trigger fallback or just get data
+                  getAnalyticsData(activeDevice.id, 0, Date.now() + 86400000).then(data => {
+                    if (!data || data.length === 0) {
+                      setAnalyticsData([]);
+                    } else {
+                      const chartData = data.slice(-50).map(d => ({
+                        ...d,
+                        time: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+                      }));
+                      setAnalyticsData(chartData);
+                    }
+                    setLoading(false);
+                  }).catch(() => {
+                    setHasError(true);
+                    setLoading(false);
+                  });
+                }}
+                className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1.5 shrink-0 select-none shadow-sm hover:border-system-accent/50 transition-colors"
+              >
+                <Activity className="w-3 h-3 text-system-accent" />
+                <span className="text-[10px] font-bold font-mono text-system-text uppercase tracking-wider">Latest 50</span>
               </button>
 
               <div className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1.5 shrink-0 select-none shadow-sm">

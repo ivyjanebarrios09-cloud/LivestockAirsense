@@ -827,7 +827,19 @@ export const updateDeviceDataById = async (deviceId: string, readings: any) => {
     const registryRef = doc(db, 'deviceRegistry', deviceId);
     const registrySnap = await getDoc(registryRef);
     
-    const timestamp = readings.timestamp || Date.now();
+    // Ensure timestamp is a number (ms since epoch)
+    let timestamp = readings.timestamp || Date.now();
+    if (typeof timestamp === 'string') {
+      const parsed = Date.parse(timestamp);
+      if (!isNaN(parsed)) {
+        timestamp = parsed;
+      } else {
+        const num = Number(timestamp);
+        if (!isNaN(num)) timestamp = num;
+        else timestamp = Date.now();
+      }
+    }
+    
     const processedReadings = {
       ...readings,
       timestamp
@@ -938,57 +950,79 @@ export const getAnalyticsData = async (
 ): Promise<any[]> => {
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
-  console.log(`[Analytics] Canonical ID: ${canonicalId}, Range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
+  const idsToTry = [canonicalId];
+  if (deviceId !== canonicalId) idsToTry.push(deviceId);
+
+  console.log(`[Analytics] IDs to try: ${idsToTry.join(', ')}, Range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
   
-  try {
-    // 1. Resolve actual target ID from metadata if possible
-    const metaRef = doc(db, 'airMonitoring', canonicalId);
-    const metaSnap = await getDoc(metaRef);
-    let targetId = canonicalId;
-    let metadata: any = {};
-    if (metaSnap.exists()) {
-      metadata = metaSnap.data();
-      if (metadata.deviceId) targetId = metadata.deviceId;
-    }
+  for (const idToTry of idsToTry) {
+    try {
+      // 1. Resolve actual target ID from metadata if possible
+      const metaRef = doc(db, 'airMonitoring', idToTry);
+      const metaSnap = await getDoc(metaRef);
+      let targetId = idToTry;
+      let metadata: any = {};
+      if (metaSnap.exists()) {
+        metadata = metaSnap.data();
+        if (metadata.deviceId) targetId = metadata.deviceId;
+      }
 
-    const readingsRef = collection(db, 'airMonitoring', targetId, 'readings');
-    
-    // 2. Try querying as number first
-    const qNum = query(
-      readingsRef, 
-      where('timestamp', '>=', startTime),
-      where('timestamp', '<=', endTime)
-    );
-    
-    let snapshot = await getDocs(qNum);
-    console.log(`[Analytics] Numeric query found: ${snapshot.docs.length} docs`);
-
-    // 3. If empty, try as Timestamp
-    if (snapshot.empty) {
-      const qTS = query(
-        readingsRef,
-        where('timestamp', '>=', Timestamp.fromMillis(startTime)),
-        where('timestamp', '<=', Timestamp.fromMillis(endTime))
+      const readingsRef = collection(db, 'airMonitoring', targetId, 'readings');
+      
+      // 2. Try querying as number first
+      const qNum = query(
+        readingsRef, 
+        where('timestamp', '>=', startTime),
+        where('timestamp', '<=', endTime)
       );
-      snapshot = await getDocs(qTS);
-      console.log(`[Analytics] Timestamp query found: ${snapshot.docs.length} docs`);
-    }
+      
+      let snapshot = await getDocs(qNum);
+      if (snapshot.empty) {
+        // 3. If empty, try as Timestamp
+        const qTS = query(
+          readingsRef,
+          where('timestamp', '>=', Timestamp.fromMillis(startTime)),
+          where('timestamp', '<=', Timestamp.fromMillis(endTime))
+        );
+        snapshot = await getDocs(qTS);
+      }
 
-    // Sort in memory to avoid composite index requirement
-    const docs = [...snapshot.docs].sort((a, b) => {
-      const tA = parseSafeDate(a.data().timestamp || a.data().time).getTime();
-      const tB = parseSafeDate(b.data().timestamp || b.data().time).getTime();
-      return tA - tB;
-    });
-    
-    return docs.map(docSnap => {
-      const data = docSnap.data();
-      return mapReadings(data, targetId, metadata);
-    });
-  } catch (error) {
-    console.error('Error fetching analytics data:', error);
-    return [];
+      // 4. If STILL empty, try in-memory fallback for this specific ID
+      if (snapshot.empty) {
+        const qLast = query(readingsRef, limit(100));
+        const lastSnap = await getDocs(qLast);
+        if (!lastSnap.empty) {
+          const filteredDocs = lastSnap.docs.filter(docSnap => {
+            const t = parseSafeDate(docSnap.data().timestamp || docSnap.data().time).getTime();
+            return t >= startTime && t <= endTime;
+          });
+          
+          if (filteredDocs.length > 0) {
+            const mapped = filteredDocs.map(docSnap => mapReadings(docSnap.data(), targetId, metadata));
+            return mapped.sort((a, b) => a.timestamp - b.timestamp);
+          }
+        }
+      }
+
+      if (!snapshot.empty) {
+        // Sort in memory to avoid composite index requirement
+        const docs = [...snapshot.docs].sort((a, b) => {
+          const tA = parseSafeDate(a.data().timestamp || a.data().time).getTime();
+          const tB = parseSafeDate(b.data().timestamp || b.data().time).getTime();
+          return tA - tB;
+        });
+        
+        return docs.map(docSnap => {
+          const data = docSnap.data();
+          return mapReadings(data, targetId, metadata);
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching analytics data for ${idToTry}:`, error);
+    }
   }
+  
+  return [];
 };
 
 export const getHistoricalDailyAverages = async (deviceId: string, days: number = 7): Promise<any[]> => {
