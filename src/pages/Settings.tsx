@@ -4,8 +4,9 @@ import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../lib/firebase';
+import { logout, changeUserPassword, linkEmailPassword } from '../lib/firebase';
 import { toast } from 'sonner';
+import { Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 interface Device {
   id: string;
@@ -58,6 +59,55 @@ export function SettingsPage() {
   }, [thresholds, refreshInterval, firebaseSync]);
 
   const uid = user?.uid || 'guest';
+  const isGoogleUser = user?.providerData.some(p => p.providerId === 'google.com');
+  const isEmailUser = user?.providerData.some(p => p.providerId === 'password');
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const handlePasswordAction = async () => {
+    if (!newPassword) {
+      toast.error('Please enter a new password');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setAuthLoading(true);
+    const tid = toast.loading(isEmailUser ? 'Updating password...' : 'Linking password...');
+    try {
+      if (isEmailUser) {
+        if (!currentPassword) {
+          toast.error('Current password is required for security', { id: tid });
+          setAuthLoading(false);
+          return;
+        }
+        await changeUserPassword(newPassword, currentPassword);
+        toast.success('Password updated successfully', { id: tid });
+      } else {
+        await linkEmailPassword(newPassword);
+        toast.success('Password added to account', { id: tid });
+      }
+      
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Password action failed:', error);
+      toast.error(error.message || 'Authentication operation failed', { id: tid });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 // ...
 
   const [isEditingNew, setIsEditingNew] = useState(false);
@@ -426,26 +476,112 @@ export function SettingsPage() {
               <User className="w-4 h-4 text-system-muted" />
               <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Account & Session</h3>
             </div>
-            <div className="p-5 md:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-12 h-12 rounded-full border border-system-border shrink-0" referrerPolicy="no-referrer" />
-                ) : (
-                  <User className="w-12 h-12 text-system-muted bg-system-bg border border-system-border rounded-full p-2.5 shrink-0" />
-                )}
-                <div>
-                  <h4 className="font-bold text-sm text-system-text">{user.displayName || 'Authorized Administrator'}</h4>
-                  <p className="text-xs text-system-muted font-mono mt-0.5">{user.email}</p>
+            {user ? (
+              <div className="p-5 md:p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="Avatar" className="w-12 h-12 rounded-full border border-system-border shrink-0" referrerPolicy="no-referrer" />
+                    ) : (
+                      <User className="w-12 h-12 text-system-muted bg-system-bg border border-system-border rounded-full p-2.5 shrink-0" />
+                    )}
+                    <div>
+                      <h4 className="font-bold text-sm text-system-text">{user.displayName || 'Authorized Administrator'}</h4>
+                      <p className="text-xs text-system-muted font-mono mt-0.5">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/30 text-red-400 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out / Logout
+                  </button>
                 </div>
+
+                {(isGoogleUser || isEmailUser) && (
+                  <div className="pt-6 border-t border-system-border/40 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Lock className="w-3.5 h-3.5 text-system-muted" />
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold font-mono text-system-muted">
+                        {isEmailUser ? 'Update Security Credentials' : 'Set Account Password'}
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {isEmailUser && (
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono px-1">Current Password</label>
+                          <div className="relative">
+                            <input 
+                              type={showPasswords ? "text" : "password"}
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              placeholder="Required to verify identity"
+                              className="w-full bg-system-bg border border-system-border rounded-xl px-10 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
+                            />
+                            <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-system-muted" />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono px-1">New Password</label>
+                        <div className="relative">
+                          <input 
+                            type={showPasswords ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Min 6 characters"
+                            className="w-full bg-system-bg border border-system-border rounded-xl px-10 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
+                          />
+                          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-system-muted" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono px-1">Confirm New Password</label>
+                        <div className="relative">
+                          <input 
+                            type={showPasswords ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Match new password"
+                            className="w-full bg-system-bg border border-system-border rounded-xl px-10 py-2.5 text-sm focus:outline-none focus:border-system-accent font-semibold text-system-text transition-colors"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setShowPasswords(!showPasswords)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-system-muted hover:text-system-accent transition-colors"
+                          >
+                            {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={handlePasswordAction}
+                        disabled={authLoading}
+                        className={cn(
+                          "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95",
+                          authLoading ? "bg-system-border text-system-muted cursor-not-allowed" : "bg-system-text text-system-bg hover:bg-opacity-90"
+                        )}
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        {isEmailUser ? 'Update Password' : 'Add Password to Account'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/30 text-red-400 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out / Logout
-              </button>
-            </div>
+            ) : (
+              <div className="p-10 text-center space-y-3">
+                <Shield className="w-10 h-10 text-system-muted mx-auto opacity-20" />
+                <p className="text-xs text-system-muted font-mono uppercase tracking-widest">Guest session active</p>
+              </div>
+            )}
           </section>
 
         </div>

@@ -1,6 +1,35 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, initializeFirestore, collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, doc, setDoc, deleteDoc, where, updateDoc, getDoc } from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  linkWithCredential
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  initializeFirestore, 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  limit, 
+  getDocs, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  where, 
+  updateDoc, 
+  getDoc,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -23,12 +52,9 @@ const dbId = firebaseConfig.firestoreDatabaseId;
 const getDb = () => {
   try {
     return initializeFirestore(app, {
-      localCache: {
-        kind: 'persistent',
-        tabManager: {
-          kind: 'multi-tab'
-        }
-      }
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     }, dbId || '(default)');
   } catch (e) {
     return getFirestore(app);
@@ -495,6 +521,29 @@ export const logout = async () => {
   } catch (error) {
     console.error('Logout failed:', error);
   }
+};
+
+export const changeUserPassword = async (newPassword: string, currentPassword?: string) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No authenticated user found.');
+
+  // If email provider exists, we might need to re-authenticate
+  const isEmailUser = user.providerData.some(p => p.providerId === 'password');
+  
+  if (isEmailUser && currentPassword) {
+    const credential = EmailAuthProvider.credential(user.email!, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+  }
+
+  await updatePassword(user, newPassword);
+};
+
+export const linkEmailPassword = async (password: string) => {
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error('No authenticated user with email found.');
+
+  const credential = EmailAuthProvider.credential(user.email, password);
+  await linkWithCredential(user, credential);
 };
 
   
