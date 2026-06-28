@@ -51,6 +51,20 @@ export function HistoryPage() {
     setTimeout(() => setExportSuccessText(null), 2500);
   };
 
+  const getStatusStyles = (status: string) => {
+    const s = status?.toLowerCase() || '';
+    if (s.includes('good') || s.includes('normal') || s.includes('healthy') || s.includes('online') || s.includes('active')) {
+      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    }
+    if (s.includes('moderate') || s.includes('warning') || s.includes('fair')) {
+      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    }
+    if (s.includes('poor') || s.includes('danger') || s.includes('critical') || s.includes('unhealthy') || s.includes('offline') || s.includes('inactive')) {
+      return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+    }
+    return "bg-system-muted/10 text-system-muted border-system-muted/20";
+  };
+
   const downloadCSV = () => {
     if (!activeDevice) return;
     const headers = [
@@ -210,7 +224,14 @@ export function HistoryPage() {
                 <tr key={i} className="hover:bg-system-bg/40 transition-colors">
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
                   <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
-                  <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.status}</td>
+                  <td className="px-6 py-3.5 whitespace-nowrap">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
+                      getStatusStyles(row.status)
+                    )}>
+                      {row.status}
+                    </span>
+                  </td>
                   <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.reading}</td>
                 </tr>
               ))}
@@ -234,9 +255,7 @@ export function HistoryPage() {
                   </div>
                   <span className={cn(
                     "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
-                    row.status === 'Online' || row.status === 'Active' || row.status === 'Normal'
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                    getStatusStyles(row.status)
                   )}>
                     {row.status}
                   </span>
