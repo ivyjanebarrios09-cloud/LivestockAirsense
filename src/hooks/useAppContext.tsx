@@ -57,6 +57,7 @@ export interface AppContextType {
   pushEnabled: boolean;
   savePushEnabled: (enabled: boolean) => Promise<void>;
   isDevicesLoading: boolean;
+  isOnline: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -64,6 +65,20 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppContextProvider({ children, uid }: { children: React.ReactNode; uid: string }) {
   const [devices, setDevices] = useState<any[]>([]);
   const [isDevicesLoading, setIsDevicesLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     setIsDevicesLoading(true);
@@ -363,7 +378,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       saveSystemSettings,
       pushEnabled,
       savePushEnabled,
-      isDevicesLoading
+      isDevicesLoading,
+      isOnline
     }}>
       {children}
     </AppContext.Provider>

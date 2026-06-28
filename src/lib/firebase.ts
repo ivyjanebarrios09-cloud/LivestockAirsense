@@ -952,76 +952,72 @@ export const getAnalyticsData = async (
 ): Promise<any[]> => {
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
-  const idsToTry = [canonicalId];
-  if (deviceId !== canonicalId) idsToTry.push(deviceId);
+  const idsToTry = [canonicalId, deviceId];
 
-  console.log(`[Analytics] IDs to try: ${idsToTry.join(', ')}, Range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
+  console.log(`[Analytics] Fetching range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
   
   for (const idToTry of idsToTry) {
     try {
-      // 1. Resolve actual target ID from metadata if possible
-      const metaRef = doc(db, 'airMonitoring', idToTry);
-      const metaSnap = await getDoc(metaRef);
-      let targetId = idToTry;
-      let metadata: any = {};
-      if (metaSnap.exists()) {
-        metadata = metaSnap.data();
-        if (metadata.deviceId) targetId = metadata.deviceId;
-      }
-
-      const readingsRef = collection(db, 'airMonitoring', targetId, 'readings');
+      const readingsRef = collection(db, 'airMonitoring', idToTry, 'readings');
       
-      // 2. Try querying as number first
-      const qNum = query(
+      // 1. Try a broad query to get recent data if the specific range fails
+      let docs: any[] = [];
+      
+      // Attempt range query first (efficient)
+      const qRange = query(
         readingsRef, 
         where('timestamp', '>=', startTime),
-        where('timestamp', '<=', endTime)
+        where('timestamp', '<=', endTime),
+        limit(500)
       );
       
-      let snapshot = await getDocs(qNum);
-      if (snapshot.empty) {
-        // 3. If empty, try as Timestamp
-        const qTS = query(
-          readingsRef,
-          where('timestamp', '>=', Timestamp.fromMillis(startTime)),
-          where('timestamp', '<=', Timestamp.fromMillis(endTime))
-        );
-        snapshot = await getDocs(qTS);
-      }
-
-      // 4. If STILL empty, try in-memory fallback for this specific ID
-      if (snapshot.empty) {
-        const qLast = query(readingsRef, limit(100));
-        const lastSnap = await getDocs(qLast);
-        if (!lastSnap.empty) {
-          const filteredDocs = lastSnap.docs.filter(docSnap => {
-            const t = parseSafeDate(docSnap.data().timestamp || docSnap.data().time).getTime();
-            return t >= startTime && t <= endTime;
-          });
-          
-          if (filteredDocs.length > 0) {
-            const mapped = filteredDocs.map(docSnap => mapReadings(docSnap.data(), targetId, metadata));
-            return mapped.sort((a, b) => a.timestamp - b.timestamp);
-          }
+      const snapshot = await getDocs(qRange);
+      if (!snapshot.empty) {
+        docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      } else {
+        // 2. Fallback: Fetch latest 200 and filter in-memory (resilient to missing indexes/wrong types)
+        console.log(`[Analytics] Range query empty for ${idToTry}, trying in-memory fallback...`);
+        const qLatest = query(readingsRef, orderBy('timestamp', 'desc'), limit(200));
+        const latestSnap = await getDocs(qLatest);
+        
+        if (!latestSnap.empty) {
+          docs = latestSnap.docs
+            .map(d => ({ id: d.id, ...d.data() as any }))
+            .filter((data: any) => {
+              const t = parseSafeDate(data.timestamp || data.time).getTime();
+              // If the user requested the latest, we skip filtering
+              if (startTime === 0) return true;
+              return t >= startTime && t <= endTime;
+            });
         }
       }
 
-      if (!snapshot.empty) {
-        // Sort in memory to avoid composite index requirement
-        const docs = [...snapshot.docs].sort((a, b) => {
-          const tA = parseSafeDate(a.data().timestamp || a.data().time).getTime();
-          const tB = parseSafeDate(b.data().timestamp || b.data().time).getTime();
-          return tA - tB;
-        });
-        
-        return docs.map(docSnap => {
-          const data = docSnap.data();
-          return mapReadings(data, targetId, metadata);
-        });
+      if (docs.length > 0) {
+        // Resolve metadata for mapping
+        const metaRef = doc(db, 'airMonitoring', idToTry);
+        const metaSnap = await getDoc(metaRef);
+        const metadata = metaSnap.exists() ? metaSnap.data() : {};
+
+        return docs.map(data => mapReadings(data, idToTry, metadata))
+                   .sort((a, b) => a.timestamp - b.timestamp);
       }
     } catch (error) {
-      console.error(`Error fetching analytics data for ${idToTry}:`, error);
+      console.warn(`[Analytics] Error for ${idToTry}:`, error);
     }
+  }
+  
+  // Final fallback: try user-specific history if shared is empty
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const targetDate = new Date(startTime).toISOString().split('T')[0];
+      const userRef = collection(db, 'users', user.uid, 'devices', deviceId, 'history', targetDate, 'readings');
+      const userSnap = await getDocs(query(userRef, limit(100)));
+      if (!userSnap.empty) {
+        return userSnap.docs.map(d => mapReadings(d.data(), deviceId))
+                            .sort((a, b) => a.timestamp - b.timestamp);
+      }
+    } catch (e) {}
   }
   
   return [];
