@@ -6,7 +6,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { InstallModal } from './InstallModal';
 import { useAppContext } from '../hooks/useAppContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, parseSafeDate } from '../lib/utils';
+import { cn, parseSafeDate, getStatusBgColor } from '../lib/utils';
 
 export function Header() {
   const { user, loading } = useAuthState();
@@ -61,19 +61,17 @@ export function Header() {
                 exit={{ opacity: 0, x: 10 }}
                 className={cn(
                   "flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all duration-500",
-                  isEffectiveOnline
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                    : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                  isEffectiveOnline ? getStatusBgColor('GOOD') : getStatusBgColor('DANGER')
                 )}
               >
                 <span className="relative flex h-1.5 w-1.5">
                   <span className={cn(
                     "absolute inline-flex h-full w-full rounded-full opacity-75",
-                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-amber-400"
+                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-red-400"
                   )}></span>
                   <span className={cn(
                     "relative inline-flex rounded-full h-1.5 w-1.5",
-                    isEffectiveOnline ? "bg-emerald-500" : "bg-amber-500"
+                    isEffectiveOnline ? "bg-emerald-500" : "bg-red-500"
                   )}></span>
                 </span>
                 <span className="text-[9px] font-bold uppercase tracking-widest font-mono whitespace-nowrap">

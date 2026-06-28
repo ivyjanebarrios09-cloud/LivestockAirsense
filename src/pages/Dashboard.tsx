@@ -756,13 +756,13 @@ export function Dashboard() {
             </span>
           </div>
         )}
-        {metrics.filter(m => m.status.label === 'Moderate').length > 0 && (
+        {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
           <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 select-none shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
             </span>
             <span className="text-xs font-mono font-bold text-yellow-600 dark:text-yellow-500">
-              {metrics.filter(m => m.status.label === 'Moderate').length} Sensor{metrics.filter(m => m.status.label === 'Moderate').length > 1 ? 's' : ''} Moderate
+              {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
             </span>
           </div>
         )}
@@ -776,25 +776,14 @@ export function Dashboard() {
             </span>
           </div>
         )}
-        {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
+        {metrics.filter(m => m.status.label === 'Danger').length > 0 && (
           <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 select-none shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
             <span className="text-xs font-mono font-bold text-red-600 dark:text-red-500">
-              {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
-            </span>
-          </div>
-        )}
-        {metrics.filter(m => m.status.label === 'Dangerous').length > 0 && (
-          <div className="px-3 py-1.5 rounded-lg bg-gray-800/10 border border-gray-800/20 flex items-center gap-2 select-none shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-900 dark:bg-gray-400"></span>
-            </span>
-            <span className="text-xs font-mono font-bold text-gray-900 dark:text-gray-400">
-              {metrics.filter(m => m.status.label === 'Dangerous').length} Sensor{metrics.filter(m => m.status.label === 'Dangerous').length > 1 ? 's' : ''} Critical
+              {metrics.filter(m => m.status.label === 'Danger').length} Sensor{metrics.filter(m => m.status.label === 'Danger').length > 1 ? 's' : ''} Hazard
             </span>
           </div>
         )}
