@@ -12,10 +12,10 @@ import {
   Area,
   ReferenceLine
 } from 'recharts';
-import { Sparkles, Thermometer, Activity, Wind, Layers, Info, Filter, TrendingUp } from 'lucide-react';
+import { Sparkles, Thermometer, Activity, Wind, Layers, Info, Filter, TrendingUp, Calendar } from 'lucide-react';
 import { useAppContext } from '../hooks/useAppContext';
-import { cn } from '../lib/utils';
-import { getHistoricalDailyAverages } from '../lib/firebase';
+import { cn, parseSafeDate } from '../lib/utils';
+import { getAnalyticsData } from '../lib/firebase';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -53,27 +53,43 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export function AnalyticsPage() {
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [days, setDays] = useState<number>(7);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [dailyAverages, setDailyAverages] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!activeDevice?.id) return;
-    getHistoricalDailyAverages(activeDevice.id, days).then(setDailyAverages);
-  }, [activeDevice?.id, days]);
+    
+    const start = new Date(selectedDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(selectedDate);
+    end.setHours(23, 59, 59, 999);
+
+    setLoading(true);
+    getAnalyticsData(activeDevice.id, start.getTime(), end.getTime()).then(data => {
+      // Map data for display in chart
+      const chartData = data.map(d => ({
+        ...d,
+        time: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+      }));
+      setAnalyticsData(chartData);
+      setLoading(false);
+    });
+  }, [activeDevice?.id, selectedDate]);
 
   const averageAqi = useMemo(() => {
-    if (dailyAverages.length === 0) return 0;
-    const sum = dailyAverages.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
-    return Math.round(sum / dailyAverages.length);
-  }, [dailyAverages]);
+    if (analyticsData.length === 0) return 0;
+    const sum = analyticsData.reduce((acc, curr) => acc + (curr.aqi || 0), 0);
+    return Math.round(sum / analyticsData.length);
+  }, [analyticsData]);
 
   const maxTemp = useMemo(() => {
-    if (dailyAverages.length === 0) return 0;
-    const temps = dailyAverages.map(item => item.temp).filter(t => typeof t === 'number' && !isNaN(t));
+    if (analyticsData.length === 0) return 0;
+    const temps = analyticsData.map(item => item.temperature || item.temp).filter(t => typeof t === 'number' && !isNaN(t));
     if (temps.length === 0) return 0;
     return Math.max(...temps);
-  }, [dailyAverages]);
+  }, [analyticsData]);
 
   const breedInsights = useMemo(() => {
     return {
@@ -167,24 +183,29 @@ export function AnalyticsPage() {
             
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-system-bg border border-system-border rounded-xl px-3 py-1.5 shrink-0 select-none shadow-sm">
-                <Filter className="w-3 h-3 text-system-muted" />
-                <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Range:</span>
-                <select
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
+                <Calendar className="w-3 h-3 text-system-accent" />
+                <span className="text-[10px] font-bold font-mono text-system-muted uppercase tracking-wider">Date:</span>
+                <input 
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
                   className="bg-transparent border-none text-[10px] font-black font-mono text-system-text outline-none cursor-pointer uppercase tracking-tight"
-                >
-                  <option value={7}>07 Days</option>
-                  <option value={14}>14 Days</option>
-                  <option value={30}>30 Days</option>
-                </select>
+                />
               </div>
             </div>
           </div>
 
-          <div className="h-[320px] w-full mt-4">
+          <div className="h-[320px] w-full mt-4 relative">
+            {loading && (
+              <div className="absolute inset-0 bg-system-panel/50 backdrop-blur-[2px] z-20 flex items-center justify-center rounded-2xl">
+                <div className="flex items-center gap-2 px-4 py-2 bg-system-bg border border-system-border rounded-xl shadow-xl">
+                  <div className="w-3 h-3 bg-system-accent rounded-full animate-ping" />
+                  <span className="text-[10px] font-black font-mono uppercase tracking-widest">Aggregating Streams...</span>
+                </div>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyAverages} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorAqi" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-system-accent, #3b82f6)" stopOpacity={0.1}/>
@@ -202,6 +223,8 @@ export function AnalyticsPage() {
                   tickLine={false} 
                   tick={{ fontSize: 9, fill: '#8b949e', fontWeight: 'bold', fontFamily: 'monospace' }}
                   dy={10}
+                  interval="preserveStartEnd"
+                  minTickGap={30}
                 />
                 <YAxis 
                   axisLine={false} 
@@ -233,7 +256,7 @@ export function AnalyticsPage() {
                 <Area 
                   name="Temp" 
                   type="monotone" 
-                  dataKey="temp" 
+                  dataKey="temperature" 
                   stroke="#f97316" 
                   fillOpacity={1}
                   fill="url(#colorTemp)"
@@ -253,7 +276,7 @@ export function AnalyticsPage() {
                 <Line 
                   name="NH3 ppm" 
                   type="monotone" 
-                  dataKey="ammonia" 
+                  dataKey="nh3" 
                   stroke="#a855f7" 
                   strokeWidth={2} 
                   dot={false}

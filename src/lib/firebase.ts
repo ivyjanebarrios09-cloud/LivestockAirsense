@@ -109,51 +109,51 @@ const getValue = (data: any, keys: string[]) => {
   return undefined;
 };
 
+const mapReadings = (rData: any, deviceId: string, metadata: any = {}) => {
+  const temp = ensureNumber(getValue(rData, ['temperature', 'temp', 'temp_c', 't']));
+  const hum = ensureNumber(getValue(rData, ['humidity', 'hum', 'rel_hum', 'h']));
+  const co2 = ensureNumber(getValue(rData, ['co2', 'carbon_dioxide', 'c']));
+  const nh3 = ensureNumber(getValue(rData, ['nh3', 'ammonia', 'NH3', 'n']));
+  const ch4 = ensureNumber(getValue(rData, ['ch4', 'methane', 'CH4', 'm']));
+  const aqi = ensureNumber(getValue(rData, ['aqi', 'air_quality_index']));
+  
+  // PM values
+  const pm1_0 = ensureNumber(getValue(rData, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0', 'pm01'])) ?? 0;
+  const pm2_5 = ensureNumber(getValue(rData, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
+  const pm10 = ensureNumber(getValue(rData, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+
+  return {
+    id: deviceId, // Keep original ID for UI
+    deviceId: deviceId,
+    deviceName: metadata.deviceName || metadata.name || 'AIRSENSE',
+    ...metadata,
+    ...rData,
+    temperature: temp ?? 0,
+    temperatureLevel: (temp ?? 0) > 35 ? 'Warning' : 'Normal',
+    humidity: hum ?? 0,
+    humidityLevel: (hum ?? 0) > 80 ? 'High' : 'Normal',
+    co2: co2 ?? 0,
+    co2Level: (co2 ?? 0) > 1000 ? 'Warning' : 'Good',
+    aqi: aqi ?? 0,
+    aqiLevel: (aqi || 0) > 150 ? 'POOR' : 'GOOD',
+    nh3: nh3 ?? 0,
+    nh3Level: (nh3 ?? 0) > 25 ? 'High' : 'Low',
+    ch4: ch4 ?? 0,
+    ch4Level: (ch4 ?? 0) > 100 ? 'High' : 'Low',
+    timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
+    ammonia: nh3 ?? 0,
+    methane: ch4 ?? 0,
+    pm1_0,
+    pm2_5,
+    pm10
+  };
+};
+
 export const subscribeToSensorData = (uid: string, deviceId: string, callback: (data: any) => void) => {
   if (!uid || !deviceId) return () => {};
   let innerUnsubscribe: (() => void) | null = null;
   let lastMetadata: any = {};
   const canonicalId = getCanonicalDeviceId(deviceId);
-
-  const mapReadings = (rData: any, id: string) => {
-    const temp = ensureNumber(getValue(rData, ['temperature', 'temp', 'temp_c', 't']));
-    const hum = ensureNumber(getValue(rData, ['humidity', 'hum', 'rel_hum', 'h']));
-    const co2 = ensureNumber(getValue(rData, ['co2', 'carbon_dioxide', 'c']));
-    const nh3 = ensureNumber(getValue(rData, ['nh3', 'ammonia', 'NH3', 'n']));
-    const ch4 = ensureNumber(getValue(rData, ['ch4', 'methane', 'CH4', 'm']));
-    const aqi = ensureNumber(getValue(rData, ['aqi', 'air_quality_index']));
-    
-    // PM values
-    const pm1_0 = ensureNumber(getValue(rData, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0', 'pm01'])) ?? 0;
-    const pm2_5 = ensureNumber(getValue(rData, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
-    const pm10 = ensureNumber(getValue(rData, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
-
-    return {
-      id: deviceId, // Keep original ID for UI
-      deviceId: id,
-      deviceName: lastMetadata.deviceName || lastMetadata.name || 'AIRSENSE',
-      ...lastMetadata,
-      ...rData,
-      temperature: temp ?? 0,
-      temperatureLevel: (temp ?? 0) > 35 ? 'Warning' : 'Normal',
-      humidity: hum ?? 0,
-      humidityLevel: (hum ?? 0) > 80 ? 'High' : 'Normal',
-      co2: co2 ?? 0,
-      co2Level: (co2 ?? 0) > 1000 ? 'Warning' : 'Good',
-      aqi: aqi ?? 0,
-      aqiLevel: (aqi || 0) > 150 ? 'POOR' : 'GOOD',
-      nh3: nh3 ?? 0,
-      nh3Level: (nh3 ?? 0) > 25 ? 'High' : 'Low',
-      ch4: ch4 ?? 0,
-      ch4Level: (ch4 ?? 0) > 100 ? 'High' : 'Low',
-      timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
-      ammonia: nh3 ?? 0,
-      methane: ch4 ?? 0,
-      pm1_0,
-      pm2_5,
-      pm10
-    };
-  };
 
   const setupReadingsListener = (id: string) => {
     if (!id || innerUnsubscribe) return;
@@ -166,7 +166,7 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
       if (!readingsSnap.empty) {
         const data = readingsSnap.docs[0].data();
         callback({
-          ...mapReadings(data, id),
+          ...mapReadings(data, id, lastMetadata),
           _fromCache: readingsSnap.metadata.fromCache,
           _hasPendingWrites: readingsSnap.metadata.hasPendingWrites
         });
@@ -175,13 +175,13 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
         const fallbackQ = query(readingsRef, limit(1));
         getDocs(fallbackQ).then(snap => {
           if (!snap.empty) {
-             callback(mapReadings(snap.docs[0].data(), id));
+             callback(mapReadings(snap.docs[0].data(), id, lastMetadata));
           } else if (lastMetadata.latestReading) {
-            callback(mapReadings(lastMetadata.latestReading, id));
+            callback(mapReadings(lastMetadata.latestReading, id, lastMetadata));
           }
         }).catch(() => {
           if (lastMetadata.latestReading) {
-            callback(mapReadings(lastMetadata.latestReading, id));
+            callback(mapReadings(lastMetadata.latestReading, id, lastMetadata));
           }
         });
       }
@@ -190,7 +190,7 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
       // Fallback to simpler query if the first one failed (likely index issue)
       const fallbackQ = query(readingsRef, limit(1));
       getDocs(fallbackQ).then(snap => {
-        if (!snap.empty) callback(mapReadings(snap.docs[0].data(), id));
+        if (!snap.empty) callback(mapReadings(snap.docs[0].data(), id, lastMetadata));
       }).catch(console.error);
     });
   };
@@ -204,7 +204,7 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
         const latestReading = data.latestReading || {};
         
         // Initial callback from metadata
-        callback(mapReadings(latestReading, data.deviceId || deviceId));
+        callback(mapReadings(latestReading, data.deviceId || deviceId, lastMetadata));
 
         // Setup the inner listener for subcollection using canonical ID
         setupReadingsListener(data.deviceId || canonicalId);
@@ -925,6 +925,37 @@ export const getStatusHistory = async (
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     handleFirestoreError(error, OperationType.READ, 'status_history');
+    return [];
+  }
+};
+
+export const getAnalyticsData = async (
+  deviceId: string, 
+  startTime: number, 
+  endTime: number
+): Promise<any[]> => {
+  if (!deviceId) return [];
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  try {
+    const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
+    
+    // For large datasets, we should use where clauses. 
+    // However, timestamp might be stored as number or Firestore Timestamp.
+    // Let's try to query with a range.
+    const q = query(
+      readingsRef, 
+      where('timestamp', '>=', startTime),
+      where('timestamp', '<=', endTime),
+      orderBy('timestamp', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return mapReadings(data, canonicalId);
+    });
+  } catch (error) {
+    console.error('Error fetching analytics data:', error);
     return [];
   }
 };
