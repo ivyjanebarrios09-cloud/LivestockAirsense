@@ -54,6 +54,20 @@ export function AnalyticsPage() {
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   
+  if (!activeDevice) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[400px] text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-system-panel border border-system-border flex items-center justify-center">
+          <Activity className="w-8 h-8 text-system-muted opacity-20" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-xl font-black font-mono uppercase tracking-tight">No Telemetry Node Found</h2>
+          <p className="text-sm text-system-muted max-w-xs mx-auto uppercase font-mono tracking-tight opacity-60">Register your first AirSense device to begin aggregating environmental microclimate streams.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Use local date for initialization (YYYY-MM-DD)
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
@@ -304,7 +318,7 @@ export function AnalyticsPage() {
                   fill="url(#colorAqi)"
                   strokeWidth={3} 
                   activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6' }}
-                  dot={{ r: 2, strokeWidth: 0, fill: '#3b82f6' }}
+                  dot={{ r: 3, strokeWidth: 0, fill: '#3b82f6' }}
                   isAnimationActive={true}
                   connectNulls={true}
                 />
@@ -317,7 +331,7 @@ export function AnalyticsPage() {
                   fill="url(#colorTemp)"
                   strokeWidth={3} 
                   activeDot={{ r: 6, strokeWidth: 0, fill: '#f97316' }}
-                  dot={{ r: 2, strokeWidth: 0, fill: '#f97316' }}
+                  dot={{ r: 3, strokeWidth: 0, fill: '#f97316' }}
                   isAnimationActive={true}
                   connectNulls={true}
                 />
@@ -327,7 +341,7 @@ export function AnalyticsPage() {
                   dataKey="co2" 
                   stroke="#0ea5e9" 
                   strokeWidth={2} 
-                  dot={{ r: 2, strokeWidth: 0, fill: '#0ea5e9' }}
+                  dot={{ r: 3, strokeWidth: 0, fill: '#0ea5e9' }}
                   strokeDasharray="5 5"
                   connectNulls={true}
                 />
@@ -337,7 +351,7 @@ export function AnalyticsPage() {
                   dataKey="nh3" 
                   stroke="#a855f7" 
                   strokeWidth={2} 
-                  dot={{ r: 2, strokeWidth: 0, fill: '#a855f7' }}
+                  dot={{ r: 3, strokeWidth: 0, fill: '#a855f7' }}
                   strokeDasharray="3 3"
                   connectNulls={true}
                 />

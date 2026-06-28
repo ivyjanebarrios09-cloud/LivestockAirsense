@@ -27,9 +27,11 @@ import {
   where, 
   updateDoc, 
   getDoc,
+  Timestamp,
   persistentLocalCache,
   persistentMultipleTabManager
 } from 'firebase/firestore';
+import { parseSafeDate } from './utils';
 import autoConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -936,38 +938,56 @@ export const getAnalyticsData = async (
 ): Promise<any[]> => {
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
-  console.log(`[Firestore] Fetching analytics for ${canonicalId} from ${new Date(startTime).toISOString()} to ${new Date(endTime).toISOString()}`);
+  console.log(`[Analytics] Canonical ID: ${canonicalId}, Range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
   
   try {
-    const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
+    // 1. Resolve actual target ID from metadata if possible
+    const metaRef = doc(db, 'airMonitoring', canonicalId);
+    const metaSnap = await getDoc(metaRef);
+    let targetId = canonicalId;
+    let metadata: any = {};
+    if (metaSnap.exists()) {
+      metadata = metaSnap.data();
+      if (metadata.deviceId) targetId = metadata.deviceId;
+    }
+
+    const readingsRef = collection(db, 'airMonitoring', targetId, 'readings');
     
-    // We use a query that handles both numeric and potentially Timestamp fields if they exist
-    // Though updateDeviceDataById uses Date.now()
-    const q = query(
+    // 2. Try querying as number first
+    const qNum = query(
       readingsRef, 
       where('timestamp', '>=', startTime),
-      where('timestamp', '<=', endTime),
-      orderBy('timestamp', 'asc')
+      where('timestamp', '<=', endTime)
     );
     
-    const snapshot = await getDocs(q);
-    console.log(`[Firestore] Found ${snapshot.docs.length} readings for analytics`);
+    let snapshot = await getDocs(qNum);
+    console.log(`[Analytics] Numeric query found: ${snapshot.docs.length} docs`);
+
+    // 3. If empty, try as Timestamp
+    if (snapshot.empty) {
+      const qTS = query(
+        readingsRef,
+        where('timestamp', '>=', Timestamp.fromMillis(startTime)),
+        where('timestamp', '<=', Timestamp.fromMillis(endTime))
+      );
+      snapshot = await getDocs(qTS);
+      console.log(`[Analytics] Timestamp query found: ${snapshot.docs.length} docs`);
+    }
+
+    // Sort in memory to avoid composite index requirement
+    const docs = [...snapshot.docs].sort((a, b) => {
+      const tA = parseSafeDate(a.data().timestamp || a.data().time).getTime();
+      const tB = parseSafeDate(b.data().timestamp || b.data().time).getTime();
+      return tA - tB;
+    });
     
-    return snapshot.docs.map(docSnap => {
+    return docs.map(docSnap => {
       const data = docSnap.data();
-      return mapReadings(data, canonicalId);
+      return mapReadings(data, targetId, metadata);
     });
   } catch (error) {
     console.error('Error fetching analytics data:', error);
-    // Fallback: try to just get the latest 50 if the range query fails (e.g. index issue)
-    try {
-      const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
-      const fallbackQ = query(readingsRef, orderBy('timestamp', 'desc'), limit(50));
-      const fallbackSnap = await getDocs(fallbackQ);
-      return fallbackSnap.docs.map(docSnap => mapReadings(docSnap.data(), canonicalId)).reverse();
-    } catch (e) {
-      return [];
-    }
+    return [];
   }
 };
 
