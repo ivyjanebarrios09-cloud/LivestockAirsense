@@ -22,9 +22,11 @@ export function Header() {
     return () => clearInterval(timer);
   }, []);
 
-  const isStale = connectionStatus.lastSeen > 0 && (now - connectionStatus.lastSeen > 30000);
-  const effectiveStatus = isStale ? 'Offline' : connectionStatus.status;
-  const isEffectiveOnline = effectiveStatus === 'Online' && !isStale;
+  const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  // Force 'Online' if we have a fresh heartbeat (within 30s), otherwise respect DB status or show 'Offline' if stale
+  const effectiveStatus = isStale ? 'Offline' : (lastSeenMs > 0 ? 'Online' : connectionStatus.status);
+  const isEffectiveOnline = effectiveStatus === 'Online';
 
   return (
     <header className="h-16 bg-system-panel border-b border-system-border flex items-center justify-between px-3 md:px-6 shrink-0 z-10 sticky top-0 select-none">

@@ -80,17 +80,20 @@ export function getSensorStatus(type: string, value: number): SensorStatus {
   switch (type.toLowerCase()) {
     case 'temperature':
     case 'temp':
+    case 'temp.':
       if (value <= 30) return 'GOOD';
       if (value <= 35) return 'WARNING';
       if (value <= 40) return 'POOR';
       return 'DANGER';
     case 'humidity':
     case 'hum':
+    case 'hum.':
       if (value <= 70) return 'GOOD';
       if (value <= 85) return 'WARNING';
       if (value <= 90) return 'POOR';
       return 'DANGER';
     case 'co2':
+    case 'co2 level':
       if (value <= 800) return 'GOOD';
       if (value <= 1200) return 'WARNING';
       if (value <= 2000) return 'POOR';
@@ -102,18 +105,21 @@ export function getSensorStatus(type: string, value: number): SensorStatus {
       return 'DANGER';
     case 'nh3':
     case 'ammonia':
+    case 'ammonia nh3':
       if (value < 25) return 'GOOD';
       if (value <= 50) return 'WARNING';
       if (value <= 100) return 'POOR';
       return 'DANGER';
     case 'ch4':
     case 'methane':
+    case 'methane ch4':
       if (value <= 50) return 'GOOD';
       if (value <= 100) return 'WARNING';
       if (value <= 500) return 'POOR';
       return 'DANGER';
     case 'pm2_5':
     case 'pm2.5':
+    case 'pm2.5 feed dust':
       if (value <= 12) return 'GOOD';
       if (value <= 35.4) return 'WARNING';
       if (value <= 55.4) return 'POOR';
