@@ -769,9 +769,10 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative shrink-0 w-full md:w-auto bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 md:gap-5 z-10 select-none min-w-0 md:min-w-[320px] overflow-hidden group shadow-lg">
-          <div className="flex flex-col gap-1 shrink-0 min-w-[120px] md:min-w-[140px]">
-            <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap">Identifier</label>
+        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-col sm:flex-row items-center gap-3 md:gap-6 z-10 select-none min-w-0 md:min-w-[440px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
+          {/* Section 1: Identifier */}
+          <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
+            <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
             <div className="relative inline-block w-full">
               <select
                 value={selectedDeviceId}
@@ -792,23 +793,29 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="w-[1px] h-10 md:h-12 bg-white/10 z-10 hidden xs:block" />
-          
-          <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
-            <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate font-bold">Climate Safety</p>
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <span className={cn(
-                "px-2 md:px-2.5 py-0.5 rounded md:rounded-lg text-[9px] md:text-xs font-black shrink-0 uppercase tracking-wider border",
+          <div className="hidden sm:block w-[1px] h-10 bg-white/10" />
+
+          {/* Section 2: Climate Safety */}
+          <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
+            <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-400 font-mono font-bold">Climate Safety</p>
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className={cn(
+                "w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-black border transition-all duration-500",
                 activeIssueCount > 0 
-                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
-                  : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
+                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
               )}>
-                {activeIssueCount > 0 ? `${activeIssueCount} HAZARDS` : 'SECURE'}
-              </span>
+                {activeIssueCount}
+              </div>
+              <div className="min-w-0">
+                <p className={cn("text-[10px] md:text-xs font-bold uppercase tracking-tight", activeIssueCount > 0 ? "text-rose-400" : "text-emerald-400")}>
+                   {activeIssueCount > 0 ? 'Hazards Detected' : 'Environment Secure'}
+                </p>
+                <p className="text-[7px] md:text-[8px] text-slate-400 uppercase tracking-tighter opacity-70 truncate">
+                  {activeIssueCount > 0 ? 'Immediate Action Needed' : 'No Critical Issues Found'}
+                </p>
+              </div>
             </div>
-            <p className="text-[8px] md:text-[10px] text-slate-300 truncate hidden sm:block opacity-70">
-              {activeIssueCount > 0 ? 'Exceeds thresholds!' : 'Ventilation operates efficiently.'}
-            </p>
           </div>
         </div>
       </div>
