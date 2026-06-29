@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { cn, parseSafeDate, getSensorStatus } from '../lib/utils';
+import { cn, parseSafeDate, getSensorStatus, getStatusBgColor } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { AirLoading } from '../components/AirLoading';
@@ -239,6 +239,18 @@ export function Dashboard() {
   const [onboardingDevName, setOnboardingDevName] = useState('ESP32 Main Node');
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
+
+  const [now, setNow] = useState(Date.now());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const effectiveStatus = isStale ? 'Offline' : (lastSeenMs > 0 ? 'Online' : connectionStatus.status);
+  const isEffectiveOnline = effectiveStatus === 'Online';
 
   const handleCustomRegisterSetup = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -836,12 +848,21 @@ export function Dashboard() {
           <div className="space-y-4 flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between border-b border-system-border pb-3 shrink-0">
               <h3 className="text-sm font-bold tracking-tight uppercase font-mono">Telemetry Receivers</h3>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all duration-500",
+                isEffectiveOnline ? getStatusBgColor('GOOD') : getStatusBgColor('DANGER')
+              )}>
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  <span className={cn(
+                    "absolute inline-flex h-full w-full rounded-full opacity-75",
+                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-red-400"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-1.5 w-1.5",
+                    isEffectiveOnline ? "bg-emerald-500" : "bg-red-500"
+                  )}></span>
                 </span>
-                {devices.length} ACTIVE
+                {devices.length} {isEffectiveOnline ? 'ACTIVE' : 'INACTIVE'}
               </div>
             </div>
 
@@ -878,12 +899,23 @@ export function Dashboard() {
               <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
                 Microclimate Feed Stream
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <div className={cn(
+                "flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all duration-500",
+                isEffectiveOnline ? getStatusBgColor('GOOD') : getStatusBgColor('DANGER')
+              )}>
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                  <span className={cn(
+                    "absolute inline-flex h-full w-full rounded-full opacity-75",
+                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-red-400"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-1.5 w-1.5",
+                    isEffectiveOnline ? "bg-emerald-500" : "bg-red-500"
+                  )}></span>
                 </span>
-                <span className="text-[8px] font-black text-emerald-400 uppercase font-mono tracking-tighter">Live</span>
+                <span className="text-[8px] font-black uppercase font-mono tracking-tighter">
+                  {isEffectiveOnline ? 'Live' : 'Stale'}
+                </span>
               </div>
             </div>
 
