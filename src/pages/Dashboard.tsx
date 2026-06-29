@@ -130,6 +130,26 @@ const MethaneSvg = ({ className }: { className?: string }) => {
   );
 };
 
+const AqiSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
+  const gradientId = isWarning ? "aqiGradWarning" : "aqiGradNormal";
+  const colorStart = isWarning ? "#ef4444" : "#10b981";
+  const colorEnd = isWarning ? "#b91c1c" : "#059669";
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={colorStart} />
+          <stop offset="100%" stopColor={colorEnd} />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" />
+      <path d="M12 5a7 7 0 0 1 7 7 7 7 0 0 1-7 7 7 7 0 0 1-7-7" stroke={`url(#${gradientId})`} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.5" />
+      <path d="M12 12l2-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+};
+
 
 const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
   return (
@@ -338,8 +358,9 @@ export function Dashboard() {
   const isAmmoniaAlert = getSensorStatus('nh3', lastReading.nh3) !== 'GOOD';
   const isPm25Alert = getSensorStatus('pm2.5', lastReading.pm2_5 || 0) !== 'GOOD';
   const isMethaneAlert = getSensorStatus('ch4', lastReading.ch4 || 0) !== 'GOOD';
+  const isAqiAlert = getSensorStatus('aqi', lastReading.aqi || 0) !== 'GOOD';
 
-  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0);
+  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0) + (isAqiAlert ? 1 : 0);
 
   const getStatus = (label: string, val: number) => {
     const status = getSensorStatus(label, val);
@@ -492,6 +513,7 @@ export function Dashboard() {
   const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
   const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0);
   const methaneStatus = getStatus('Methane CH4', lastReading.ch4 || 0);
+  const aqiStatus = getStatus('AQI Index', lastReading.aqi || 0);
 
   const metrics = [
     { 
@@ -577,6 +599,20 @@ export function Dashboard() {
       isWarning: isMethaneAlert,
       status: methaneStatus,
       limitInfo: `${thresholds.methaneMax} ppm`
+    },
+    { 
+      label: 'Overall AQI', 
+      value: Math.round(lastReading.aqi || 0).toString(), 
+      icon: AqiSvg, 
+      ...getStylesByStatus(aqiStatus),
+      bg: isAqiAlert 
+        ? getStylesByStatus(aqiStatus).bgClass
+        : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
+      cardStyle: getStylesByStatus(aqiStatus).borderClass,
+      color: getStylesByStatus(aqiStatus).textClass,
+      isWarning: isAqiAlert,
+      status: aqiStatus,
+      limitInfo: '100 AQI'
     },
   ];
 
@@ -801,7 +837,7 @@ export function Dashboard() {
         )}
       </div>
 
-      <div className="mt-4 md:mt-6 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
+      <div className="mt-4 md:mt-6 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
         {metrics.map((metric, idx) => {
           const IconComponent = metric.icon;
           const statusStyles = getStylesByStatus(metric.status);
