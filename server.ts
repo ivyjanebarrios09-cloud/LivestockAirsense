@@ -4,7 +4,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc } from 'firebase/firestore';
-import autoConfig from './firebase-applet-config.json';
+import autoConfig from './firebase-config.json';
 
 const app = express();
 const PORT = 3000;

@@ -108,6 +108,25 @@ const PM25Svg = ({ className }: { className?: string }) => {
   );
 };
 
+const PM10Svg = ({ className }: { className?: string }) => {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <defs>
+        <linearGradient id="pm10Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#6d28d9" />
+        </linearGradient>
+      </defs>
+      <path d="M3 8h10a3 3 0 0 0 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 12h14a3 3 0 0 1 3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 16h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="18" cy="7" r="2.5" fill="url(#pm10Grad)" />
+      <circle cx="14" cy="17" r="2" fill="url(#pm10Grad)" />
+      <circle cx="20" cy="18" r="1.5" fill="url(#pm10Grad)" />
+    </svg>
+  );
+};
+
 const MethaneSvg = ({ className }: { className?: string }) => {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -357,10 +376,11 @@ export function Dashboard() {
   const isCo2Alert = getSensorStatus('co2', lastReading.co2) !== 'GOOD';
   const isAmmoniaAlert = getSensorStatus('nh3', lastReading.nh3) !== 'GOOD';
   const isPm25Alert = getSensorStatus('pm2.5', lastReading.pm2_5 || 0) !== 'GOOD';
+  const isPm10Alert = getSensorStatus('pm10', lastReading.pm10 || 0) !== 'GOOD';
   const isMethaneAlert = getSensorStatus('ch4', lastReading.ch4 || 0) !== 'GOOD';
   const isAqiAlert = getSensorStatus('aqi', lastReading.aqi || 0) !== 'GOOD';
 
-  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0) + (isAqiAlert ? 1 : 0);
+  const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isPm10Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0) + (isAqiAlert ? 1 : 0);
 
   const getStatus = (label: string, val: number) => {
     const status = getSensorStatus(label, val);
@@ -499,6 +519,10 @@ export function Dashboard() {
       const prevPm25Stat = getStatus('PM2.5 Feed Dust', prev.pm2_5 ?? 0).label;
       checkAndRecord('PM2.5 Feed Dust', curr.pm2_5 ?? 0, prev.pm2_5 ?? 0, currPm25Stat, prevPm25Stat);
 
+      const currPm10Stat = getStatus('PM10 Coarse Dust', curr.pm10 ?? 0).label;
+      const prevPm10Stat = getStatus('PM10 Coarse Dust', prev.pm10 ?? 0).label;
+      checkAndRecord('PM10 Coarse Dust', curr.pm10 ?? 0, prev.pm10 ?? 0, currPm10Stat, prevPm10Stat);
+
       const currAqiStat = getStatus('AQI', curr.aqi ?? 0).label;
       const prevAqiStat = getStatus('AQI', prev.aqi ?? 0).label;
       checkAndRecord('AQI', curr.aqi ?? 0, prev.aqi ?? 0, currAqiStat, prevAqiStat);
@@ -512,6 +536,7 @@ export function Dashboard() {
   const co2Status = getStatus('CO2 Level', lastReading.co2);
   const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
   const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0);
+  const pm10Status = getStatus('PM10 Coarse Dust', lastReading.pm10 || 0);
   const methaneStatus = getStatus('Methane CH4', lastReading.ch4 || 0);
   const aqiStatus = getStatus('AQI Index', lastReading.aqi || 0);
 
@@ -585,6 +610,20 @@ export function Dashboard() {
       isWarning: isPm25Alert,
       status: pmStatus,
       limitInfo: '12 µg'
+    },
+    { 
+      label: 'PM10 Coarse Dust', 
+      value: (lastReading.pm10 || 0).toFixed(1) + ' µg/m³', 
+      icon: PM10Svg, 
+      ...getStylesByStatus(pm10Status),
+      bg: isPm10Alert 
+        ? getStylesByStatus(pm10Status).bgClass
+        : 'bg-indigo-500/10 border border-indigo-500/15 group-hover:bg-indigo-500/15',
+      cardStyle: getStylesByStatus(pm10Status).borderClass,
+      color: getStylesByStatus(pm10Status).textClass,
+      isWarning: isPm10Alert,
+      status: pm10Status,
+      limitInfo: '54 µg'
     },
     { 
       label: 'Methane CH4', 
@@ -730,34 +769,31 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 z-10 w-full md:w-auto">
-          <div className="flex items-center gap-4">
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <label className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap hidden sm:block">Identifier</label>
-            <div className="relative inline-block w-full sm:w-auto flex-1">
+        <div className="relative shrink-0 w-full md:w-auto bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 md:gap-5 z-10 select-none min-w-0 md:min-w-[320px] overflow-hidden group shadow-lg">
+          <div className="flex flex-col gap-1 shrink-0 min-w-[120px] md:min-w-[140px]">
+            <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold select-none whitespace-nowrap">Identifier</label>
+            <div className="relative inline-block w-full">
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg px-2 md:px-3 py-1 md:py-2 text-xs md:text-base font-black tracking-tight text-white focus:outline-none pr-7 md:pr-9 appearance-none transition-colors leading-none w-full sm:w-auto"
+                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
               >
                 {devices?.map((dev) => (
                   <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
-                    {dev.name} ({dev.id})
+                    {dev.name}
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 md:pr-3.5 text-white">
-                <svg className="fill-current h-3 w-3 md:h-4 md:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-white">
+                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="relative shrink-0 w-full md:w-auto bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group shadow-lg">
+          <div className="w-[1px] h-10 md:h-12 bg-white/10 z-10 hidden xs:block" />
+          
           <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
             <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate font-bold">Climate Safety</p>
             <div className="flex items-center gap-1.5 md:gap-2">

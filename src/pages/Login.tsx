@@ -86,7 +86,7 @@ export function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
+                  placeholder="admin@airsense.com"
                   className="block w-full appearance-none rounded-md border border-system-border px-3 py-2 placeholder-system-muted shadow-sm focus:border-system-accent focus:outline-none focus:ring-1 focus:ring-system-accent sm:text-sm bg-system-bg text-system-text"
                 />
               </div>

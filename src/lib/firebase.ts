@@ -32,7 +32,7 @@ import {
   persistentMultipleTabManager
 } from 'firebase/firestore';
 import { parseSafeDate, getSensorStatus } from './utils';
-import autoConfig from '../../firebase-applet-config.json';
+import autoConfig from '../../firebase-config.json';
 
 const firebaseConfig = {
   apiKey: autoConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
