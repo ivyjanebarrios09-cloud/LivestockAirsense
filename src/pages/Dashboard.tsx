@@ -758,14 +758,6 @@ export function Dashboard() {
         </div>
 
         <div className="relative shrink-0 w-full md:w-auto bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center gap-4 md:gap-5 z-10 select-none min-w-0 md:min-w-[240px] overflow-hidden group shadow-lg">
-          <div className="flex flex-col items-center justify-center bg-white/10 md:bg-white/5 w-14 h-14 md:w-16 md:h-16 rounded-full border border-white/10 shrink-0 z-10 p-1 shadow-inner">
-            <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">AQI</span>
-            <span className="text-base md:text-2xl font-black mt-0.5 md:mt-1 tracking-tight leading-none tabular-nums text-white">{deviceData?.aqi || 0}</span>
-            <span className={cn("text-[7px] md:text-[9px] font-bold mt-0.5 truncate max-w-full text-center uppercase tracking-tighter px-0.5", getStatus('AQI', deviceData?.aqi || 0).color)}>
-              {getStatus('AQI', deviceData?.aqi || 0).label}
-            </span>
-          </div>
-          <div className="w-[1px] h-10 md:h-12 bg-white/10 z-10 hidden xs:block" />
           <div className="space-y-0.5 md:space-y-1 z-10 min-w-0 flex-1">
             <p className="text-[8px] md:text-[10px] uppercase tracking-widest text-slate-400 font-mono truncate font-bold">Climate Safety</p>
             <div className="flex items-center gap-1.5 md:gap-2">
