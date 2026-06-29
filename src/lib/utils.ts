@@ -137,6 +137,8 @@ export function getSensorStatus(type: string, value: number): SensorStatus {
       if (value <= 2000) return 'POOR';
       return 'DANGER';
     case 'aqi':
+    case 'aqi index':
+    case 'aqi status':
       if (value <= 100) return 'GOOD';
       if (value <= 200) return 'WARNING';
       if (value <= 300) return 'POOR';
@@ -163,6 +165,7 @@ export function getSensorStatus(type: string, value: number): SensorStatus {
       if (value <= 55.4) return 'POOR';
       return 'DANGER';
     case 'pm10':
+    case 'pm10 coarse dust':
       if (value <= 54) return 'GOOD';
       if (value <= 154) return 'WARNING';
       if (value <= 254) return 'POOR';
