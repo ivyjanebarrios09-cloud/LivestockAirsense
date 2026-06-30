@@ -209,7 +209,9 @@ export function AnalyticsPage() {
       hum: { avg: avg('humidity'), max: max('humidity') },
       co2: { avg: avg('co2'), max: max('co2') },
       nh3: { avg: avg('nh3'), max: max('nh3') },
-      ch4: { avg: avg('ch4'), max: max('ch4') }
+      ch4: { avg: avg('ch4'), max: max('ch4') },
+      pm2_5: { avg: avg('pm2_5'), max: max('pm2_5') },
+      pm10: { avg: avg('pm10'), max: max('pm10') }
     };
   }, [analyticsData]);
 
@@ -239,6 +241,8 @@ export function AnalyticsPage() {
       ['CO2', summary.co2.avg.toFixed(2), summary.co2.max.toFixed(2), 'PPM'],
       ['Ammonia (NH3)', summary.nh3.avg.toFixed(2), summary.nh3.max.toFixed(2), 'PPM'],
       ['Methane (CH4)', summary.ch4.avg.toFixed(2), summary.ch4.max.toFixed(2), 'PPM'],
+      ['PM2.5', summary.pm2_5.avg.toFixed(2), summary.pm2_5.max.toFixed(2), 'µg/m³'],
+      ['PM10', summary.pm10.avg.toFixed(2), summary.pm10.max.toFixed(2), 'µg/m³'],
     ];
 
     autoTable(doc, {
@@ -274,14 +278,16 @@ export function AnalyticsPage() {
         (d.temperature || 0).toFixed(1),
         (d.humidity || 0).toFixed(1),
         (d.co2 || 0).toFixed(0),
-        (d.nh3 || 0).toFixed(1)
+        (d.nh3 || 0).toFixed(1),
+        (d.pm2_5 || 0).toFixed(1),
+        (d.pm10 || 0).toFixed(1)
       ]);
 
       autoTable(doc, {
         startY: 25,
-        head: [['Time', 'AQI', 'Temp (°C)', 'Hum (%)', 'CO2 (PPM)', 'NH3 (PPM)']],
+        head: [['Time', 'AQI', 'Temp', 'Hum', 'CO2', 'NH3', 'PM2.5', 'PM10']],
         body: rawData,
-        styles: { fontSize: 8 }
+        styles: { fontSize: 7 }
       });
       
       if (analyticsData.length > 50) {
@@ -456,14 +462,16 @@ export function AnalyticsPage() {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y md:divide-y-0 divide-system-border">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 divide-x divide-y md:divide-y-0 divide-system-border">
             {[
               { label: 'AQI', data: summary.aqi, unit: 'avg' },
               { label: 'TEMP', data: summary.temp, unit: '°C' },
               { label: 'HUM', data: summary.hum, unit: '%' },
               { label: 'CO2', data: summary.co2, unit: 'ppm' },
               { label: 'NH3', data: summary.nh3, unit: 'ppm' },
-              { label: 'CH4', data: summary.ch4, unit: 'ppm' }
+              { label: 'CH4', data: summary.ch4, unit: 'ppm' },
+              { label: 'PM2.5', data: summary.pm2_5, unit: 'µg' },
+              { label: 'PM10', data: summary.pm10, unit: 'µg' }
             ].map((item, idx) => (
               <div key={idx} className="p-6 space-y-3 hover:bg-system-bg/30 transition-colors">
                 <p className="text-[10px] font-black font-mono text-system-muted uppercase tracking-wider">{item.label}</p>
