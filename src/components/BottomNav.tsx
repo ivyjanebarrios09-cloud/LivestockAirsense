@@ -4,13 +4,13 @@ import { cn } from '../lib/utils';
 import { useAppContext } from '../hooks/useAppContext';
 
 export function BottomNav() {
-  const { unreadAlertsCount } = useAppContext();
+  const { } = useAppContext();
 
   const navItems = [
     { name: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
     { name: 'History', path: '/app/history', icon: History },
     { name: 'Analytics', path: '/app/analytics', icon: LineChart },
-    { name: 'Alerts', path: '/app/alerts', icon: BellRing, badge: unreadAlertsCount },
+    { name: 'Alerts', path: '/app/alerts', icon: BellRing },
     { name: 'Reports', path: '/app/reports', icon: FileText },
     { name: 'Settings', path: '/app/settings', icon: Settings },
   ];
@@ -32,11 +32,6 @@ export function BottomNav() {
           {({ isActive }) => (
             <>
               <item.icon className="w-5 h-5 transition-transform group-hover:rotate-3" />
-              {item.badge && item.badge > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-severity-critical text-[9px] font-bold text-white leading-none scale-90 border border-system-panel animate-bounce">
-                  {item.badge}
-                </span>
-              ) : null}
               {isActive && (
                 <span className="absolute bottom-1.5 w-1.5 h-[3px] rounded-full bg-system-accent" />
               )}

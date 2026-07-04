@@ -119,9 +119,18 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => unsubscribeDevices();
   }, [uid]);
 
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
-    return localStorage.getItem(`las_${uid}_selected_device`) || '';
+  const [selectedDeviceId, setInternalSelectedDeviceId] = useState<string>(() => {
+    const uidFromLocalStorage = uid || 'guest';
+    return localStorage.getItem(`las_${uidFromLocalStorage}_selected_device`) || '';
   });
+
+  const setSelectedDeviceId = (id: string) => {
+    setInternalSelectedDeviceId(id);
+    localStorage.setItem(`las_${uid}_selected_device`, id);
+    if (uid && uid !== 'guest') {
+      saveUserSettingsToFirestore(uid, { selectedDeviceId: id });
+    }
+  };
 
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem(`las_${uid}_refresh_interval`);
@@ -172,8 +181,9 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const unsubscribeUser = onSnapshot(userDocRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        if (data.selectedDeviceId !== undefined) {
-          setSelectedDeviceId(data.selectedDeviceId);
+        if (data.selectedDeviceId !== undefined && data.selectedDeviceId !== selectedDeviceId) {
+          setInternalSelectedDeviceId(data.selectedDeviceId);
+          localStorage.setItem(`las_${uid}_selected_device`, data.selectedDeviceId);
         }
         if (data.thresholds !== undefined) {
           const t = { ...data.thresholds };
@@ -205,16 +215,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
-      setSelectedDeviceId(devices[0].id);
+      const defaultId = devices[0].id;
+      setInternalSelectedDeviceId(defaultId);
+      localStorage.setItem(`las_${uid}_selected_device`, defaultId);
     }
-  }, [devices, selectedDeviceId]);
-
-  useEffect(() => {
-    if (selectedDeviceId) {
-      localStorage.setItem(`las_${uid}_selected_device`, selectedDeviceId);
-      saveUserSettingsToFirestore(uid, { selectedDeviceId });
-    }
-  }, [selectedDeviceId, uid]);
+  }, [devices, selectedDeviceId, uid]);
 
   const addDevice = async (device: any) => {
     const enrichedDevice = { ...device, userId: uid || 'guest' };

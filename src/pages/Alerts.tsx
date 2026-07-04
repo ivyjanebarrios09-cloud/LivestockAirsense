@@ -81,6 +81,17 @@ export function AlertsPage() {
   };
 
   const filteredAlerts = alerts.filter((item) => {
+    // Filter out zero readings
+    // If the alert object has a reading field, use it
+    if (item.reading !== undefined && item.reading !== null) {
+      if (parseFloat(item.reading.toString()) === 0) return false;
+    } else if (item.message) {
+      // Fallback: parse from message if reading field is missing (legacy)
+      // Messages look like: "Temperature shifted from Good to Warning (Value: 0)"
+      const match = item.message.match(/\(Value: ([\d.-]+)\)/);
+      if (match && parseFloat(match[1]) === 0) return false;
+    }
+
     if (activeTab === 'active') return !item.resolved;
     if (activeTab === 'resolved') return item.resolved;
     return true; // 'all'

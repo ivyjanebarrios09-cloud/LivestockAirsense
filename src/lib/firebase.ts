@@ -1246,6 +1246,7 @@ export const addAlertToFirestore = async (
     severity: 'critical' | 'warning' | 'normal';
     location: string;
     deviceId?: string;
+    reading?: number;
   }
 ) => {
   try {
@@ -1259,7 +1260,8 @@ export const addAlertToFirestore = async (
       severity: alert.severity,
       location: alert.location,
       resolved: false,
-      isRead: false
+      isRead: false,
+      reading: alert.reading ?? null
     });
   } catch (error) {
     console.error('addAlertToFirestore failed:', error);

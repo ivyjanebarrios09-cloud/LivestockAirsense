@@ -74,7 +74,15 @@ export function HistoryPage() {
     setHistoricalLogs([]); // Clear old data
     const { start, end } = dateRange;
     const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
-    const formattedLogs = logs.map(log => ({
+    
+    // Filter out zero readings (common with hardware noise/offline states)
+    const filteredLogs = logs.filter(log => {
+      if (log.reading === undefined || log.reading === null) return true;
+      const val = parseFloat(log.reading.toString());
+      return val !== 0;
+    });
+
+    const formattedLogs = filteredLogs.map(log => ({
       ...log,
       timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
       chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''

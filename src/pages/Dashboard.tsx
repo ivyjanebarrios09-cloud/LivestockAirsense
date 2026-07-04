@@ -7,7 +7,7 @@ import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { AirLoading } from '../components/AirLoading';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings, subscribeToDeviceStatus } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock, RefreshCw } from 'lucide-react';
+import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock, RefreshCw, ShieldAlert, ShieldCheck, WifiOff } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -473,7 +473,7 @@ export function Dashboard() {
         currStatus: string,
         prevStatus: string
       ) => {
-        if (currStatus !== prevStatus) {
+        if (currStatus !== prevStatus && currVal !== 0) {
           console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
           await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
             temp: curr.temperature ?? 0,
@@ -500,7 +500,8 @@ export function Dashboard() {
               message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
               severity,
               location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
-              deviceId: selectedDeviceId
+              deviceId: selectedDeviceId,
+              reading: currVal
             });
 
             if (severity === 'critical') {
@@ -566,113 +567,113 @@ export function Dashboard() {
   const metrics = [
     { 
       label: 'Temperature', 
-      value: isInactive ? '--' : lastReading.temperature?.toFixed(1) + ' °C', 
+      value: (isInactive || lastReading.temperature === 0) ? '--' : lastReading.temperature?.toFixed(1) + ' °C', 
       icon: TempSvg, 
       ...getStylesByStatus(tempStatus),
-      bg: (isTempAlert && !isInactive)
+      bg: (isTempAlert && !isInactive && lastReading.temperature !== 0)
         ? getStylesByStatus(tempStatus).bgClass
         : 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
       cardStyle: getStylesByStatus(tempStatus).borderClass,
       color: getStylesByStatus(tempStatus).textClass,
-      isWarning: isTempAlert && !isInactive,
+      isWarning: isTempAlert && !isInactive && lastReading.temperature !== 0,
       status: tempStatus,
       limitInfo: `${thresholds.tempMax}°C`
     },
     { 
       label: 'Humidity', 
-      value: isInactive ? '--' : lastReading.humidity?.toFixed(1) + ' %', 
+      value: (isInactive || lastReading.humidity === 0) ? '--' : lastReading.humidity?.toFixed(1) + ' %', 
       icon: HumiditySvg, 
       ...getStylesByStatus(humStatus),
-      bg: (isHumAlert && !isInactive) 
+      bg: (isHumAlert && !isInactive && lastReading.humidity !== 0) 
         ? getStylesByStatus(humStatus).bgClass
         : 'bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/15',
       cardStyle: getStylesByStatus(humStatus).borderClass,
       color: getStylesByStatus(humStatus).textClass,
-      isWarning: isHumAlert && !isInactive,
+      isWarning: isHumAlert && !isInactive && lastReading.humidity !== 0,
       status: humStatus,
       limitInfo: `${thresholds.humidityMax}%`
     },
     { 
       label: 'CO2 Level', 
-      value: isInactive ? '--' : Math.round(lastReading.co2 || 0) + ' ppm', 
+      value: (isInactive || lastReading.co2 === 0) ? '--' : Math.round(lastReading.co2 || 0) + ' ppm', 
       icon: Co2Svg, 
       ...getStylesByStatus(co2Status),
-      bg: (isCo2Alert && !isInactive) 
+      bg: (isCo2Alert && !isInactive && lastReading.co2 !== 0) 
         ? getStylesByStatus(co2Status).bgClass
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
       cardStyle: getStylesByStatus(co2Status).borderClass,
       color: getStylesByStatus(co2Status).textClass,
-      isWarning: isCo2Alert && !isInactive,
+      isWarning: isCo2Alert && !isInactive && lastReading.co2 !== 0,
       status: co2Status,
       limitInfo: `${thresholds.co2Max} ppm`
     },
     { 
       label: 'Ammonia NH3', 
-      value: isInactive ? '--' : lastReading.nh3?.toFixed(2) + ' ppm', 
+      value: (isInactive || lastReading.nh3 === 0) ? '--' : lastReading.nh3?.toFixed(2) + ' ppm', 
       icon: AmmoniaSvg, 
       ...getStylesByStatus(ammoniaStatus),
-      bg: (isAmmoniaAlert && !isInactive) 
+      bg: (isAmmoniaAlert && !isInactive && lastReading.nh3 !== 0) 
         ? getStylesByStatus(ammoniaStatus).bgClass
         : 'bg-yellow-600/10 border border-yellow-600/15 group-hover:bg-yellow-650/15',
       cardStyle: getStylesByStatus(ammoniaStatus).borderClass,
       color: getStylesByStatus(ammoniaStatus).textClass,
-      isWarning: isAmmoniaAlert && !isInactive,
+      isWarning: isAmmoniaAlert && !isInactive && lastReading.nh3 !== 0,
       status: ammoniaStatus,
       limitInfo: `${thresholds.ammoniaMax} ppm`
     },
     { 
       label: 'PM2.5 Feed Dust', 
-      value: isInactive ? '--' : (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
+      value: (isInactive || (lastReading.pm2_5 || 0) === 0) ? '--' : (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
       icon: PM25Svg, 
       ...getStylesByStatus(pmStatus),
-      bg: (isPm25Alert && !isInactive) 
+      bg: (isPm25Alert && !isInactive && (lastReading.pm2_5 || 0) !== 0) 
         ? getStylesByStatus(pmStatus).bgClass
         : 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
       cardStyle: getStylesByStatus(pmStatus).borderClass,
       color: getStylesByStatus(pmStatus).textClass,
-      isWarning: isPm25Alert && !isInactive,
+      isWarning: isPm25Alert && !isInactive && (lastReading.pm2_5 || 0) !== 0,
       status: pmStatus,
       limitInfo: '12 µg'
     },
     { 
       label: 'PM10 Coarse Dust', 
-      value: isInactive ? '--' : (lastReading.pm10 || 0).toFixed(1) + ' µg/m³', 
+      value: (isInactive || (lastReading.pm10 || 0) === 0) ? '--' : (lastReading.pm10 || 0).toFixed(1) + ' µg/m³', 
       icon: PM10Svg, 
       ...getStylesByStatus(pm10Status),
-      bg: (isPm10Alert && !isInactive) 
+      bg: (isPm10Alert && !isInactive && (lastReading.pm10 || 0) !== 0) 
         ? getStylesByStatus(pm10Status).bgClass
         : 'bg-indigo-500/10 border border-indigo-500/15 group-hover:bg-indigo-500/15',
       cardStyle: getStylesByStatus(pm10Status).borderClass,
       color: getStylesByStatus(pm10Status).textClass,
-      isWarning: isPm10Alert && !isInactive,
+      isWarning: isPm10Alert && !isInactive && (lastReading.pm10 || 0) !== 0,
       status: pm10Status,
       limitInfo: '54 µg'
     },
     { 
       label: 'Methane CH4', 
-      value: isInactive ? '--' : lastReading.ch4?.toFixed(2) + ' ppm', 
+      value: (isInactive || (lastReading.ch4 || 0) === 0) ? '--' : lastReading.ch4?.toFixed(2) + ' ppm', 
       icon: MethaneSvg, 
       ...getStylesByStatus(methaneStatus),
-      bg: (isMethaneAlert && !isInactive) 
+      bg: (isMethaneAlert && !isInactive && (lastReading.ch4 || 0) !== 0) 
         ? getStylesByStatus(methaneStatus).bgClass
         : 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
       cardStyle: getStylesByStatus(methaneStatus).borderClass,
       color: getStylesByStatus(methaneStatus).textClass,
-      isWarning: isMethaneAlert && !isInactive,
+      isWarning: isMethaneAlert && !isInactive && (lastReading.ch4 || 0) !== 0,
       status: methaneStatus,
       limitInfo: `${thresholds.methaneMax} ppm`
     },
     { 
       label: 'Overall AQI', 
-      value: isInactive ? '--' : Math.round(lastReading.aqi || 0).toString(), 
+      value: (isInactive || (lastReading.aqi || 0) === 0) ? '--' : Math.round(lastReading.aqi || 0).toString(), 
       icon: AqiSvg, 
       ...getStylesByStatus(aqiStatus),
-      bg: (isAqiAlert && !isInactive) 
+      bg: (isAqiAlert && !isInactive && (lastReading.aqi || 0) !== 0) 
         ? getStylesByStatus(aqiStatus).bgClass
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
       cardStyle: getStylesByStatus(aqiStatus).borderClass,
       color: getStylesByStatus(aqiStatus).textClass,
-      isWarning: isAqiAlert && !isInactive,
+      isWarning: isAqiAlert && !isInactive && (lastReading.aqi || 0) !== 0,
       status: aqiStatus,
       limitInfo: '100 AQI'
     },
@@ -850,7 +851,7 @@ export function Dashboard() {
                     ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
                     : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
               )}>
-                {isInactive ? '?' : activeIssueCount}
+                {isInactive ? <WifiOff className="w-3.5 h-3.5" /> : activeIssueCount > 0 ? <ShieldAlert className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
               </div>
               <div className="min-w-0">
                 <p className={cn(
