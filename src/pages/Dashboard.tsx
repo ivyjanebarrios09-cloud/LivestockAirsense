@@ -270,7 +270,8 @@ export function Dashboard() {
     addDevice,
     isDevicesLoading,
     isOnline,
-    connectionStatus
+    connectionStatus,
+    theme
   } = useAppContext();
 
   const [isAddingDevicePopup, setIsAddingDevicePopup] = useState(false);
@@ -784,34 +785,42 @@ export function Dashboard() {
     <>
       <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
       
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
+      <div className={cn(
+        "bg-gradient-to-r shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300",
+        theme === 'forest' 
+          ? "from-emerald-950 via-green-900 to-[#064e3b] text-emerald-50 border border-emerald-800/30"
+          : theme === 'wind'
+          ? "from-sky-600 via-sky-500 to-sky-700 text-white border border-sky-400/30"
+          : theme === 'farm'
+          ? "from-amber-600 via-amber-500 to-amber-700 text-amber-50 border border-amber-400/30"
+          : "from-slate-900 via-slate-800 to-indigo-950 text-white"
+      )}>
         
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} isInactive={isInactive} />
 
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-col sm:flex-row items-center gap-3 md:gap-6 z-10 select-none min-w-0 md:min-w-[440px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
+        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-col sm:flex-row items-center gap-3 md:gap-6 z-10 min-w-0 md:min-w-[440px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
           {/* Section 1: Identifier */}
           <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
             <div className="flex items-center justify-between">
               <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
               <motion.button 
-                onClick={() => window.location.reload()}
-                whileHover={{ rotate: 180 }}
-                whileTap={{ scale: 0.9, rotate: 180 }}
-                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                onClick={() => triggerSync()}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
                 title="Refresh Feed"
               >
-                <RefreshCw className="w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors" />
+                <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors", isSyncing && "animate-spin")} />
               </motion.button>
             </div>
             <div className="relative inline-block w-full">
               <select
                 value={selectedDeviceId}
                 onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="bg-white/10 hover:bg-white/15 border border-white/20 select-none cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
+                className="bg-white/10 hover:bg-white/15 border border-white/20 cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
               >
                 {devices?.map((dev) => (
                   <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
@@ -1068,7 +1077,18 @@ export function Dashboard() {
             {/* Warn/Telemetry Events */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
               <AnimatePresence mode="popLayout">
-                {alertsList.length === 0 ? (
+                {!isEffectiveOnline ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full flex flex-col items-center justify-center text-center p-4"
+                  >
+                    <Wifi className="w-8 h-8 text-system-muted mb-2 opacity-20" />
+                    <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest">Device Offline</p>
+                    <p className="text-[8px] text-system-muted font-mono opacity-60">No active data stream fetching.</p>
+                  </motion.div>
+                ) : alertsList.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

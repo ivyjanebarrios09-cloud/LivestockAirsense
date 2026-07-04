@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, parseSafeDate } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
@@ -8,9 +8,20 @@ import { subscribeToAlerts } from '../lib/firebase';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, clearAllAlerts, selectedDeviceId } = useAppContext();
+  const { resolveAlert, clearAllAlerts, selectedDeviceId, connectionStatus } = useAppContext();
   
   const [alerts, setAlerts] = useState<any[]>([]);
+
+  const [now, setNow] = useState(Date.now());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
 
   const uid = user?.uid || 'guest';
 
@@ -170,7 +181,13 @@ export function AlertsPage() {
           </div>
 
           <div className="space-y-3">
-            {filteredAlerts.length === 0 ? (
+            {!isEffectiveOnline ? (
+              <div className="bg-system-panel border border-system-border text-center py-16 rounded-2xl text-system-muted select-none">
+                <Wind className="w-10 h-10 mx-auto opacity-10 mb-3 animate-pulse" />
+                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em]">Node Offline</p>
+                <p className="text-[9px] font-mono lowercase italic opacity-50 mt-1">Alert stream suspended during hardware inactivity</p>
+              </div>
+            ) : filteredAlerts.length === 0 ? (
               <div className="bg-system-panel border border-system-border text-center py-10 rounded-2xl text-system-muted select-none">
                 <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
                 <p className="text-xs font-mono uppercase tracking-wider leading-none">No {activeTab} anomalies logged</p>

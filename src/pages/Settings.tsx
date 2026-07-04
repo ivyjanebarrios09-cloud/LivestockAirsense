@@ -1,5 +1,5 @@
 import { useState, useEffect, ChangeEvent } from 'react';
-import { Save, Server, Shield, Database, Sliders, CheckCircle, User, LogOut, Plus, Trash2, Cpu, MapPin, Sun, Moon } from 'lucide-react';
+import { Save, Server, Shield, Database, Sliders, CheckCircle, User, LogOut, Plus, Trash2, Cpu, MapPin, Sun, Moon, Wind, Sprout } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn } from '../lib/utils';
@@ -29,7 +29,9 @@ export function SettingsPage() {
     firebaseSync,
     saveSystemSettings,
     pushEnabled,
-    savePushEnabled
+    savePushEnabled,
+    theme,
+    setTheme
   } = useAppContext();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -160,19 +162,6 @@ export function SettingsPage() {
     }
   };
 
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem('app_theme') === 'dark';
-  });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('app_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('app_theme', 'light');
-    }
-  }, [isDarkMode]);
 
   useEffect(() => {
     if (!isEditingNew) {
@@ -414,16 +403,84 @@ export function SettingsPage() {
                   <option value="10500">10000 (10 seconds)</option>
                 </select>
               </div>
-              <div className="space-y-1 pt-2">
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-sm font-medium group-hover:text-system-accent transition-colors">Dark Mode</span>
+              <div className="space-y-4 pt-2">
+                <label className="text-[10px] uppercase tracking-wider text-system-muted font-mono block">App Appearance</label>
+                <div className="grid grid-cols-3 gap-3">
                   <button
-                    onClick={() => setIsDarkMode(!isDarkMode)}
-                    className="p-2 bg-system-bg border border-system-border rounded-xl transition-all hover:border-system-accent"
+                    onClick={() => setTheme('light')}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95",
+                      theme === 'light' 
+                        ? "bg-white border-blue-500 shadow-md ring-1 ring-blue-500/20" 
+                        : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                    )}
                   >
-                    {isDarkMode ? <Sun className="w-5 h-5 text-system-accent" /> : <Moon className="w-5 h-5 text-system-muted" />}
+                    <div className="w-full h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <Sun className={cn("w-4 h-4", theme === 'light' ? "text-blue-500" : "text-slate-400")} />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'light' ? "text-blue-600" : "text-slate-500")}>Light</span>
                   </button>
-                </label>
+
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95",
+                      theme === 'dark' 
+                        ? "bg-slate-800 border-blue-500 shadow-md ring-1 ring-blue-500/20" 
+                        : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                    )}
+                  >
+                    <div className="w-full h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                      <Moon className={cn("w-4 h-4", theme === 'dark' ? "text-blue-400" : "text-slate-500")} />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'dark' ? "text-blue-400" : "text-slate-400")}>Dark</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme('forest')}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95",
+                      theme === 'forest' 
+                        ? "bg-emerald-900 border-emerald-500 shadow-md ring-1 ring-emerald-500/20" 
+                        : "bg-[#064e3b] border-emerald-900 hover:border-emerald-800"
+                    )}
+                  >
+                    <div className="w-full h-8 bg-emerald-800/40 rounded-lg flex items-center justify-center">
+                      <Server className={cn("w-4 h-4", theme === 'forest' ? "text-emerald-400" : "text-emerald-600")} />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'forest' ? "text-emerald-400" : "text-emerald-500")}>Forest</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme('wind')}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95",
+                      theme === 'wind' 
+                        ? "bg-sky-50 border-sky-500 shadow-md ring-1 ring-sky-500/20" 
+                        : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                    )}
+                  >
+                    <div className="w-full h-8 bg-sky-100 rounded-lg flex items-center justify-center">
+                      <Wind className={cn("w-4 h-4", theme === 'wind' ? "text-sky-500" : "text-slate-400")} />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'wind' ? "text-sky-600" : "text-slate-500")}>Wind</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTheme('farm')}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all active:scale-95",
+                      theme === 'farm' 
+                        ? "bg-amber-50 border-amber-500 shadow-md ring-1 ring-amber-500/20" 
+                        : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                    )}
+                  >
+                    <div className="w-full h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                      <Sprout className={cn("w-4 h-4", theme === 'farm' ? "text-amber-600" : "text-slate-400")} />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-widest", theme === 'farm' ? "text-amber-700" : "text-slate-500")}>Farm</span>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1 pt-2">

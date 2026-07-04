@@ -31,6 +31,30 @@
     --color-system-muted: #94a3b8;
     --color-system-accent: #3b82f6;
   }
+  .theme-forest {
+    --color-system-bg: #064e3b;
+    --color-system-panel: #065f46;
+    --color-system-border: #047857;
+    --color-system-text: #ecfdf5;
+    --color-system-muted: #6ee7b7;
+    --color-system-accent: #10b981;
+  }
+  .theme-wind {
+    --color-system-bg: #f8fafc;
+    --color-system-panel: #ffffff;
+    --color-system-border: #e2e8f0;
+    --color-system-text: #0f172a;
+    --color-system-muted: #64748b;
+    --color-system-accent: #0ea5e9;
+  }
+  .theme-farm {
+    --color-system-bg: #fefaf0;
+    --color-system-panel: #fffdfa;
+    --color-system-border: #fde68a;
+    --color-system-text: #451a03;
+    --color-system-muted: #92400e;
+    --color-system-accent: #d97706;
+  }
 }
 
 @keyframes air-flow {

@@ -59,6 +59,8 @@ export interface AppContextType {
   isDevicesLoading: boolean;
   isOnline: boolean;
   connectionStatus: { status: string; lastSeen: number };
+  theme: 'light' | 'dark' | 'forest' | 'wind' | 'farm';
+  setTheme: (theme: 'light' | 'dark' | 'forest' | 'wind' | 'farm') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -407,6 +409,30 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => unsubscribeStatus();
   }, [uid, selectedDeviceId, devices.length]);
 
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'forest' | 'wind' | 'farm'>(() => {
+    const saved = localStorage.getItem('app_theme');
+    return (saved as 'light' | 'dark' | 'forest' | 'wind' | 'farm') || 'light';
+  });
+
+  const setTheme = (newTheme: 'light' | 'dark' | 'forest' | 'wind' | 'farm') => {
+    setThemeState(newTheme);
+    localStorage.setItem('app_theme', newTheme);
+  };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'theme-forest', 'theme-wind', 'theme-farm');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'forest') {
+      root.classList.add('theme-forest');
+    } else if (theme === 'wind') {
+      root.classList.add('theme-wind');
+    } else if (theme === 'farm') {
+      root.classList.add('theme-farm');
+    }
+  }, [theme]);
+
   return (
     <AppContext.Provider value={{
       uid,
@@ -431,7 +457,9 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       savePushEnabled,
       isDevicesLoading,
       isOnline,
-      connectionStatus
+      connectionStatus,
+      theme,
+      setTheme
     }}>
       {children}
     </AppContext.Provider>
