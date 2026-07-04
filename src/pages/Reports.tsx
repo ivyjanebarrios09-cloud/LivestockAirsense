@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, Sparkles } from 'lucide-react';
+import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, Sparkles, RefreshCw } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn, getSensorStatus } from '../lib/utils';
+import { motion } from 'motion/react';
 
 export function ReportsPage() {
   const { devices, selectedDeviceId } = useAppContext();
@@ -11,10 +12,11 @@ export function ReportsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const latestReading = activeDevice?.latestReading || {};
+  const hasData = Object.keys(latestReading).length > 0 && (latestReading.timestamp || latestReading.aqi !== undefined);
   const { thresholds } = useAppContext();
 
   const compiledReportProps = useMemo(() => {
-    if (!activeDevice) return [];
+    if (!activeDevice || !hasData) return [];
     
     return [
       { 
@@ -48,10 +50,10 @@ export function ReportsPage() {
         status: getSensorStatus('ch4', latestReading.ch4 ?? latestReading.methane ?? 0) 
       },
     ];
-  }, [activeDevice, latestReading]);
+  }, [activeDevice, latestReading, hasData]);
 
   const airQualitySummary = useMemo(() => {
-    if (!activeDevice) return '';
+    if (!activeDevice || !hasData) return '';
     const issues = [];
     if (getSensorStatus('aqi', latestReading.aqi ?? 0) !== 'GOOD') issues.push('elevated air particulate loads');
     if (getSensorStatus('temp', latestReading.temperature ?? 0) !== 'GOOD') issues.push('high thermal stress');
@@ -66,13 +68,38 @@ export function ReportsPage() {
       }
       return `The system has detected potential hazards: ${issues.join(', ')}. This indicates compromised air quality which may impact animal health and productivity. Immediate review of ventilation and waste management is recommended.`;
     }
-  }, [activeDevice, latestReading, compiledReportProps]);
+  }, [activeDevice, latestReading, compiledReportProps, hasData]);
 
-  if (!activeDevice) {
+  if (!activeDevice || !hasData) {
     return (
-      <div className="p-8 text-center">
-        <h2 className="text-xl font-bold">No device registered</h2>
-        <p className="text-system-muted mt-2">Please register an AirSense device in the settings page to generate reports.</p>
+      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-system-border pb-8">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
+            <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
+              <span>No compliance data available for <span className="font-bold text-system-text">{activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'}</span></span>
+              <motion.button 
+                onClick={() => window.location.reload()}
+                whileHover={{ rotate: 180 }}
+                whileTap={{ scale: 0.9, rotate: 180 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="p-1 hover:bg-system-bg rounded-md border border-transparent hover:border-system-border transition-colors group"
+                title="Refresh Feed"
+              >
+                <RefreshCw className="w-3 h-3 text-system-accent group-hover:text-system-text transition-colors" />
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8 text-center flex flex-col items-center justify-center min-h-[300px] space-y-4 bg-system-panel/40 border border-system-border/50 rounded-3xl">
+          <Activity className="w-12 h-12 text-system-muted opacity-20" />
+          <h2 className="text-xl font-black font-mono uppercase tracking-tight">No Compliance Data</h2>
+          <p className="text-system-muted text-sm max-w-md mx-auto">
+            The system hasn't received any telemetry records for <span className="text-system-text font-bold">{activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'}</span> yet. 
+            Reports can only be generated once the node begins transmitting sensor data.
+          </p>
+        </div>
       </div>
     );
   }
@@ -153,18 +180,30 @@ export function ReportsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
-          <p className="text-sm text-system-muted mt-1 leading-relaxed">
-            Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeDevice.name}</span>.
-          </p>
+          <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
+            <span>Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <motion.button 
+              onClick={() => window.location.reload()}
+              whileHover={{ rotate: 180 }}
+              whileTap={{ scale: 0.9, rotate: 180 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              className="p-1 hover:bg-system-bg rounded-md border border-transparent hover:border-system-border transition-colors group"
+              title="Refresh Feed"
+            >
+              <RefreshCw className="w-3 h-3 text-system-accent group-hover:text-system-text transition-colors" />
+            </motion.button>
+          </div>
         </div>
         
-        <button 
-          onClick={() => downloadPDFReport('Custom Microclimate Report')}
-          className="flex items-center gap-2 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Create Custom Report
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => downloadPDFReport('Custom Microclimate Report')}
+            className="flex items-center gap-2 px-4 py-2 bg-system-accent hover:bg-opacity-90 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Create Custom Report
+          </button>
+        </div>
       </div>
 
       {successMsg && (

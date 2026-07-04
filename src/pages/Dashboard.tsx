@@ -7,7 +7,7 @@ import { Interactive3DAtmosphere } from '../components/Interactive3DAtmosphere';
 import { AirLoading } from '../components/AirLoading';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings, subscribeToDeviceStatus } from '../lib/firebase';
 import { toast } from 'sonner';
-import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock } from 'lucide-react';
+import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock, RefreshCw } from 'lucide-react';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -288,8 +288,10 @@ export function Dashboard() {
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
-  const effectiveStatus = isStale ? 'Offline' : (lastSeenMs > 0 ? 'Online' : connectionStatus.status);
-  const isEffectiveOnline = effectiveStatus === 'Online';
+  
+  // A node is only considered online if its status is 'Online' AND it has a fresh heartbeat
+  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
+  const effectiveStatus = isEffectiveOnline ? 'Online' : 'Offline';
 
   const handleCustomRegisterSetup = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -382,8 +384,14 @@ export function Dashboard() {
 
   const activeIssueCount = (isTempAlert ? 1 : 0) + (isHumAlert ? 1 : 0) + (isCo2Alert ? 1 : 0) + (isAmmoniaAlert ? 1 : 0) + (isPm25Alert ? 1 : 0) + (isPm10Alert ? 1 : 0) + (isMethaneAlert ? 1 : 0) + (isAqiAlert ? 1 : 0);
 
-  const getStatus = (label: string, val: number) => {
+  const getStatus = (label: string, val: number, isOffline: boolean = false) => {
+    if (isOffline && !deviceData) {
+      return { label: 'Inactive', icon: '⚪', color: 'text-slate-400' };
+    }
     const status = getSensorStatus(label, val);
+    if (isOffline) {
+       return { label: `Stale (${status})`, icon: '⚪', color: 'text-slate-400' };
+    }
     switch (status) {
       case 'DANGER':
         return { label: 'Danger', icon: '🔴', color: 'text-red-500' };
@@ -399,6 +407,14 @@ export function Dashboard() {
 
   const getStylesByStatus = (status: { label: string; color: string }) => {
     const label = status?.label || 'Good';
+    if (label === 'Inactive' || label.startsWith('Stale')) {
+      return {
+        borderClass: 'border-slate-500/10 hover:border-slate-500/20 shadow-none ring-1 ring-slate-500/5',
+        bgClass: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
+        textClass: '!text-slate-400',
+        cardBg: 'bg-slate-500/[0.02] dark:bg-slate-500/[0.01]'
+      };
+    }
     if (label === 'Good' || label === 'Excellent') {
       return {
         borderClass: 'border-emerald-500/25 hover:border-emerald-500/50 shadow-[0_4px_20px_rgba(16,185,129,0.04)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/5',
@@ -482,7 +498,8 @@ export function Dashboard() {
               alertType: `${sensorName} Status Change`,
               message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
               severity,
-              location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node'
+              location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
+              deviceId: selectedDeviceId
             });
 
             if (severity === 'critical') {
@@ -531,125 +548,130 @@ export function Dashboard() {
     prevDeviceDataRef.current = deviceData;
   }, [deviceData, thresholds]);
 
-  const tempStatus = getStatus('Temperature', lastReading.temperature);
-  const humStatus = getStatus('Humidity', lastReading.humidity);
-  const co2Status = getStatus('CO2 Level', lastReading.co2);
-  const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3);
-  const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0);
-  const pm10Status = getStatus('PM10 Coarse Dust', lastReading.pm10 || 0);
-  const methaneStatus = getStatus('Methane CH4', lastReading.ch4 || 0);
-  const aqiStatus = getStatus('AQI Index', lastReading.aqi || 0);
+  const readingTimestamp = lastReading.timestamp ? parseSafeDate(lastReading.timestamp).getTime() : 0;
+  const isDataStale = readingTimestamp > 0 && (now - readingTimestamp > 300000); // 5 minutes without data is stale
+  const isInactive = !deviceData; // Only inactive if we have absolutely no data
+  const isOfflineMode = !isEffectiveOnline || isDataStale;
+
+  const tempStatus = getStatus('Temperature', lastReading.temperature, isOfflineMode);
+  const humStatus = getStatus('Humidity', lastReading.humidity, isOfflineMode);
+  const co2Status = getStatus('CO2 Level', lastReading.co2, isOfflineMode);
+  const ammoniaStatus = getStatus('Ammonia NH3', lastReading.nh3, isOfflineMode);
+  const pmStatus = getStatus('PM2.5 Feed Dust', lastReading.pm2_5 || 0, isOfflineMode);
+  const pm10Status = getStatus('PM10 Coarse Dust', lastReading.pm10 || 0, isOfflineMode);
+  const methaneStatus = getStatus('Methane CH4', lastReading.ch4 || 0, isOfflineMode);
+  const aqiStatus = getStatus('AQI Index', lastReading.aqi || 0, isOfflineMode);
 
   const metrics = [
     { 
       label: 'Temperature', 
-      value: lastReading.temperature?.toFixed(1) + ' °C', 
+      value: isInactive ? '--' : lastReading.temperature?.toFixed(1) + ' °C', 
       icon: TempSvg, 
       ...getStylesByStatus(tempStatus),
-      bg: isTempAlert 
+      bg: (isTempAlert && !isInactive)
         ? getStylesByStatus(tempStatus).bgClass
         : 'bg-orange-500/10 border border-orange-500/15 group-hover:bg-orange-500/15',
       cardStyle: getStylesByStatus(tempStatus).borderClass,
       color: getStylesByStatus(tempStatus).textClass,
-      isWarning: isTempAlert,
+      isWarning: isTempAlert && !isInactive,
       status: tempStatus,
       limitInfo: `${thresholds.tempMax}°C`
     },
     { 
       label: 'Humidity', 
-      value: lastReading.humidity?.toFixed(1) + ' %', 
+      value: isInactive ? '--' : lastReading.humidity?.toFixed(1) + ' %', 
       icon: HumiditySvg, 
       ...getStylesByStatus(humStatus),
-      bg: isHumAlert 
+      bg: (isHumAlert && !isInactive) 
         ? getStylesByStatus(humStatus).bgClass
         : 'bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/15',
       cardStyle: getStylesByStatus(humStatus).borderClass,
       color: getStylesByStatus(humStatus).textClass,
-      isWarning: isHumAlert,
+      isWarning: isHumAlert && !isInactive,
       status: humStatus,
       limitInfo: `${thresholds.humidityMax}%`
     },
     { 
       label: 'CO2 Level', 
-      value: Math.round(lastReading.co2 || 0) + ' ppm', 
+      value: isInactive ? '--' : Math.round(lastReading.co2 || 0) + ' ppm', 
       icon: Co2Svg, 
       ...getStylesByStatus(co2Status),
-      bg: isCo2Alert 
+      bg: (isCo2Alert && !isInactive) 
         ? getStylesByStatus(co2Status).bgClass
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
       cardStyle: getStylesByStatus(co2Status).borderClass,
       color: getStylesByStatus(co2Status).textClass,
-      isWarning: isCo2Alert,
+      isWarning: isCo2Alert && !isInactive,
       status: co2Status,
       limitInfo: `${thresholds.co2Max} ppm`
     },
     { 
       label: 'Ammonia NH3', 
-      value: lastReading.nh3?.toFixed(2) + ' ppm', 
+      value: isInactive ? '--' : lastReading.nh3?.toFixed(2) + ' ppm', 
       icon: AmmoniaSvg, 
       ...getStylesByStatus(ammoniaStatus),
-      bg: isAmmoniaAlert 
+      bg: (isAmmoniaAlert && !isInactive) 
         ? getStylesByStatus(ammoniaStatus).bgClass
         : 'bg-yellow-600/10 border border-yellow-600/15 group-hover:bg-yellow-650/15',
       cardStyle: getStylesByStatus(ammoniaStatus).borderClass,
       color: getStylesByStatus(ammoniaStatus).textClass,
-      isWarning: isAmmoniaAlert,
+      isWarning: isAmmoniaAlert && !isInactive,
       status: ammoniaStatus,
       limitInfo: `${thresholds.ammoniaMax} ppm`
     },
     { 
       label: 'PM2.5 Feed Dust', 
-      value: (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
+      value: isInactive ? '--' : (lastReading.pm2_5 || 0).toFixed(1) + ' µg/m³', 
       icon: PM25Svg, 
       ...getStylesByStatus(pmStatus),
-      bg: isPm25Alert 
+      bg: (isPm25Alert && !isInactive) 
         ? getStylesByStatus(pmStatus).bgClass
         : 'bg-purple-500/10 border border-purple-500/15 group-hover:bg-purple-500/15',
       cardStyle: getStylesByStatus(pmStatus).borderClass,
       color: getStylesByStatus(pmStatus).textClass,
-      isWarning: isPm25Alert,
+      isWarning: isPm25Alert && !isInactive,
       status: pmStatus,
       limitInfo: '12 µg'
     },
     { 
       label: 'PM10 Coarse Dust', 
-      value: (lastReading.pm10 || 0).toFixed(1) + ' µg/m³', 
+      value: isInactive ? '--' : (lastReading.pm10 || 0).toFixed(1) + ' µg/m³', 
       icon: PM10Svg, 
       ...getStylesByStatus(pm10Status),
-      bg: isPm10Alert 
+      bg: (isPm10Alert && !isInactive) 
         ? getStylesByStatus(pm10Status).bgClass
         : 'bg-indigo-500/10 border border-indigo-500/15 group-hover:bg-indigo-500/15',
       cardStyle: getStylesByStatus(pm10Status).borderClass,
       color: getStylesByStatus(pm10Status).textClass,
-      isWarning: isPm10Alert,
+      isWarning: isPm10Alert && !isInactive,
       status: pm10Status,
       limitInfo: '54 µg'
     },
     { 
       label: 'Methane CH4', 
-      value: lastReading.ch4?.toFixed(2) + ' ppm', 
+      value: isInactive ? '--' : lastReading.ch4?.toFixed(2) + ' ppm', 
       icon: MethaneSvg, 
       ...getStylesByStatus(methaneStatus),
-      bg: isMethaneAlert 
+      bg: (isMethaneAlert && !isInactive) 
         ? getStylesByStatus(methaneStatus).bgClass
         : 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
       cardStyle: getStylesByStatus(methaneStatus).borderClass,
       color: getStylesByStatus(methaneStatus).textClass,
-      isWarning: isMethaneAlert,
+      isWarning: isMethaneAlert && !isInactive,
       status: methaneStatus,
       limitInfo: `${thresholds.methaneMax} ppm`
     },
     { 
       label: 'Overall AQI', 
-      value: Math.round(lastReading.aqi || 0).toString(), 
+      value: isInactive ? '--' : Math.round(lastReading.aqi || 0).toString(), 
       icon: AqiSvg, 
       ...getStylesByStatus(aqiStatus),
-      bg: isAqiAlert 
+      bg: (isAqiAlert && !isInactive) 
         ? getStylesByStatus(aqiStatus).bgClass
         : 'bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/15',
       cardStyle: getStylesByStatus(aqiStatus).borderClass,
       color: getStylesByStatus(aqiStatus).textClass,
-      isWarning: isAqiAlert,
+      isWarning: isAqiAlert && !isInactive,
       status: aqiStatus,
       limitInfo: '100 AQI'
     },
@@ -764,7 +786,7 @@ export function Dashboard() {
       
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300">
         
-        <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} />
+        <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} isInactive={isInactive} />
 
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
@@ -772,7 +794,19 @@ export function Dashboard() {
         <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-col sm:flex-row items-center gap-3 md:gap-6 z-10 select-none min-w-0 md:min-w-[440px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
           {/* Section 1: Identifier */}
           <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
-            <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
+              <motion.button 
+                onClick={() => window.location.reload()}
+                whileHover={{ rotate: 180 }}
+                whileTap={{ scale: 0.9, rotate: 180 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
+                title="Refresh Feed"
+              >
+                <RefreshCw className="w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors" />
+              </motion.button>
+            </div>
             <div className="relative inline-block w-full">
               <select
                 value={selectedDeviceId}
@@ -781,7 +815,7 @@ export function Dashboard() {
               >
                 {devices?.map((dev) => (
                   <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
-                    {dev.name}
+                    {dev.deviceName || dev.name || dev.deviceId || dev.id}
                   </option>
                 ))}
               </select>
@@ -801,22 +835,28 @@ export function Dashboard() {
             <div className="flex items-center gap-2 md:gap-3">
               <div className={cn(
                 "w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-black border transition-all duration-500",
-                activeIssueCount > 0 
-                  ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
-                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                isInactive
+                  ? "bg-slate-500/20 text-slate-400 border-slate-500/40"
+                  : activeIssueCount > 0 
+                    ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
+                    : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
               )}>
-                {activeIssueCount}
+                {isInactive ? '?' : activeIssueCount}
               </div>
               <div className="min-w-0">
-                <p className={cn("text-[10px] md:text-xs font-bold uppercase tracking-tight", activeIssueCount > 0 ? "text-rose-400" : "text-emerald-400")}>
-                   {activeIssueCount > 0 ? 'Hazards Detected' : 'Environment Secure'}
+                <p className={cn(
+                  "text-[10px] md:text-xs font-bold uppercase tracking-tight", 
+                  isInactive ? "text-slate-400" : activeIssueCount > 0 ? "text-rose-400" : "text-emerald-400"
+                )}>
+                   {isInactive ? 'Status Unknown' : activeIssueCount > 0 ? 'Hazards Detected' : 'Environment Secure'}
                 </p>
                 <p className="text-[7px] md:text-[8px] text-slate-400 uppercase tracking-tighter opacity-70 truncate">
-                  {activeIssueCount > 0 ? 'Immediate Action Needed' : 'No Critical Issues Found'}
+                  {isInactive ? 'Node is currently offline' : activeIssueCount > 0 ? 'Immediate Action Needed' : 'No Critical Issues Found'}
                 </p>
               </div>
             </div>
           </div>
+
         </div>
       </div>
 
@@ -828,47 +868,60 @@ export function Dashboard() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-2.5">
-        {metrics.filter(m => m.status.label === 'Good').length > 0 && (
-          <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 select-none shadow-sm">
+        {isInactive ? (
+          <div className="px-3 py-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center gap-2 select-none shadow-sm">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
             </span>
-            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-500">
-              {metrics.filter(m => m.status.label === 'Good').length} Sensor{metrics.filter(m => m.status.label === 'Good').length > 1 ? 's' : ''} Normal
+            <span className="text-xs font-mono font-bold text-slate-500">
+              Telemetry Node Offline / No Data
             </span>
           </div>
-        )}
-        {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
-          <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 select-none shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-            </span>
-            <span className="text-xs font-mono font-bold text-yellow-600 dark:text-yellow-500">
-              {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
-            </span>
-          </div>
-        )}
-        {metrics.filter(m => m.status.label === 'Poor').length > 0 && (
-          <div className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-2 select-none shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-            </span>
-            <span className="text-xs font-mono font-bold text-orange-600 dark:text-orange-500">
-              {metrics.filter(m => m.status.label === 'Poor').length} Sensor{metrics.filter(m => m.status.label === 'Poor').length > 1 ? 's' : ''} Poor
-            </span>
-          </div>
-        )}
-        {metrics.filter(m => m.status.label === 'Danger').length > 0 && (
-          <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 select-none shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            <span className="text-xs font-mono font-bold text-red-600 dark:text-red-500">
-              {metrics.filter(m => m.status.label === 'Danger').length} Sensor{metrics.filter(m => m.status.label === 'Danger').length > 1 ? 's' : ''} Hazard
-            </span>
-          </div>
+        ) : (
+          <>
+            {metrics.filter(m => m.status.label === 'Good').length > 0 && (
+              <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 select-none shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-500">
+                  {metrics.filter(m => m.status.label === 'Good').length} Sensor{metrics.filter(m => m.status.label === 'Good').length > 1 ? 's' : ''} Normal
+                </span>
+              </div>
+            )}
+            {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
+              <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 select-none shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                </span>
+                <span className="text-xs font-mono font-bold text-yellow-600 dark:text-yellow-500">
+                  {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
+                </span>
+              </div>
+            )}
+            {metrics.filter(m => m.status.label === 'Poor').length > 0 && (
+              <div className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-2 select-none shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+                <span className="text-xs font-mono font-bold text-orange-600 dark:text-orange-500">
+                  {metrics.filter(m => m.status.label === 'Poor').length} Sensor{metrics.filter(m => m.status.label === 'Poor').length > 1 ? 's' : ''} Poor
+                </span>
+              </div>
+            )}
+            {metrics.filter(m => m.status.label === 'Danger').length > 0 && (
+              <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 select-none shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span className="text-xs font-mono font-bold text-red-600 dark:text-red-500">
+                  {metrics.filter(m => m.status.label === 'Danger').length} Sensor{metrics.filter(m => m.status.label === 'Danger').length > 1 ? 's' : ''} Hazard
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -933,7 +986,10 @@ export function Dashboard() {
                     isEffectiveOnline ? "bg-emerald-500" : "bg-red-500"
                   )}></span>
                 </span>
-                {devices.length} {isEffectiveOnline ? 'ACTIVE' : 'INACTIVE'}
+                {devices.filter(d => {
+                  const lastSeen = d.lastSeen ? parseSafeDate(d.lastSeen).getTime() : 0;
+                  return d.status === 'Online' && (now - lastSeen < 60000);
+                }).length} / {devices.length} ONLINE
               </div>
             </div>
 
@@ -951,12 +1007,31 @@ export function Dashboard() {
                   </div>
                 ) : (
                   devices.map((dev: any) => {
+                    const devLastSeen = dev.lastSeen ? parseSafeDate(dev.lastSeen).getTime() : 0;
+                    const devIsOnline = dev.status === 'Online' && (now - devLastSeen < 60000);
+                    const isSelected = dev.id === selectedDeviceId;
+
                     return (
-                      <div key={dev.id} className="p-2 bg-system-bg border border-system-border rounded-xl flex items-center justify-between gap-3 text-xs">
+                      <div 
+                        key={dev.id} 
+                        onClick={() => setSelectedDeviceId(dev.id)}
+                        className={cn(
+                          "p-2 border rounded-xl flex items-center justify-between gap-3 text-xs cursor-pointer transition-all duration-300",
+                          isSelected ? "bg-white/5 border-system-accent/40" : "bg-system-bg border-system-border hover:border-white/10"
+                        )}
+                      >
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold truncate text-system-text">{dev.name || dev.deviceName}</p>
-                          <p className="font-mono text-[9px] text-system-muted truncate uppercase">{dev.id}</p>
+                          <p className={cn("font-bold truncate", isSelected ? "text-system-accent" : "text-system-text")}>
+                            {dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'}
+                          </p>
+                          <p className="font-mono text-[9px] text-system-muted truncate uppercase tracking-tighter">
+                            {dev.deviceId || dev.id || 'N/A'}
+                          </p>
                         </div>
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full shrink-0",
+                          devIsOnline ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-600"
+                        )} />
                       </div>
                     );
                   })
@@ -968,7 +1043,7 @@ export function Dashboard() {
 
             <div className="flex items-center justify-between shrink-0">
               <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
-                Microclimate Feed Stream
+                Microclimate Feed Stream <span className="opacity-40 text-[9px] font-normal lowercase ml-1">({selectedDeviceId})</span>
               </div>
               <div className={cn(
                 "flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all duration-500",

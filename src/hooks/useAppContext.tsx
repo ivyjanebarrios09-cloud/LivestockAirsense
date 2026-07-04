@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus } from '../lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate } from '../lib/utils';
 
@@ -86,11 +86,35 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
+    if (!uid || uid === 'guest') {
+      setIsDevicesLoading(true);
+      getDevices(uid).then(res => {
+        setDevices(res);
+        setIsDevicesLoading(false);
+      });
+      return;
+    }
+
     setIsDevicesLoading(true);
-    getDevices(uid).then(res => {
-      setDevices(res);
+    const devicesRef = collection(db, 'users', uid, 'devices');
+    const unsubscribeDevices = onSnapshot(devicesRef, (snapshot) => {
+      const docs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Ensure id and deviceId are always present and not overwritten by empty data
+          deviceId: data.deviceId || doc.id
+        };
+      });
+      setDevices(docs);
+      setIsDevicesLoading(false);
+    }, (error) => {
+      console.error('Error subscribing to devices:', error);
       setIsDevicesLoading(false);
     });
+
+    return () => unsubscribeDevices();
   }, [uid]);
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(() => {
@@ -318,9 +342,9 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       }
 
       setAlertsList(mappedAlerts);
-    });
+    }, selectedDeviceId);
     return () => unsubscribe();
-  }, [uid, pushEnabled]);
+  }, [uid, pushEnabled, selectedDeviceId]);
 
   const addAlert = (alert: Omit<Alert, 'id' | 'time'>) => {
     const newAlert: Alert = {
@@ -362,19 +386,26 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   };
 
   useEffect(() => {
-    if (!uid || !selectedDeviceId || devices.length === 0) return;
+    if (!selectedDeviceId || devices.length === 0) {
+      setConnectionStatus({ status: 'Disconnected', lastSeen: 0 });
+      return;
+    }
+    
+    // Reset to connecting state immediately when switching devices
+    setConnectionStatus({ status: 'Connecting', lastSeen: 0 });
     
     const currentDevice = devices.find(d => d.id === selectedDeviceId);
     if (!currentDevice) return;
 
-    const deviceOwnerUid = currentDevice.sharedFromUid || uid;
+    // Use device owner if available, otherwise fallback to current user or guest
+    const deviceOwnerUid = currentDevice.userId || uid || 'guest';
 
     const unsubscribeStatus = subscribeToDeviceStatus(deviceOwnerUid, selectedDeviceId, (status) => {
       setConnectionStatus(status);
     });
 
     return () => unsubscribeStatus();
-  }, [uid, selectedDeviceId, devices]);
+  }, [uid, selectedDeviceId, devices.length]);
 
   return (
     <AppContext.Provider value={{

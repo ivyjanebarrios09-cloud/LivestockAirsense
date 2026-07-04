@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
+import { Calendar, Filter, Download, FileText, CheckCircle, RefreshCw } from 'lucide-react';
 import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { getStatusHistory } from '../lib/firebase';
+import { motion } from 'motion/react';
 
 export function HistoryPage() {
   const { devices, selectedDeviceId } = useAppContext();
@@ -59,6 +60,7 @@ export function HistoryPage() {
 
   const fetchData = async () => {
     if (!activeDevice) return;
+    setHistoricalLogs([]); // Clear old data
     const { start, end } = dateRange;
     const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
     const formattedLogs = logs.map(log => ({
@@ -143,7 +145,7 @@ export function HistoryPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    triggerFeedback(`Exported CSV for ${activeDevice.name}`);
+    triggerFeedback(`Exported CSV for ${activeDevice.deviceName || activeDevice.name || activeDevice.id}`);
   };
 
   const downloadPDF = () => {
@@ -155,7 +157,7 @@ export function HistoryPage() {
 
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
-    doc.text(`Livestock AirSense: ${activeDevice.name} Report`, 14, 15);
+    doc.text(`Livestock AirSense: ${activeDevice.deviceName || activeDevice.name || activeDevice.id} Report`, 14, 15);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Device ID: ${activeDevice.id}`, 14, 21);
@@ -196,9 +198,19 @@ export function HistoryPage() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Historical Logs</h1>
-          <p className="text-sm text-system-muted mt-1 leading-relaxed">
-            Analyze historical calibrated telemetry curves for <span className="font-bold text-system-text">{activeDevice.name}</span>.
-          </p>
+          <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
+            <span>Analyze historical calibrated telemetry curves for <span className="font-bold text-system-text">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <motion.button 
+              onClick={() => window.location.reload()}
+              whileHover={{ rotate: 180 }}
+              whileTap={{ scale: 0.9, rotate: 180 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              className="p-1 hover:bg-system-bg rounded-md border border-transparent hover:border-system-border transition-colors group"
+              title="Refresh Feed"
+            >
+              <RefreshCw className="w-3 h-3 text-system-accent group-hover:text-system-text transition-colors" />
+            </motion.button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
@@ -280,21 +292,29 @@ export function HistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
-              {paginatedLogs.map((row, i) => (
-                <tr key={i} className="hover:bg-system-bg/40 transition-colors">
-                  <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                  <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
-                  <td className="px-6 py-3.5 whitespace-nowrap">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
-                      getStatusStyles(row.status)
-                    )}>
-                      {row.status}
-                    </span>
+              {paginatedLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-system-muted italic uppercase tracking-widest opacity-60">
+                    No historical transitions detected for this timeframe
                   </td>
-                  <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
                 </tr>
-              ))}
+              ) : (
+                paginatedLogs.map((row, i) => (
+                  <tr key={i} className="hover:bg-system-bg/40 transition-colors">
+                    <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
+                    <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
+                    <td className="px-6 py-3.5 whitespace-nowrap">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
+                        getStatusStyles(row.status)
+                      )}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

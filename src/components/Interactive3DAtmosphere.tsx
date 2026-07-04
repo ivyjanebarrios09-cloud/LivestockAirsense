@@ -27,11 +27,17 @@ interface CloudLayer {
 
 interface Interactive3DAtmosphereProps {
   hasAlerts?: boolean;
-  variant?: 'emerald' | 'rose' | 'sky';
+  isInactive?: boolean;
+  variant?: 'emerald' | 'rose' | 'sky' | 'slate';
   roundedClass?: string;
 }
 
-export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedClass = "rounded-2xl" }: Interactive3DAtmosphereProps) {
+export function Interactive3DAtmosphere({ 
+  hasAlerts = false, 
+  isInactive = false,
+  variant, 
+  roundedClass = "rounded-2xl" 
+}: Interactive3DAtmosphereProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Smooth perspective tilt coordinates
@@ -91,11 +97,13 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
     };
   }, []);
 
-  const activeVariant = variant || (hasAlerts ? 'rose' : 'emerald');
+  const activeVariant = isInactive ? 'slate' : (variant || (hasAlerts ? 'rose' : 'emerald'));
 
   const themeCloudColor = 
     activeVariant === 'rose'
       ? "text-rose-400/20 group-hover:text-rose-400/35"
+      : activeVariant === 'slate'
+      ? "text-slate-500/20 group-hover:text-slate-400/30"
       : activeVariant === 'sky'
       ? "text-sky-100/30 group-hover:text-white/45 text-slate-100/35"
       : "text-emerald-400/15 group-hover:text-emerald-300/30";
@@ -103,6 +111,8 @@ export function Interactive3DAtmosphere({ hasAlerts = false, variant, roundedCla
   const themeWindStroke = 
     activeVariant === 'rose'
       ? "stroke-rose-400/25"
+      : activeVariant === 'slate'
+      ? "stroke-slate-500/20"
       : activeVariant === 'sky'
       ? "stroke-sky-200/30"
       : "stroke-emerald-400/15";

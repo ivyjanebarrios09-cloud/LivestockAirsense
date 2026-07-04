@@ -8,7 +8,7 @@ import { subscribeToAlerts } from '../lib/firebase';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, clearAllAlerts } = useAppContext();
+  const { resolveAlert, clearAllAlerts, selectedDeviceId } = useAppContext();
   
   const [alerts, setAlerts] = useState<any[]>([]);
 
@@ -17,9 +17,9 @@ export function AlertsPage() {
   useEffect(() => {
     const unsubscribe = subscribeToAlerts(uid, (data) => {
         setAlerts(data);
-    });
+    }, selectedDeviceId);
     return () => unsubscribe();
-  }, [uid]);
+  }, [uid, selectedDeviceId]);
 
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);

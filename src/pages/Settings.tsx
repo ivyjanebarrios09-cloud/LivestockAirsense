@@ -367,7 +367,7 @@ export function SettingsPage() {
                       >
                         <div className="space-y-1 min-w-0">
                           <h4 className={cn("text-xs font-bold leading-tight truncate", isSelected ? "text-system-accent" : "text-system-text")}>
-                            {dev.name || 'Unnamed Device'}
+                            {dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'}
                           </h4>
                           <p className="font-mono text-[9px] text-system-muted truncate bg-system-bg px-1.5 py-0.5 rounded border border-system-border/40 inline-block">
                             {dev.id}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { 
   Activity, 
   Calendar, 
@@ -172,6 +173,7 @@ export function AnalyticsPage() {
     
     setLoading(true);
     setHasError(false);
+    setAnalyticsData([]); // Clear old data
 
     const [year, month, day] = dateStr.split('-').map(Number);
     const start = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
@@ -317,9 +319,20 @@ export function AnalyticsPage() {
             Live Telemetry Insights
           </div>
           <h1 className="text-3xl font-black font-mono uppercase tracking-tighter">Performance Analytics</h1>
-          <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest opacity-60">
-            Node: <span className="text-system-text font-bold">{activeDevice.id}</span> • {analyticsData.length} records retrieved
-          </p>
+          <div className="flex items-center gap-2 text-[10px] text-system-muted font-mono uppercase tracking-widest opacity-60">
+            <span>Node: <span className="text-system-text font-bold">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <motion.button 
+              onClick={() => window.location.reload()}
+              whileHover={{ rotate: 180 }}
+              whileTap={{ scale: 0.9, rotate: 180 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              className="p-1 hover:bg-system-bg rounded-md border border-transparent hover:border-system-border transition-colors group"
+              title="Refresh Feed"
+            >
+              <RefreshCw className="w-2.5 h-2.5 text-system-accent group-hover:text-system-text transition-colors" />
+            </motion.button>
+            <span>• {analyticsData.length} records retrieved</span>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

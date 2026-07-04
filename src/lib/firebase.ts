@@ -231,57 +231,110 @@ export const subscribeToSensorData = (uid: string, deviceId: string, callback: (
   };
 };
 
-export const subscribeToDeviceStatus = (uid: string, deviceId: string, callback: (status: { status: string; lastSeen: number }) => void) => {
-  if (!uid || !deviceId) {
+export const subscribeToDeviceStatus = (uid: string | null, deviceId: string, callback: (status: { status: string; lastSeen: number }) => void) => {
+  if (!deviceId) {
     callback({ status: 'Unknown', lastSeen: 0 });
     return () => {};
   }
 
-  // Listen to the user's specific device document for status and lastSeen
-  const deviceRef = doc(db, 'users', uid, 'devices', deviceId);
-  
-  return onSnapshot(deviceRef, (snapshot) => {
+  // If we have a user, listen to their specific device doc first
+  if (uid && uid !== 'guest') {
+    const deviceRef = doc(db, 'users', uid, 'devices', deviceId);
+    return onSnapshot(deviceRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        callback({
+          status: data.status || 'Offline',
+          lastSeen: data.lastSeen || 0
+        });
+      } else {
+        // Fallback to registry if user doc isn't found
+        const registryRef = doc(db, 'deviceRegistry', deviceId);
+        getDoc(registryRef).then(regSnap => {
+          if (regSnap.exists()) {
+            const regData = regSnap.data();
+            callback({
+              status: regData.status || 'Offline',
+              lastSeen: regData.lastSeen || 0
+            });
+          } else {
+            // Final fallback to airMonitoring
+            const airRef = doc(db, 'airMonitoring', deviceId);
+            getDoc(airRef).then(airSnap => {
+               if (airSnap.exists()) {
+                 const airData = airSnap.data();
+                 callback({
+                   status: airData.status || 'Offline',
+                   lastSeen: airData.lastSeen || airData.lastUpdate || 0
+                 });
+               } else {
+                 callback({ status: 'Disconnected', lastSeen: 0 });
+               }
+            }).catch(() => callback({ status: 'Disconnected', lastSeen: 0 }));
+          }
+        }).catch(() => callback({ status: 'Disconnected', lastSeen: 0 }));
+      }
+    }, (error) => {
+      console.warn(`[Firestore] Device status listener error for ${deviceId}:`, error);
+      callback({ status: 'Error', lastSeen: 0 });
+    });
+  }
+
+  // If no user (guest mode), listen to global registry or airMonitoring directly
+  const registryRef = doc(db, 'deviceRegistry', deviceId);
+  return onSnapshot(registryRef, (snapshot) => {
     if (snapshot.exists()) {
       const data = snapshot.data();
       callback({
-        status: data.status || 'Offline',
+        status: data.status || 'Online', // Default to online for demo registry
         lastSeen: data.lastSeen || 0
       });
     } else {
-      // Fallback to checking deviceRegistry if user doc isn't found
-      const registryRef = doc(db, 'deviceRegistry', deviceId);
-      getDoc(registryRef).then(regSnap => {
-        if (regSnap.exists()) {
-          const regData = regSnap.data();
+      // Last resort: airMonitoring
+      const airRef = doc(db, 'airMonitoring', deviceId);
+      onSnapshot(airRef, (airSnap) => {
+        if (airSnap.exists()) {
+          const airData = airSnap.data();
           callback({
-            status: regData.status || 'Offline',
-            lastSeen: regData.lastSeen || 0
+            status: airData.status || 'Online',
+            lastSeen: airData.lastSeen || airData.lastUpdate || 0
           });
         } else {
-          callback({ status: 'Disconnected', lastSeen: 0 });
+          callback({ status: 'Offline', lastSeen: 0 });
         }
-      }).catch(() => {
-        callback({ status: 'Offline', lastSeen: 0 });
       });
     }
   }, (error) => {
-    console.warn(`[Firestore] Device status listener error for ${deviceId}:`, error);
+    console.warn(`[Firestore] Guest device status listener error:`, error);
     callback({ status: 'Error', lastSeen: 0 });
   });
 };
 
-export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void) => {
+export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void, deviceId?: string) => {
   if (!uid || uid === 'guest') {
     callback([]);
     return () => {};
   }
   const alertsRef = collection(db, 'alerts');
-  const q = query(
-    alertsRef, 
-    where('userId', '==', uid),
-    orderBy('timestamp', 'desc'),
-    limit(50)
-  );
+  
+  let q;
+  if (deviceId) {
+    q = query(
+      alertsRef, 
+      where('userId', '==', uid),
+      where('deviceId', '==', deviceId),
+      orderBy('timestamp', 'desc'),
+      limit(50)
+    );
+  } else {
+    q = query(
+      alertsRef, 
+      where('userId', '==', uid),
+      orderBy('timestamp', 'desc'),
+      limit(50)
+    );
+  }
+
   return onSnapshot(
     q,
     (snapshot) => {
@@ -696,12 +749,15 @@ export const getDevices = async (uid?: string): Promise<any[]> => {
       const targetId = id;
       
       const existing = devicesMap.get(targetId);
+      const name = data.deviceName || data.name || (targetId === 'LAS-001' ? 'AIRSENSE' : 'AIRSENSE NODE');
+      
       devicesMap.set(targetId, {
         ...existing,
         ...data,
         id: targetId,
         deviceId: data.deviceId || canonical || targetId,
-        name: data.deviceName || data.name || (targetId === 'LAS-001' ? 'AIRSENSE' : 'AIRSENSE NODE')
+        name: name,
+        deviceName: name // Ensure both are present for UI resilience
       });
     };
 
@@ -768,7 +824,7 @@ export const addDeviceToFirestore = async (device: any) => {
       deviceName: device.name || 'Livestock AirSense',
       deviceType: device.type || 'Livestock Air Sensor',
       firmwareVersion: '1.0.0',
-      status: 'Online',
+      status: 'Offline',
       lastRegisteredAt: Date.now(),
       createdAt: Date.now(),
       metadata: {
@@ -1189,12 +1245,14 @@ export const addAlertToFirestore = async (
     message: string;
     severity: 'critical' | 'warning' | 'normal';
     location: string;
+    deviceId?: string;
   }
 ) => {
   try {
     const alertsRef = collection(db, 'alerts');
     await addDoc(alertsRef, {
       userId,
+      deviceId: alert.deviceId || '',
       timestamp: Math.floor(Date.now() / 1000),
       alertType: alert.alertType,
       message: alert.message,
