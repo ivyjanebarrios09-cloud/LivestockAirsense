@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, Star, MonitorDown, Wifi, WifiOff } from 'lucide-react';
+import { UserCircle, Star, MonitorDown, Wifi, WifiOff, Bell } from 'lucide-react';
 import { useAuthState } from '../hooks/useAuthState';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -10,7 +10,7 @@ import { cn, parseSafeDate, getStatusBgColor } from '../lib/utils';
 
 export function Header() {
   const { user, loading } = useAuthState();
-  const { isOnline, connectionStatus } = useAppContext();
+  const { isOnline, connectionStatus, unreadAlertsCount } = useAppContext();
   const navigate = useNavigate();
   const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
 
@@ -107,6 +107,20 @@ export function Header() {
               <span className="md:hidden">PWA</span>
             </button>
           </div>
+        )}
+         {user && (
+          <button
+            onClick={() => navigate('/app/alerts')}
+            className="relative p-2 rounded-xl text-system-muted hover:text-system-text hover:bg-white/5 transition-all duration-300 active:scale-95 shrink-0"
+            aria-label="View notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadAlertsCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-severity-critical text-[8px] font-bold text-white leading-none border border-system-panel animate-bounce z-10">
+                {unreadAlertsCount}
+              </span>
+            )}
+          </button>
         )}
         {loading ? (
           <div className="w-7 h-7 rounded-full border-2 border-system-border border-t-system-accent animate-spin shrink-0" />

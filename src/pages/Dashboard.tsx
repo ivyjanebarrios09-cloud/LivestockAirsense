@@ -460,7 +460,7 @@ export function Dashboard() {
   const prevDeviceDataRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!deviceData) return;
+    if (!deviceData || !isEffectiveOnline) return;
     
     if (prevDeviceDataRef.current) {
       const prev = prevDeviceDataRef.current;
@@ -548,11 +548,11 @@ export function Dashboard() {
     }
 
     prevDeviceDataRef.current = deviceData;
-  }, [deviceData, thresholds]);
+  }, [deviceData, thresholds, isEffectiveOnline]);
 
   const readingTimestamp = lastReading.timestamp ? parseSafeDate(lastReading.timestamp).getTime() : 0;
   const isDataStale = readingTimestamp > 0 && (now - readingTimestamp > 300000); // 5 minutes without data is stale
-  const isInactive = !deviceData; // Only inactive if we have absolutely no data
+  const isInactive = !deviceData || !isEffectiveOnline; // Only inactive if we have absolutely no data or if offline
   const isOfflineMode = !isEffectiveOnline || isDataStale;
 
   const tempStatus = getStatus('Temperature', lastReading.temperature, isOfflineMode);
@@ -851,7 +851,13 @@ export function Dashboard() {
                     ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
                     : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
               )}>
-                {isInactive ? <WifiOff className="w-3.5 h-3.5" /> : activeIssueCount > 0 ? <ShieldAlert className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                {isInactive ? (
+                  <WifiOff className="w-3.5 h-3.5" />
+                ) : activeIssueCount > 0 ? (
+                  <span className="font-extrabold">{activeIssueCount}</span>
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className={cn(

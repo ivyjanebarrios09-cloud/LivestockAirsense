@@ -74,6 +74,17 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     lastSeen: 0 
   });
 
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const connectionStatusRef = useRef(connectionStatus);
+  useEffect(() => {
+    connectionStatusRef.current = connectionStatus;
+  }, [connectionStatus]);
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -283,16 +294,28 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     }
 
     const unsubscribe = subscribeToAlerts(uid, (data) => {
-      const mappedAlerts = data.map(a => ({
-        id: a.id,
-        timestamp: a.timestamp,
-        time: a.timestamp ? parseSafeDate(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        location: a.location || 'Unknown',
-        alertType: a.alertType || 'Alert',
-        message: a.message || '',
-        severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
-        resolved: a.resolved || false
-      }));
+      const mappedAlerts = data
+        .map(a => ({
+          id: a.id,
+          timestamp: a.timestamp,
+          time: a.timestamp ? parseSafeDate(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          location: a.location || 'Unknown',
+          alertType: a.alertType || 'Alert',
+          message: a.message || '',
+          severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
+          resolved: a.resolved || false,
+          reading: a.reading !== undefined ? a.reading : null
+        }))
+        .filter(alert => {
+          // Filter out zero readings (typical of offline sensor noise)
+          if (alert.reading !== null && alert.reading !== undefined) {
+            if (parseFloat(alert.reading.toString()) === 0) return false;
+          } else if (alert.message) {
+            const match = alert.message.match(/\(Value: ([\d.-]+)\)/);
+            if (match && parseFloat(match[1]) === 0) return false;
+          }
+          return true;
+        });
 
       if (isFirstMountRef.current) {
         data.forEach(a => {
@@ -301,7 +324,12 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         isFirstMountRef.current = false;
       } else {
         const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
-        if (storedPush && 'Notification' in window && Notification.permission === 'granted') {
+        const currentStatus = connectionStatusRef.current;
+        const lastSeenMsVal = currentStatus.lastSeen ? parseSafeDate(currentStatus.lastSeen).getTime() : 0;
+        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 30000);
+        const isDeviceOnlineVal = currentStatus.status === 'Online' && lastSeenMsVal > 0 && !isStaleVal;
+
+        if (isDeviceOnlineVal && storedPush && 'Notification' in window && Notification.permission === 'granted') {
           mappedAlerts.forEach(alert => {
             if (!alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
               const notificationTitle = alert.severity === 'critical'
@@ -375,7 +403,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     }
   };
 
-  const unreadAlertsCount = alertsList.filter(alert => !alert.resolved).length;
+  const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
+
+  const unreadAlertsCount = isEffectiveOnline ? alertsList.filter(alert => !alert.resolved).length : 0;
 
   const [isSyncing, setIsSyncing] = useState(false);
   const triggerSync = async () => {
