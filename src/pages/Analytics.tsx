@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
+import { DeviceName } from '../components/DeviceName';
 import { 
   Activity, 
   Calendar, 
@@ -324,7 +325,7 @@ export function AnalyticsPage() {
           </div>
           <h1 className="text-3xl font-black font-mono uppercase tracking-tighter">Performance Analytics</h1>
           <div className="flex items-center gap-2 text-[10px] text-system-muted font-mono uppercase tracking-widest opacity-60">
-            <span>Node: <span className="text-system-text font-bold">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <span>Node: <DeviceName name={activeDevice.deviceName || activeDevice.name || activeDevice.id} /></span>
             <motion.button 
               onClick={() => window.location.reload()}
               whileHover={{ rotate: 180 }}

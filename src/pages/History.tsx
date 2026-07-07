@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { getStatusHistory } from '../lib/firebase';
 import { motion } from 'motion/react';
+import { DeviceName } from '../components/DeviceName';
 
 export function HistoryPage() {
   const { devices, selectedDeviceId, connectionStatus } = useAppContext();
@@ -218,7 +219,7 @@ export function HistoryPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Historical Logs</h1>
           <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
-            <span>Analyze historical calibrated telemetry curves for <span className="font-bold text-system-text">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <span>Analyze historical calibrated telemetry curves for <DeviceName name={activeDevice.deviceName || activeDevice.name || activeDevice.id} /></span>
             <motion.button 
               onClick={() => window.location.reload()}
               whileHover={{ rotate: 180 }}

@@ -8,6 +8,7 @@ import { AirLoading } from '../components/AirLoading';
 import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertToFirestore, subscribeToSensorReadings, subscribeToDeviceStatus } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock, RefreshCw, ShieldAlert, ShieldCheck, WifiOff } from 'lucide-react';
+import { DeviceName } from '../components/DeviceName';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -170,13 +171,13 @@ const AqiSvg = ({ className, isWarning }: { className?: string; isWarning?: bool
 };
 
 
-const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
+const CloudWindAnimation = ({ colorClass, density = "normal" }: { colorClass?: string; density?: "normal" | "high" }) => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
       {/* Animated Air/Wind Current 1 */}
       <svg
         className={cn(
-          "absolute right-2 bottom-6 w-20 h-6 opacity-20 group-hover:opacity-45 transition-all duration-500 animate-air-flow-1",
+          "absolute right-2 bottom-6 w-20 h-6 opacity-30 group-hover:opacity-60 transition-all duration-500 animate-air-flow-1",
           colorClass
         )}
         viewBox="0 0 100 30"
@@ -190,7 +191,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Animated Air/Wind Current 2 */}
       <svg
         className={cn(
-          "absolute right-4 bottom-12 w-16 h-4 opacity-15 group-hover:opacity-35 transition-all duration-500 animate-air-flow-2",
+          "absolute right-4 bottom-12 w-16 h-4 opacity-25 group-hover:opacity-50 transition-all duration-500 animate-air-flow-2",
           colorClass
         )}
         viewBox="0 0 100 20"
@@ -205,7 +206,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Animated Air/Wind Current 3 */}
       <svg
         className={cn(
-          "absolute left-4 top-8 w-24 h-5 opacity-10 group-hover:opacity-30 transition-all duration-500 animate-air-flow-3",
+          "absolute left-4 top-8 w-24 h-5 opacity-20 group-hover:opacity-40 transition-all duration-500 animate-air-flow-3",
           colorClass
         )}
         viewBox="0 0 100 20"
@@ -220,7 +221,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Cloud 1 (Drifting Background Cloud - Bottom Right) */}
       <svg
         className={cn(
-          "absolute -right-2 -bottom-2 w-20 h-16 opacity-15 group-hover:opacity-30 transition-all duration-500 animate-cloud-drift",
+          "absolute -right-2 -bottom-2 w-20 h-16 opacity-30 group-hover:opacity-55 transition-all duration-500 animate-cloud-drift",
           colorClass
         )}
         viewBox="0 0 24 24"
@@ -232,7 +233,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Cloud 2 (Drifting Background Cloud - Top Right) */}
       <svg
         className={cn(
-          "absolute right-8 top-1 w-16 h-12 opacity-[0.08] group-hover:opacity-[0.18] transition-all duration-500 animate-cloud-drift-slow",
+          "absolute right-8 top-1 w-16 h-12 opacity-[0.18] group-hover:opacity-[0.35] transition-all duration-500 animate-cloud-drift-slow",
           colorClass
         )}
         viewBox="0 0 24 24"
@@ -244,7 +245,7 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       {/* Cloud 3 (Drifting Background Cloud - Middle Left) */}
       <svg
         className={cn(
-          "absolute -left-3 bottom-4 w-12 h-10 opacity-[0.06] group-hover:opacity-[0.14] transition-all duration-500 animate-cloud-drift-fast",
+          "absolute -left-3 bottom-4 w-12 h-10 opacity-[0.15] group-hover:opacity-[0.30] transition-all duration-500 animate-cloud-drift-fast",
           colorClass
         )}
         viewBox="0 0 24 24"
@@ -252,6 +253,76 @@ const CloudWindAnimation = ({ colorClass }: { colorClass?: string }) => {
       >
         <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
       </svg>
+
+      {/* High Density Extras: More Winds and Clouds */}
+      {density === "high" && (
+        <>
+          {/* Animated Air/Wind Current 4 */}
+          <svg
+            className={cn(
+              "absolute left-1/4 top-3 w-28 h-6 opacity-40 group-hover:opacity-70 transition-all duration-500 animate-air-flow-4",
+              colorClass
+            )}
+            viewBox="0 0 100 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          >
+            <path d="M10 8c20-6 40 4 60-2s20-8 30-4" />
+          </svg>
+          {/* Animated Air/Wind Current 5 */}
+          <svg
+            className={cn(
+              "absolute right-12 top-1/2 w-24 h-5 opacity-35 group-hover:opacity-65 transition-all duration-500 animate-air-flow-5",
+              colorClass
+            )}
+            viewBox="0 0 100 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          >
+            <path d="M5 12c15 4 35-6 50-1s25 5 40 0" />
+          </svg>
+
+          {/* Cloud 4 (Top Middle, Super Slow) */}
+          <svg
+            className={cn(
+              "absolute left-1/3 top-2 w-18 h-14 opacity-[0.30] group-hover:opacity-[0.50] transition-all duration-500 animate-cloud-drift-super-slow",
+              colorClass
+            )}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+          </svg>
+
+          {/* Cloud 5 (Middle Right, Extra Fast) */}
+          <svg
+            className={cn(
+              "absolute right-24 bottom-3 w-14 h-10 opacity-[0.32] group-hover:opacity-[0.55] transition-all duration-500 animate-cloud-drift-extra-fast",
+              colorClass
+            )}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+          </svg>
+
+          {/* Cloud 6 (Left Bottom, Slow) */}
+          <svg
+            className={cn(
+              "absolute left-12 bottom-6 w-22 h-16 opacity-[0.22] group-hover:opacity-[0.45] transition-all duration-500 animate-cloud-drift-slow",
+              colorClass
+            )}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M19.36 15.37A5.474 5.474 0 0 0 20 12a5.5 5.5 0 0 0-5.5-5.5c-.32 0-.63.03-.94.09A7 7 0 0 0 4 10.5a7 7 0 0 0 5.4 6.8 5.46 5.46 0 0 0 3.1.2 5.5 5.5 0 0 0 6.86-2.13z" />
+          </svg>
+        </>
+      )}
     </div>
   );
 };
@@ -802,27 +873,39 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 z-10 min-w-0 md:min-w-[480px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
+        <div className="relative bg-white/90 backdrop-blur-md border border-white/20 rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 z-10 min-w-0 md:min-w-[480px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/95">
+          <CloudWindAnimation 
+            colorClass={cn(
+              theme === 'forest' 
+                ? "text-emerald-500/70 group-hover:text-emerald-600" 
+                : theme === 'wind' 
+                ? "text-sky-500/70 group-hover:text-sky-600" 
+                : theme === 'farm' 
+                ? "text-amber-500/70 group-hover:text-amber-600" 
+                : "text-indigo-500/70 group-hover:text-indigo-600"
+            )} 
+            density="high" 
+          />
           {/* Section 1: Identifier */}
           <div className="flex-1 flex flex-col justify-between gap-2.5 w-full sm:w-auto">
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
+                <label className="text-[8px] md:text-[9px] text-slate-800 font-mono uppercase tracking-widest font-black">Identifier</label>
                 <motion.button 
                   onClick={() => triggerSync()}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
+                  className="p-1 hover:bg-slate-200/50 rounded-md border border-transparent hover:border-slate-300/30 transition-colors group"
                   title="Refresh Feed"
                 >
-                  <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors", isSyncing && "animate-spin")} />
+                  <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-slate-800 transition-colors", isSyncing && "animate-spin")} />
                 </motion.button>
               </div>
               <div className="relative inline-block w-full">
                 <select
                   value={selectedDeviceId}
                   onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="bg-white/10 hover:bg-white/15 border border-white/20 cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
+                  className="bg-slate-100 hover:bg-slate-200/80 border border-slate-300 cursor-pointer rounded-lg px-2.5 py-1 text-xs md:text-sm font-black tracking-tight text-slate-900 focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
                 >
                   {devices?.map((dev) => (
                     <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
@@ -830,25 +913,31 @@ export function Dashboard() {
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-white">
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-600">
                   <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                     <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                   </svg>
                 </div>
               </div>
+              {currentDevice && (
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <span className="text-[8px] uppercase tracking-wider font-mono text-slate-500 font-bold">Selected:</span>
+                  <DeviceName name={currentDevice.deviceName || currentDevice.name || currentDevice.id} className="scale-90 origin-left" />
+                </div>
+              )}
             </div>
             
-            <div className="text-[8px] text-white/50 font-mono uppercase tracking-tighter">
+            <div className="text-[8px] text-slate-600 font-mono uppercase tracking-tighter font-semibold">
               Livestock Air Quality Platform
             </div>
           </div>
 
-          <div className="hidden sm:block w-[1px] self-stretch bg-white/10 my-1" />
+          <div className="hidden sm:block w-[1px] self-stretch bg-slate-200 my-1" />
 
           {/* Section 2: Climate Safety */}
           <div className="flex-[1.25] flex flex-col justify-between gap-2.5 w-full sm:w-auto">
             <div className="flex flex-col gap-1">
-              <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-400 font-mono font-bold">Climate Safety</p>
+              <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-800 font-mono font-black">Climate Safety</p>
             </div>
 
             {/* 2x2 Grid for Counting Node Statuses */}
@@ -857,64 +946,64 @@ export function Dashboard() {
               <div className={cn(
                 "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
                 isInactive 
-                  ? "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-slate-100 border-slate-200 text-slate-400"
                   : metrics.filter(m => m.status.label === 'Good').length > 0 
-                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 font-bold" 
-                  : "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-emerald-100 border-emerald-300 text-emerald-800 font-black" 
+                  : "bg-slate-100 border-slate-200 text-slate-400"
               )}>
                 <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Good').length > 0 ? "bg-emerald-400 animate-pulse" : "bg-white/20")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Good').length > 0 ? "bg-emerald-600 animate-pulse" : "bg-slate-300")} />
                   <span>NORMAL</span>
                 </div>
-                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Good').length}</span>
+                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Good').length}</span>
               </div>
 
               {/* Warning Count */}
               <div className={cn(
                 "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
                 isInactive 
-                  ? "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-slate-100 border-slate-200 text-slate-400"
                   : metrics.filter(m => m.status.label === 'Warning').length > 0 
-                  ? "bg-yellow-500/10 border-yellow-500/25 text-yellow-400 font-bold" 
-                  : "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-amber-100 border-amber-300 text-amber-800 font-black" 
+                  : "bg-slate-100 border-slate-200 text-slate-400"
               )}>
                 <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Warning').length > 0 ? "bg-yellow-400 animate-pulse" : "bg-white/20")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Warning').length > 0 ? "bg-amber-600 animate-pulse" : "bg-slate-300")} />
                   <span>WARNING</span>
                 </div>
-                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Warning').length}</span>
+                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Warning').length}</span>
               </div>
 
               {/* Poor Count */}
               <div className={cn(
                 "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
                 isInactive 
-                  ? "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-slate-100 border-slate-200 text-slate-400"
                   : metrics.filter(m => m.status.label === 'Poor').length > 0 
-                  ? "bg-orange-500/10 border-orange-500/25 text-orange-400 font-bold" 
-                  : "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-orange-100 border-orange-300 text-orange-800 font-black" 
+                  : "bg-slate-100 border-slate-200 text-slate-400"
               )}>
                 <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Poor').length > 0 ? "bg-orange-400 animate-pulse" : "bg-white/20")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Poor').length > 0 ? "bg-orange-600 animate-pulse" : "bg-slate-300")} />
                   <span>POOR</span>
                 </div>
-                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Poor').length}</span>
+                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Poor').length}</span>
               </div>
 
               {/* Danger/Hazard Count */}
               <div className={cn(
                 "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
                 isInactive 
-                  ? "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-slate-100 border-slate-200 text-slate-400"
                   : metrics.filter(m => m.status.label === 'Danger').length > 0 
-                  ? "bg-rose-500/10 border-rose-500/25 text-rose-400 font-bold" 
-                  : "bg-white/5 border-white/5 text-white/30"
+                  ? "bg-rose-100 border-rose-300 text-rose-800 font-black" 
+                  : "bg-slate-100 border-slate-200 text-slate-400"
               )}>
                 <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Danger').length > 0 ? "bg-rose-400 animate-pulse" : "bg-white/20")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Danger').length > 0 ? "bg-rose-600 animate-pulse" : "bg-slate-300")} />
                   <span>DANGER</span>
                 </div>
-                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Danger').length}</span>
+                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Danger').length}</span>
               </div>
             </div>
           </div>
@@ -1024,10 +1113,10 @@ export function Dashboard() {
                           isSelected ? "bg-white/5 border-system-accent/40" : "bg-system-bg border-system-border hover:border-white/10"
                         )}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className={cn("font-bold truncate", isSelected ? "text-system-accent" : "text-system-text")}>
-                            {dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'}
-                          </p>
+                        <div className="min-w-0 flex-1 flex flex-col gap-1">
+                          <div className="flex items-center">
+                            <DeviceName name={dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'} className="text-[10px]" />
+                          </div>
                           <p className="font-mono text-[9px] text-system-muted truncate uppercase tracking-tighter">
                             {dev.deviceId || dev.id || 'N/A'}
                           </p>

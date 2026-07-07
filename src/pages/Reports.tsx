@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn, getSensorStatus } from '../lib/utils';
 import { motion } from 'motion/react';
+import { DeviceName } from '../components/DeviceName';
 
 export function ReportsPage() {
   const { devices, selectedDeviceId } = useAppContext();
@@ -77,7 +78,7 @@ export function ReportsPage() {
           <div>
             <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
             <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
-              <span>No compliance data available for <span className="font-bold text-system-text">{activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'}</span></span>
+              <span>No compliance data available for <DeviceName name={activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'} /></span>
               <motion.button 
                 onClick={() => window.location.reload()}
                 whileHover={{ rotate: 180 }}
@@ -96,7 +97,7 @@ export function ReportsPage() {
           <Activity className="w-12 h-12 text-system-muted opacity-20" />
           <h2 className="text-xl font-black font-mono uppercase tracking-tight">No Compliance Data</h2>
           <p className="text-system-muted text-sm max-w-md mx-auto">
-            The system hasn't received any telemetry records for <span className="text-system-text font-bold">{activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'}</span> yet. 
+            The system hasn't received any telemetry records for <DeviceName name={activeDevice?.deviceName || activeDevice?.name || activeDevice?.id || 'this device'} /> yet. 
             Reports can only be generated once the node begins transmitting sensor data.
           </p>
         </div>
@@ -181,7 +182,7 @@ export function ReportsPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Reports</h1>
           <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
-            <span>Configure, generate, and sign certified compliance documentation for <span className="font-bold text-system-text">{activeDevice.deviceName || activeDevice.name || activeDevice.id}</span></span>
+            <span>Configure, generate, and sign certified compliance documentation for <DeviceName name={activeDevice.deviceName || activeDevice.name || activeDevice.id} /></span>
             <motion.button 
               onClick={() => window.location.reload()}
               whileHover={{ rotate: 180 }}

@@ -95,6 +95,14 @@
   animation: air-flow 10s ease-in-out infinite 4s;
 }
 
+.animate-air-flow-4 {
+  animation: air-flow 7s ease-in-out infinite 1s;
+}
+
+.animate-air-flow-5 {
+  animation: air-flow 9s ease-in-out infinite 3.5s;
+}
+
 .animate-cloud-drift {
   animation: cloud-drift 12s ease-in-out infinite;
 }
@@ -105,5 +113,13 @@
 
 .animate-cloud-drift-fast {
   animation: cloud-drift 9s ease-in-out infinite 1s;
+}
+
+.animate-cloud-drift-super-slow {
+  animation: cloud-drift 24s ease-in-out infinite 5s;
+}
+
+.animate-cloud-drift-extra-fast {
+  animation: cloud-drift 7.5s ease-in-out infinite 0.5s;
 }
 

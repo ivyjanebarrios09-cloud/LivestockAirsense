@@ -34,8 +34,63 @@ export function Header() {
         <div className="font-semibold text-system-text uppercase tracking-wider text-sm flex items-center gap-2 shrink-0">
           <img src="/logo.png" alt="LAS Logo" className="h-7 w-auto object-contain shrink-0" />
           <div className="flex flex-col">
-            <span className="font-black text-system-text text-sm uppercase tracking-tight leading-none">AirSense</span>
-            <span className="text-[8px] text-system-muted font-mono mt-0.5 whitespace-nowrap leading-none">LIVESTOCK IoT</span>
+            <div className="flex items-center text-sm font-black uppercase tracking-tight leading-none">
+              <motion.span
+                className="text-system-accent mr-[1px]"
+                animate={{
+                  color: ["#3b82f6", "#10b981", "#3b82f6"],
+                }}
+                transition={{
+                  duration: 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                Air
+              </motion.span>
+              <motion.span
+                className="text-system-text"
+                animate={{
+                  opacity: [0.9, 1, 0.9],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                Sense
+              </motion.span>
+            </div>
+            <div className="flex items-center gap-1 text-[8px] font-mono mt-0.5 whitespace-nowrap leading-none font-bold">
+              <motion.span
+                className="text-system-muted"
+                animate={{
+                  opacity: [0.7, 1, 0.7],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                LIVESTOCK
+              </motion.span>
+              <motion.span
+                className="text-amber-500 dark:text-amber-400 font-extrabold"
+                animate={{
+                  scale: [1, 1.08, 1],
+                  color: ["#f59e0b", "#10b981", "#3b82f6", "#f59e0b"],
+                }}
+                transition={{
+                  duration: 5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                IoT
+              </motion.span>
+            </div>
           </div>
         </div>
 

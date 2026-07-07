@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { logout, changeUserPassword, linkEmailPassword } from '../lib/firebase';
 import { toast } from 'sonner';
 import { Lock, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { DeviceName } from '../components/DeviceName';
 
 interface Device {
   id: string;
@@ -354,10 +355,10 @@ export function SettingsPage() {
                             : "bg-system-panel/50 border-system-border hover:border-system-accent/30 hover:bg-system-panel"
                         )}
                       >
-                        <div className="space-y-1 min-w-0">
-                          <h4 className={cn("text-xs font-bold leading-tight truncate", isSelected ? "text-system-accent" : "text-system-text")}>
-                            {dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'}
-                          </h4>
+                        <div className="space-y-1 min-w-0 flex flex-col gap-1">
+                          <div className="flex items-center">
+                            <DeviceName name={dev.deviceName || dev.name || dev.deviceId || dev.id || 'Unnamed Device'} className="text-[10px]" />
+                          </div>
                           <p className="font-mono text-[9px] text-system-muted truncate bg-system-bg px-1.5 py-0.5 rounded border border-system-border/40 inline-block">
                             {dev.id}
                           </p>
@@ -654,7 +655,7 @@ export function SettingsPage() {
             </div>
             
             <p className="text-xs text-system-muted mb-5 leading-relaxed">
-              Are you sure you want to remove the node <span className="font-black text-system-text font-mono">"{deviceToDelete.name}"</span>? 
+              Are you sure you want to remove the node <DeviceName name={deviceToDelete.deviceName || deviceToDelete.name || deviceToDelete.id} />? 
               This action detaches the physical telemetry mapping of this sensor.
             </p>
             
