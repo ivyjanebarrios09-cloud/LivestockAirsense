@@ -552,8 +552,8 @@ export function Dashboard() {
 
   const readingTimestamp = lastReading.timestamp ? parseSafeDate(lastReading.timestamp).getTime() : 0;
   const isDataStale = readingTimestamp > 0 && (now - readingTimestamp > 300000); // 5 minutes without data is stale
-  const isInactive = !deviceData || !isEffectiveOnline; // Only inactive if we have absolutely no data or if offline
-  const isOfflineMode = !isEffectiveOnline || isDataStale;
+  const isInactive = !deviceData; // Only inactive if we have absolutely no data
+  const isOfflineMode = false;
 
   const tempStatus = getStatus('Temperature', lastReading.temperature, isOfflineMode);
   const humStatus = getStatus('Humidity', lastReading.humidity, isOfflineMode);
@@ -1084,7 +1084,7 @@ export function Dashboard() {
             {/* Warn/Telemetry Events */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
               <AnimatePresence mode="popLayout">
-                {!isEffectiveOnline ? (
+                {!deviceData ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -1092,7 +1092,7 @@ export function Dashboard() {
                     className="h-full flex flex-col items-center justify-center text-center p-4"
                   >
                     <Wifi className="w-8 h-8 text-system-muted mb-2 opacity-20" />
-                    <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest">Device Offline</p>
+                    <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest">No Active Device Data</p>
                     <p className="text-[8px] text-system-muted font-mono opacity-60">No active data stream fetching.</p>
                   </motion.div>
                 ) : alertsList.length === 0 ? (

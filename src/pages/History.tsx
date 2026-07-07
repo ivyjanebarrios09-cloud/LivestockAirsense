@@ -311,17 +311,7 @@ export function HistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-system-border font-mono text-xs">
-              {!isEffectiveOnline ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center gap-2 opacity-50">
-                      <RefreshCw className="w-8 h-8 text-system-muted animate-spin-slow mb-2" />
-                      <p className="text-system-muted font-bold uppercase tracking-[0.2em] text-[10px]">Device Offline</p>
-                      <p className="text-[9px] text-system-muted lowercase italic">Telemetry fetching suspended due to inactivity</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : paginatedLogs.length === 0 ? (
+              {paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-system-muted italic uppercase tracking-widest opacity-60">
                     No historical transitions detected for this timeframe
@@ -350,13 +340,7 @@ export function HistoryPage() {
 
         {/* Mobile View: Stacked cards */}
         <div className="md:hidden divide-y divide-system-border">
-          {!isEffectiveOnline ? (
-            <div className="p-12 text-center flex flex-col items-center gap-3">
-              <RefreshCw className="w-8 h-8 text-system-muted animate-spin-slow opacity-20" />
-              <p className="text-[10px] font-mono font-black text-system-muted uppercase tracking-widest leading-none">Node Offline</p>
-              <p className="text-[9px] font-mono text-system-muted lowercase italic opacity-50">Fetching suspended</p>
-            </div>
-          ) : paginatedLogs.length === 0 ? (
+          {paginatedLogs.length === 0 ? (
             <div className="p-8 text-center text-xs text-system-muted font-mono uppercase">
               No records found
             </div>
