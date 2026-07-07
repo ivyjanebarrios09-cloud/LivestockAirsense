@@ -299,80 +299,83 @@ export function HistoryPage() {
           </span>
         </div>
         
-        {/* Responsive view: Table for desktop, cards for mobile */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border">
-              <tr>
-                <th className="px-6 py-3.5 whitespace-nowrap">Timestamp</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Sensor Name</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
-                <th className="px-6 py-3.5 whitespace-nowrap">Reading</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-system-border font-mono text-xs">
-              {paginatedLogs.length === 0 ? (
+        {/* Scrollable Container */}
+        <div className="max-h-[440px] overflow-y-auto">
+          {/* Responsive view: Table for desktop, cards for mobile */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm text-left relative border-collapse">
+              <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border sticky top-0 z-10">
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-system-muted italic uppercase tracking-widest opacity-60">
-                    No historical transitions detected for this timeframe
-                  </td>
+                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Timestamp</th>
+                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Sensor Name</th>
+                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Reading</th>
                 </tr>
-              ) : (
-                paginatedLogs.map((row, i) => (
-                  <tr key={i} className="hover:bg-system-bg/40 transition-colors">
-                    <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                    <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
-                    <td className="px-6 py-3.5 whitespace-nowrap">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
-                        getStatusStyles(row.status)
-                      )}>
-                        {row.status}
-                      </span>
+              </thead>
+              <tbody className="divide-y divide-system-border font-mono text-xs">
+                {paginatedLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-system-muted italic uppercase tracking-widest opacity-60">
+                      No historical transitions detected for this timeframe
                     </td>
-                    <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  paginatedLogs.map((row, i) => (
+                    <tr key={i} className="hover:bg-system-bg/40 transition-colors">
+                      <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
+                      <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
+                          getStatusStyles(row.status)
+                        )}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Mobile View: Stacked cards */}
-        <div className="md:hidden divide-y divide-system-border">
-          {paginatedLogs.length === 0 ? (
-            <div className="p-8 text-center text-xs text-system-muted font-mono uppercase">
-              No records found
-            </div>
-          ) : (
-            paginatedLogs.map((row, i) => (
-              <div key={i} className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors">
-                <div className="flex justify-between items-center mb-1">
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
-                    <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
-                  </div>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
-                    getStatusStyles(row.status)
-                  )}>
-                    {row.status}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
-                    <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
-                  </div>
-                  <div className="space-y-0.5 sm:text-right">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
-                    <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
-                  </div>
-                </div>
+          {/* Mobile View: Stacked cards */}
+          <div className="md:hidden divide-y divide-system-border">
+            {paginatedLogs.length === 0 ? (
+              <div className="p-8 text-center text-xs text-system-muted font-mono uppercase">
+                No records found
               </div>
-            ))
-          )}
+            ) : (
+              paginatedLogs.map((row, i) => (
+                <div key={i} className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors">
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
+                      <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
+                    </div>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
+                      getStatusStyles(row.status)
+                    )}>
+                      {row.status}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
+                      <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
+                    </div>
+                    <div className="space-y-0.5 sm:text-right">
+                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
+                      <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="px-6 py-4 border-t border-system-border bg-system-bg flex flex-col sm:flex-row items-center justify-between gap-4">

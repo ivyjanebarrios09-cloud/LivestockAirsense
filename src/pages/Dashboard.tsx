@@ -387,11 +387,11 @@ export function Dashboard() {
 
   const getStatus = (label: string, val: number, isOffline: boolean = false) => {
     if (isOffline && !deviceData) {
-      return { label: 'Inactive', icon: '⚪', color: 'text-slate-400' };
+      return { label: 'Inactive', icon: '⚪', color: 'text-system-muted' };
     }
     const status = getSensorStatus(label, val);
     if (isOffline) {
-       return { label: `Stale (${status})`, icon: '⚪', color: 'text-slate-400' };
+       return { label: `Stale (${status})`, icon: '⚪', color: 'text-system-muted' };
     }
     switch (status) {
       case 'DANGER':
@@ -410,10 +410,10 @@ export function Dashboard() {
     const label = status?.label || 'Good';
     if (label === 'Inactive' || label.startsWith('Stale')) {
       return {
-        borderClass: 'border-slate-500/10 hover:border-slate-500/20 shadow-none ring-1 ring-slate-500/5',
-        bgClass: 'bg-slate-500/10 border border-slate-500/15 group-hover:bg-slate-500/15',
-        textClass: '!text-slate-400',
-        cardBg: 'bg-slate-500/[0.02] dark:bg-slate-500/[0.01]'
+        borderClass: 'border-system-muted/15 hover:border-system-muted/30 shadow-none ring-1 ring-system-muted/10',
+        bgClass: 'bg-system-muted/10 border border-system-muted/15 group-hover:bg-system-muted/15',
+        textClass: '!text-system-muted',
+        cardBg: 'bg-system-muted/[0.02]'
       };
     }
     if (label === 'Good' || label === 'Excellent') {
@@ -802,73 +802,119 @@ export function Dashboard() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex flex-col sm:flex-row items-center gap-3 md:gap-6 z-10 min-w-0 md:min-w-[440px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
+        <div className="relative bg-white/10 md:bg-white/5 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 z-10 min-w-0 md:min-w-[480px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/10">
           {/* Section 1: Identifier */}
-          <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
-            <div className="flex items-center justify-between">
-              <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
-              <motion.button 
-                onClick={() => triggerSync()}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
-                title="Refresh Feed"
-              >
-                <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors", isSyncing && "animate-spin")} />
-              </motion.button>
-            </div>
-            <div className="relative inline-block w-full">
-              <select
-                value={selectedDeviceId}
-                onChange={(e) => setSelectedDeviceId(e.target.value)}
-                className="bg-white/10 hover:bg-white/15 border border-white/20 cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
-              >
-                {devices?.map((dev) => (
-                  <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
-                    {dev.deviceName || dev.name || dev.deviceId || dev.id}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-white">
-                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                </svg>
+          <div className="flex-1 flex flex-col justify-between gap-2.5 w-full sm:w-auto">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[8px] md:text-[9px] text-slate-400 font-mono uppercase tracking-widest font-bold">Identifier</label>
+                <motion.button 
+                  onClick={() => triggerSync()}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
+                  title="Refresh Feed"
+                >
+                  <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors", isSyncing && "animate-spin")} />
+                </motion.button>
               </div>
+              <div className="relative inline-block w-full">
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  className="bg-white/10 hover:bg-white/15 border border-white/20 cursor-pointer rounded-lg px-2 py-1 text-xs md:text-sm font-black tracking-tight text-white focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
+                >
+                  {devices?.map((dev) => (
+                    <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
+                      {dev.deviceName || dev.name || dev.deviceId || dev.id}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-white">
+                  <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div className="text-[8px] text-white/50 font-mono uppercase tracking-tighter">
+              Livestock Air Quality Platform
             </div>
           </div>
 
-          <div className="hidden sm:block w-[1px] h-10 bg-white/10" />
+          <div className="hidden sm:block w-[1px] self-stretch bg-white/10 my-1" />
 
           {/* Section 2: Climate Safety */}
-          <div className="flex-1 flex flex-col gap-1 w-full sm:w-auto">
-            <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-400 font-mono font-bold">Climate Safety</p>
-            <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex-[1.25] flex flex-col justify-between gap-2.5 w-full sm:w-auto">
+            <div className="flex flex-col gap-1">
+              <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-400 font-mono font-bold">Climate Safety</p>
+            </div>
+
+            {/* 2x2 Grid for Counting Node Statuses */}
+            <div className="grid grid-cols-2 gap-1.5 font-mono text-[9px] tracking-tight">
+              {/* Normal Count */}
               <div className={cn(
-                "w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[10px] md:text-xs font-black border transition-all duration-500",
-                isInactive
-                  ? "bg-slate-500/20 text-slate-400 border-slate-500/40"
-                  : activeIssueCount > 0 
-                    ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" 
-                    : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+                isInactive 
+                  ? "bg-white/5 border-white/5 text-white/30"
+                  : metrics.filter(m => m.status.label === 'Good').length > 0 
+                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 font-bold" 
+                  : "bg-white/5 border-white/5 text-white/30"
               )}>
-                {isInactive ? (
-                  <WifiOff className="w-3.5 h-3.5" />
-                ) : activeIssueCount > 0 ? (
-                  <span className="font-extrabold">{activeIssueCount}</span>
-                ) : (
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                )}
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Good').length > 0 ? "bg-emerald-400 animate-pulse" : "bg-white/20")} />
+                  <span>NORMAL</span>
+                </div>
+                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Good').length}</span>
               </div>
-              <div className="min-w-0">
-                <p className={cn(
-                  "text-[10px] md:text-xs font-bold uppercase tracking-tight", 
-                  isInactive ? "text-slate-400" : activeIssueCount > 0 ? "text-rose-400" : "text-emerald-400"
-                )}>
-                   {isInactive ? 'Status Unknown' : activeIssueCount > 0 ? 'Hazards Detected' : 'Environment Secure'}
-                </p>
-                <p className="text-[7px] md:text-[8px] text-slate-400 uppercase tracking-tighter opacity-70 truncate">
-                  {isInactive ? 'Node is currently offline' : activeIssueCount > 0 ? 'Immediate Action Needed' : 'No Critical Issues Found'}
-                </p>
+
+              {/* Warning Count */}
+              <div className={cn(
+                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+                isInactive 
+                  ? "bg-white/5 border-white/5 text-white/30"
+                  : metrics.filter(m => m.status.label === 'Warning').length > 0 
+                  ? "bg-yellow-500/10 border-yellow-500/25 text-yellow-400 font-bold" 
+                  : "bg-white/5 border-white/5 text-white/30"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Warning').length > 0 ? "bg-yellow-400 animate-pulse" : "bg-white/20")} />
+                  <span>WARNING</span>
+                </div>
+                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Warning').length}</span>
+              </div>
+
+              {/* Poor Count */}
+              <div className={cn(
+                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+                isInactive 
+                  ? "bg-white/5 border-white/5 text-white/30"
+                  : metrics.filter(m => m.status.label === 'Poor').length > 0 
+                  ? "bg-orange-500/10 border-orange-500/25 text-orange-400 font-bold" 
+                  : "bg-white/5 border-white/5 text-white/30"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Poor').length > 0 ? "bg-orange-400 animate-pulse" : "bg-white/20")} />
+                  <span>POOR</span>
+                </div>
+                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Poor').length}</span>
+              </div>
+
+              {/* Danger/Hazard Count */}
+              <div className={cn(
+                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+                isInactive 
+                  ? "bg-white/5 border-white/5 text-white/30"
+                  : metrics.filter(m => m.status.label === 'Danger').length > 0 
+                  ? "bg-rose-500/10 border-rose-500/25 text-rose-400 font-bold" 
+                  : "bg-white/5 border-white/5 text-white/30"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Danger').length > 0 ? "bg-rose-400 animate-pulse" : "bg-white/20")} />
+                  <span>DANGER</span>
+                </div>
+                <span className="font-bold">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Danger').length}</span>
               </div>
             </div>
           </div>
@@ -882,64 +928,6 @@ export function Dashboard() {
           Synchronizing air quality data streams with cloud database...
         </div>
       )}
-
-      <div className="mt-8 flex flex-wrap gap-2.5">
-        {isInactive ? (
-          <div className="px-3 py-1.5 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center gap-2 select-none shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
-            </span>
-            <span className="text-xs font-mono font-bold text-slate-500">
-              Telemetry Node Offline / No Data
-            </span>
-          </div>
-        ) : (
-          <>
-            {metrics.filter(m => m.status.label === 'Good').length > 0 && (
-              <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 select-none shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-500">
-                  {metrics.filter(m => m.status.label === 'Good').length} Sensor{metrics.filter(m => m.status.label === 'Good').length > 1 ? 's' : ''} Normal
-                </span>
-              </div>
-            )}
-            {metrics.filter(m => m.status.label === 'Warning').length > 0 && (
-              <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2 select-none shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                </span>
-                <span className="text-xs font-mono font-bold text-yellow-600 dark:text-yellow-500">
-                  {metrics.filter(m => m.status.label === 'Warning').length} Sensor{metrics.filter(m => m.status.label === 'Warning').length > 1 ? 's' : ''} Warning
-                </span>
-              </div>
-            )}
-            {metrics.filter(m => m.status.label === 'Poor').length > 0 && (
-              <div className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-2 select-none shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                </span>
-                <span className="text-xs font-mono font-bold text-orange-600 dark:text-orange-500">
-                  {metrics.filter(m => m.status.label === 'Poor').length} Sensor{metrics.filter(m => m.status.label === 'Poor').length > 1 ? 's' : ''} Poor
-                </span>
-              </div>
-            )}
-            {metrics.filter(m => m.status.label === 'Danger').length > 0 && (
-              <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 select-none shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-                <span className="text-xs font-mono font-bold text-red-600 dark:text-red-500">
-                  {metrics.filter(m => m.status.label === 'Danger').length} Sensor{metrics.filter(m => m.status.label === 'Danger').length > 1 ? 's' : ''} Hazard
-                </span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
 
       <div className="mt-4 md:mt-6 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
         {metrics.map((metric, idx) => {

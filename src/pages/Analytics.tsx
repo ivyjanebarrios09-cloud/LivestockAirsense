@@ -42,11 +42,15 @@ interface SensorChartProps {
 }
 
 function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: SensorChartProps) {
+  const { theme } = useAppContext();
   const status = useMemo(() => {
     if (data.length === 0) return 'GOOD';
     const latest = data[data.length - 1][dataKey];
     return getSensorStatus(dataKey, latest);
   }, [data, dataKey]);
+
+  const isDarkBackground = theme === 'dark' || theme === 'forest';
+  const gridStroke = isDarkBackground ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.06)';
 
   return (
     <div className="bg-system-panel border border-system-border rounded-2xl p-5 flex flex-col shadow-sm hover:shadow-md transition-shadow">
@@ -81,7 +85,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
                 <stop offset="95%" stopColor={color} stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#0f172a', 

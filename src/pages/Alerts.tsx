@@ -191,19 +191,19 @@ export function AlertsPage() {
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
             {filteredAlerts.length === 0 ? (
-              <div className="bg-system-panel border border-system-border text-center py-10 rounded-2xl text-system-muted select-none">
+              <div className="text-center py-12 text-system-muted select-none">
                 <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
                 <p className="text-xs font-mono uppercase tracking-wider leading-none">No {activeTab} anomalies logged</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="p-4 md:p-5 max-h-[500px] overflow-y-auto space-y-3">
                 {filteredAlerts.map((log) => (
                   <div 
                     key={log.id}
                     className={cn(
-                      "p-4 rounded-2xl border bg-system-panel flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
+                      "p-4 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
                       log.resolved ? "opacity-60 border-system-border" : "border-system-text/10 ring-1 ring-system-text/5"
                     )}
                   >
@@ -221,7 +221,7 @@ export function AlertsPage() {
                           )}>
                             {getSeverityLabel(log.severity)}
                           </span>
-                          <span className="text-[10px] bg-system-bg border border-system-border px-2 py-0.5 rounded-md font-semibold text-system-muted shrink-0">
+                          <span className="text-[10px] bg-system-panel border border-system-border px-2 py-0.5 rounded-md font-semibold text-system-muted shrink-0">
                             {log.location}
                           </span>
                         </div>
