@@ -897,6 +897,7 @@ export function Dashboard() {
               {currentDevice ? (
                 <DeviceName 
                   name={currentDevice.deviceName || currentDevice.name || currentDevice.id} 
+                  hasDanger={!isInactive && metrics.some(m => m.status?.label === 'Danger')}
                   className={cn(
                     "text-xs md:text-sm px-3 py-1.5 font-black border shadow-none",
                     theme === 'forest'
