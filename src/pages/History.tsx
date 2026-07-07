@@ -30,6 +30,7 @@ export function HistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
   const [historicalLogs, setHistoricalLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const dateRange = useMemo(() => {
     const baseDate = new Date(selectedDate);
@@ -72,23 +73,30 @@ export function HistoryPage() {
 
   const fetchData = async () => {
     if (!activeDevice) return;
+    setIsLoading(true);
     setHistoricalLogs([]); // Clear old data
     const { start, end } = dateRange;
-    const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
-    
-    // Filter out zero readings (common with hardware noise/offline states)
-    const filteredLogs = logs.filter(log => {
-      if (log.reading === undefined || log.reading === null) return true;
-      const val = parseFloat(log.reading.toString());
-      return val !== 0;
-    });
+    try {
+      const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
+      
+      // Filter out zero readings (common with hardware noise/offline states)
+      const filteredLogs = logs.filter(log => {
+        if (log.reading === undefined || log.reading === null) return true;
+        const val = parseFloat(log.reading.toString());
+        return val !== 0;
+      });
 
-    const formattedLogs = filteredLogs.map(log => ({
-      ...log,
-      timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
-      chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
-    }));
-    setHistoricalLogs(formattedLogs);
+      const formattedLogs = filteredLogs.map(log => ({
+        ...log,
+        timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
+        chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
+      }));
+      setHistoricalLogs(formattedLogs);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const paginatedLogs = useMemo(() => {
@@ -314,68 +322,66 @@ export function HistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-system-border font-mono text-xs">
-                {paginatedLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-system-muted italic uppercase tracking-widest opacity-60">
-                      No historical transitions detected for this timeframe
+                {paginatedLogs.map((row, i) => (
+                  <motion.tr 
+                    key={row.id || i} 
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
+                    className="hover:bg-system-bg/40 transition-colors"
+                  >
+                    <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
+                    <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
+                    <td className="px-6 py-3.5 whitespace-nowrap">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
+                        getStatusStyles(row.status)
+                      )}>
+                        {row.status}
+                      </span>
                     </td>
-                  </tr>
-                ) : (
-                  paginatedLogs.map((row, i) => (
-                    <tr key={i} className="hover:bg-system-bg/40 transition-colors">
-                      <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                      <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
-                      <td className="px-6 py-3.5 whitespace-nowrap">
-                        <span className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
-                          getStatusStyles(row.status)
-                        )}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
-                    </tr>
-                  ))
-                )}
+                    <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
+                  </motion.tr>
+                ))}
               </tbody>
             </table>
           </div>
 
           {/* Mobile View: Stacked cards */}
           <div className="md:hidden divide-y divide-system-border">
-            {paginatedLogs.length === 0 ? (
-              <div className="p-8 text-center text-xs text-system-muted font-mono uppercase">
-                No records found
-              </div>
-            ) : (
-              paginatedLogs.map((row, i) => (
-                <div key={i} className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors">
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
-                      <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
-                    </div>
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
-                      getStatusStyles(row.status)
-                    )}>
-                      {row.status}
-                    </span>
+            {paginatedLogs.map((row, i) => (
+              <motion.div 
+                key={row.id || i} 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
+                className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors"
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
+                    <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
-                    <div className="space-y-0.5">
-                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
-                      <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
-                    </div>
-                    <div className="space-y-0.5 sm:text-right">
-                      <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
-                      <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
-                    </div>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
+                    getStatusStyles(row.status)
+                  )}>
+                    {row.status}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
+                    <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
+                  </div>
+                  <div className="space-y-0.5 sm:text-right">
+                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
+                    <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
                   </div>
                 </div>
-              ))
-            )}
+              </motion.div>
+            ))}
           </div>
         </div>
 

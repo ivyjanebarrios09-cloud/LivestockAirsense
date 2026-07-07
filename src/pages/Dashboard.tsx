@@ -9,6 +9,7 @@ import { recordStatusChange, subscribeToSensorData, getSensorReadings, addAlertT
 import { toast } from 'sonner';
 import { Cpu, Plus, Layers, Wifi, Sliders, Wrench, Zap, Clock, RefreshCw, ShieldAlert, ShieldCheck, WifiOff } from 'lucide-react';
 import { DeviceName } from '../components/DeviceName';
+import { ClimateScanAnimation } from '../components/ClimateScanAnimation';
 
 const TempSvg = ({ className, isWarning }: { className?: string; isWarning?: boolean }) => {
   const gradientId = isWarning ? "tempGradWarning" : "tempGradNormal";
@@ -858,156 +859,149 @@ export function Dashboard() {
       <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-6">
       
       <div className={cn(
-        "bg-gradient-to-r shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300",
+        "relative overflow-hidden shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-4 md:p-6 flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 z-10 w-full group transition-all duration-300",
         theme === 'forest' 
-          ? "from-emerald-950 via-green-900 to-[#064e3b] text-emerald-50 border border-emerald-800/30"
+          ? "from-emerald-950 via-green-900 to-[#064e3b] text-emerald-50 bg-gradient-to-r"
           : theme === 'wind'
-          ? "from-sky-600 via-sky-500 to-sky-700 text-white border border-sky-400/30"
+          ? "from-sky-700 via-sky-600 to-sky-800 text-white bg-gradient-to-r"
           : theme === 'farm'
-          ? "from-amber-600 via-amber-500 to-amber-700 text-amber-50 border border-amber-400/30"
-          : "from-slate-900 via-slate-800 to-indigo-950 text-white"
+          ? "from-amber-700 via-amber-600 to-amber-800 text-amber-50 bg-gradient-to-r"
+          : "from-slate-900 via-slate-800 to-indigo-950 text-white bg-gradient-to-r"
       )}>
         
         <Interactive3DAtmosphere hasAlerts={activeIssueCount > 0} isInactive={isInactive} />
+        <ClimateScanAnimation theme={theme} />
 
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-        <div className="relative bg-white/90 backdrop-blur-md border border-white/20 rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 z-10 min-w-0 md:min-w-[480px] overflow-hidden group shadow-lg transition-all duration-300 hover:bg-white/95">
-          <CloudWindAnimation 
-            colorClass={cn(
-              theme === 'forest' 
-                ? "text-emerald-500/70 group-hover:text-emerald-600" 
-                : theme === 'wind' 
-                ? "text-sky-500/70 group-hover:text-sky-600" 
-                : theme === 'farm' 
-                ? "text-amber-500/70 group-hover:text-amber-600" 
-                : "text-indigo-500/70 group-hover:text-indigo-600"
-            )} 
-            density="high" 
-          />
-          {/* Section 1: Identifier */}
-          <div className="flex-1 flex flex-col justify-between gap-2.5 w-full sm:w-auto">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <label className="text-[8px] md:text-[9px] text-slate-800 font-mono uppercase tracking-widest font-black">Identifier</label>
-                <motion.button 
-                  onClick={() => triggerSync()}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="p-1 hover:bg-slate-200/50 rounded-md border border-transparent hover:border-slate-300/30 transition-colors group"
-                  title="Refresh Feed"
-                >
-                  <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-slate-800 transition-colors", isSyncing && "animate-spin")} />
-                </motion.button>
-              </div>
-              <div className="relative inline-block w-full">
-                <select
-                  value={selectedDeviceId}
-                  onChange={(e) => setSelectedDeviceId(e.target.value)}
-                  className="bg-slate-100 hover:bg-slate-200/80 border border-slate-300 cursor-pointer rounded-lg px-2.5 py-1 text-xs md:text-sm font-black tracking-tight text-slate-900 focus:outline-none pr-7 appearance-none transition-colors leading-none w-full"
-                >
-                  {devices?.map((dev) => (
-                    <option key={dev.id} value={dev.id} className="text-slate-900 font-semibold bg-white">
-                      {dev.deviceName || dev.name || dev.deviceId || dev.id}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-600">
-                  <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                  </svg>
-                </div>
-              </div>
-              {currentDevice && (
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  <span className="text-[8px] uppercase tracking-wider font-mono text-slate-500 font-bold">Selected:</span>
-                  <DeviceName name={currentDevice.deviceName || currentDevice.name || currentDevice.id} className="scale-90 origin-left" />
-                </div>
+        {/* Section 1: Identifier */}
+        <div className="flex-1 flex flex-col justify-between gap-2.5 w-full sm:w-auto z-10 relative">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <label className={cn(
+                "text-[8px] md:text-[9px] font-mono uppercase tracking-widest font-black",
+                theme === 'forest' ? "text-emerald-300/90" : theme === 'wind' ? "text-sky-200/90" : theme === 'farm' ? "text-amber-200/90" : "text-indigo-200/90"
+              )}>Active Node</label>
+              <motion.button 
+                onClick={() => triggerSync()}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="p-1 hover:bg-white/10 rounded-md border border-transparent hover:border-white/10 transition-colors group"
+                title="Refresh Feed"
+              >
+                <RefreshCw className={cn("w-2.5 h-2.5 text-system-accent group-hover:text-white transition-colors", isSyncing && "animate-spin")} />
+              </motion.button>
+            </div>
+            <div className="flex items-center mt-1">
+              {currentDevice ? (
+                <DeviceName 
+                  name={currentDevice.deviceName || currentDevice.name || currentDevice.id} 
+                  className={cn(
+                    "text-xs md:text-sm px-3 py-1.5 font-black border shadow-none",
+                    theme === 'forest'
+                      ? "bg-emerald-900/60 border-emerald-700/50 text-emerald-100"
+                      : theme === 'wind'
+                      ? "bg-sky-900/60 border-sky-700/50 text-sky-100"
+                      : theme === 'farm'
+                      ? "bg-amber-900/60 border-amber-700/50 text-amber-100"
+                      : "bg-slate-900/60 border-slate-700/50 text-slate-100"
+                  )}
+                />
+              ) : (
+                <span className="text-xs text-slate-300 font-mono">No Device Active</span>
               )}
             </div>
-            
-            <div className="text-[8px] text-slate-600 font-mono uppercase tracking-tighter font-semibold">
-              Livestock Air Quality Platform
-            </div>
+          </div>
+          
+          <div className={cn(
+            "text-[8px] font-mono uppercase tracking-tighter font-semibold",
+            theme === 'forest' ? "text-emerald-400/80" : theme === 'wind' ? "text-sky-300/80" : theme === 'farm' ? "text-amber-300/80" : "text-slate-400/80"
+          )}>
+            Livestock Air Quality Platform
+          </div>
+        </div>
+
+        <div className={cn(
+          "hidden sm:block w-[1px] self-stretch my-1 z-10 relative",
+          theme === 'forest' ? "bg-emerald-800/40" : theme === 'wind' ? "bg-sky-500/40" : theme === 'farm' ? "bg-amber-500/40" : "bg-slate-700/40"
+        )} />
+
+        {/* Section 2: Climate Safety */}
+        <div className="flex-[1.25] flex flex-col justify-between gap-2.5 w-full sm:w-auto z-10 relative">
+          <div className="flex flex-col gap-1">
+            <p className={cn(
+              "text-[8px] md:text-[9px] uppercase tracking-widest font-mono font-black",
+              theme === 'forest' ? "text-emerald-300/90" : theme === 'wind' ? "text-sky-200/90" : theme === 'farm' ? "text-amber-200/90" : "text-indigo-200/90"
+            )}>Climate Safety</p>
           </div>
 
-          <div className="hidden sm:block w-[1px] self-stretch bg-slate-200 my-1" />
-
-          {/* Section 2: Climate Safety */}
-          <div className="flex-[1.25] flex flex-col justify-between gap-2.5 w-full sm:w-auto">
-            <div className="flex flex-col gap-1">
-              <p className="text-[8px] md:text-[9px] uppercase tracking-widest text-slate-800 font-mono font-black">Climate Safety</p>
+          {/* 2x2 Grid for Counting Node Statuses */}
+          <div className="grid grid-cols-2 gap-1.5 font-mono text-[9px] tracking-tight">
+            {/* Normal Count */}
+            <div className={cn(
+              "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+              isInactive 
+                ? "bg-slate-900/40 border-slate-800 text-slate-400"
+                : metrics.filter(m => m.status.label === 'Good').length > 0 
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-black" 
+                : "bg-slate-900/30 border-slate-800/50 text-slate-400"
+            )}>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Good').length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-600")} />
+                <span>NORMAL</span>
+              </div>
+              <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Good').length}</span>
             </div>
 
-            {/* 2x2 Grid for Counting Node Statuses */}
-            <div className="grid grid-cols-2 gap-1.5 font-mono text-[9px] tracking-tight">
-              {/* Normal Count */}
-              <div className={cn(
-                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
-                isInactive 
-                  ? "bg-slate-100 border-slate-200 text-slate-400"
-                  : metrics.filter(m => m.status.label === 'Good').length > 0 
-                  ? "bg-emerald-100 border-emerald-300 text-emerald-800 font-black" 
-                  : "bg-slate-100 border-slate-200 text-slate-400"
-              )}>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Good').length > 0 ? "bg-emerald-600 animate-pulse" : "bg-slate-300")} />
-                  <span>NORMAL</span>
-                </div>
-                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Good').length}</span>
+            {/* Warning Count */}
+            <div className={cn(
+              "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+              isInactive 
+                ? "bg-slate-900/40 border-slate-800 text-slate-400"
+                : metrics.filter(m => m.status.label === 'Warning').length > 0 
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-300 font-black" 
+                : "bg-slate-900/30 border-slate-800/50 text-slate-400"
+            )}>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Warning').length > 0 ? "bg-amber-400 animate-pulse" : "bg-slate-600")} />
+                <span>WARNING</span>
               </div>
+              <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Warning').length}</span>
+            </div>
 
-              {/* Warning Count */}
-              <div className={cn(
-                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
-                isInactive 
-                  ? "bg-slate-100 border-slate-200 text-slate-400"
-                  : metrics.filter(m => m.status.label === 'Warning').length > 0 
-                  ? "bg-amber-100 border-amber-300 text-amber-800 font-black" 
-                  : "bg-slate-100 border-slate-200 text-slate-400"
-              )}>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Warning').length > 0 ? "bg-amber-600 animate-pulse" : "bg-slate-300")} />
-                  <span>WARNING</span>
-                </div>
-                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Warning').length}</span>
+            {/* Poor Count */}
+            <div className={cn(
+              "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+              isInactive 
+                ? "bg-slate-900/40 border-slate-800 text-slate-400"
+                : metrics.filter(m => m.status.label === 'Poor').length > 0 
+                ? "bg-orange-500/10 border-orange-500/30 text-orange-300 font-black" 
+                : "bg-slate-900/30 border-slate-800/50 text-slate-400"
+            )}>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Poor').length > 0 ? "bg-orange-400 animate-pulse" : "bg-slate-600")} />
+                <span>POOR</span>
               </div>
+              <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Poor').length}</span>
+            </div>
 
-              {/* Poor Count */}
-              <div className={cn(
-                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
-                isInactive 
-                  ? "bg-slate-100 border-slate-200 text-slate-400"
-                  : metrics.filter(m => m.status.label === 'Poor').length > 0 
-                  ? "bg-orange-100 border-orange-300 text-orange-800 font-black" 
-                  : "bg-slate-100 border-slate-200 text-slate-400"
-              )}>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Poor').length > 0 ? "bg-orange-600 animate-pulse" : "bg-slate-300")} />
-                  <span>POOR</span>
-                </div>
-                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Poor').length}</span>
+            {/* Danger/Hazard Count */}
+            <div className={cn(
+              "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
+              isInactive 
+                ? "bg-slate-900/40 border-slate-800 text-slate-400"
+                : metrics.filter(m => m.status.label === 'Danger').length > 0 
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-300 font-black" 
+                : "bg-slate-900/30 border-slate-800/50 text-slate-400"
+            )}>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Danger').length > 0 ? "bg-rose-400 animate-pulse" : "bg-slate-600")} />
+                <span>DANGER</span>
               </div>
-
-              {/* Danger/Hazard Count */}
-              <div className={cn(
-                "flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all",
-                isInactive 
-                  ? "bg-slate-100 border-slate-200 text-slate-400"
-                  : metrics.filter(m => m.status.label === 'Danger').length > 0 
-                  ? "bg-rose-100 border-rose-300 text-rose-800 font-black" 
-                  : "bg-slate-100 border-slate-200 text-slate-400"
-              )}>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", !isInactive && metrics.filter(m => m.status.label === 'Danger').length > 0 ? "bg-rose-600 animate-pulse" : "bg-slate-300")} />
-                  <span>DANGER</span>
-                </div>
-                <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Danger').length}</span>
-              </div>
+              <span className="font-black">{isInactive ? 0 : metrics.filter(m => m.status.label === 'Danger').length}</span>
             </div>
           </div>
-
         </div>
       </div>
 
