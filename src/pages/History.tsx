@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Filter, Download, FileText, CheckCircle, RefreshCw } from 'lucide-react';
+import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
 import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -74,7 +74,6 @@ export function HistoryPage() {
   const fetchData = async () => {
     if (!activeDevice) return;
     setIsLoading(true);
-    setHistoricalLogs([]); // Clear old data
     const { start, end } = dateRange;
     try {
       const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
@@ -228,16 +227,6 @@ export function HistoryPage() {
           <h1 className="text-2xl font-black tracking-tight uppercase font-mono">Historical Logs</h1>
           <div className="text-sm text-system-muted mt-1 leading-relaxed flex items-center gap-2 flex-wrap">
             <span>Analyze historical calibrated telemetry curves for <DeviceName name={activeDevice.deviceName || activeDevice.name || activeDevice.id} /></span>
-            <motion.button 
-              onClick={() => window.location.reload()}
-              whileHover={{ rotate: 180 }}
-              whileTap={{ scale: 0.9, rotate: 180 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="p-1 hover:bg-system-bg rounded-md border border-transparent hover:border-system-border transition-colors group"
-              title="Refresh Feed"
-            >
-              <RefreshCw className="w-3 h-3 text-system-accent group-hover:text-system-text transition-colors" />
-            </motion.button>
           </div>
         </div>
 
