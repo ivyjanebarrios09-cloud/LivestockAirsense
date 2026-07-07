@@ -1001,6 +1001,41 @@ export const getStatusHistory = async (
   }
 };
 
+export const subscribeToStatusHistory = (
+  deviceId: string,
+  startTime: number | undefined,
+  endTime: number | undefined,
+  callback: (logs: any[]) => void
+) => {
+  if (!deviceId) {
+    callback([]);
+    return () => {};
+  }
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+  
+  const constraints: any[] = [orderBy('timestamp', 'desc')];
+  if (startTime) constraints.push(where('timestamp', '>=', startTime));
+  if (endTime) constraints.push(where('timestamp', '<=', endTime));
+  
+  if (!startTime && !endTime) {
+    constraints.push(limit(100));
+  }
+
+  const q = query(historyRef, ...constraints);
+  
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(logs);
+    },
+    (error) => {
+      console.warn('[Firestore] Status history subscription stream error:', error);
+    }
+  );
+};
+
 export const getAnalyticsData = async (
   deviceId: string, 
   startTime: number, 

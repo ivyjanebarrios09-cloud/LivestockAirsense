@@ -532,7 +532,7 @@ export function Dashboard() {
   const prevDeviceDataRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!deviceData || !isEffectiveOnline) return;
+    if (!deviceData) return;
     
     if (prevDeviceDataRef.current) {
       const prev = prevDeviceDataRef.current;
@@ -620,7 +620,7 @@ export function Dashboard() {
     }
 
     prevDeviceDataRef.current = deviceData;
-  }, [deviceData, thresholds, isEffectiveOnline]);
+  }, [deviceData, thresholds]);
 
   const readingTimestamp = lastReading.timestamp ? parseSafeDate(lastReading.timestamp).getTime() : 0;
   const isDataStale = readingTimestamp > 0 && (now - readingTimestamp > 300000); // 5 minutes without data is stale

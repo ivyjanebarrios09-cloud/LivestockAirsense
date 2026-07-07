@@ -5,7 +5,7 @@ import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
-import { getStatusHistory } from '../lib/firebase';
+import { getStatusHistory, subscribeToStatusHistory } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
 
@@ -68,35 +68,35 @@ export function HistoryPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-    fetchData();
-  }, [dateRange, activeDevice]);
-
-  const fetchData = async () => {
     if (!activeDevice) return;
+    
     setIsLoading(true);
     const { start, end } = dateRange;
-    try {
-      const logs = await getStatusHistory(activeDevice.id, start.getTime(), end.getTime());
-      
-      // Filter out zero readings (common with hardware noise/offline states)
-      const filteredLogs = logs.filter(log => {
-        if (log.reading === undefined || log.reading === null) return true;
-        const val = parseFloat(log.reading.toString());
-        return val !== 0;
-      });
+    
+    const unsubscribe = subscribeToStatusHistory(
+      activeDevice.id,
+      start.getTime(),
+      end.getTime(),
+      (logs) => {
+        // Filter out zero readings (common with hardware noise/offline states)
+        const filteredLogs = logs.filter(log => {
+          if (log.reading === undefined || log.reading === null) return true;
+          const val = parseFloat(log.reading.toString());
+          return val !== 0;
+        });
 
-      const formattedLogs = filteredLogs.map(log => ({
-        ...log,
-        timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
-        chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
-      }));
-      setHistoricalLogs(formattedLogs);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        const formattedLogs = filteredLogs.map(log => ({
+          ...log,
+          timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
+          chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
+        }));
+        setHistoricalLogs(formattedLogs);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [dateRange, activeDevice]);
 
   const paginatedLogs = useMemo(() => {
     if (rowsPerPage === 'all') {
