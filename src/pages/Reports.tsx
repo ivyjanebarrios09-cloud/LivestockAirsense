@@ -175,7 +175,7 @@ export function ReportsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-28">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 pb-6">
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

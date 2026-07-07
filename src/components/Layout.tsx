@@ -33,9 +33,9 @@ export function Layout() {
 
   return (
     <div className="flex bg-system-bg h-screen w-full overflow-hidden text-system-text font-sans selection:bg-system-accent/30">
-      <div className="flex-1 flex flex-col w-full min-w-0 pb-24 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col w-full min-w-0 h-full overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto w-full relative">
+        <main className="flex-1 overflow-y-auto w-full relative pb-28">
           <Outlet />
         </main>
       </div>

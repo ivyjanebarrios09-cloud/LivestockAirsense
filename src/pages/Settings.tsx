@@ -281,7 +281,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 pb-28">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 pb-6">
       <div>
         <h1 className="text-2xl font-black tracking-tight uppercase font-mono">System Settings</h1>
       </div>

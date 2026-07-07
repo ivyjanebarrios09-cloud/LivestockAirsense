@@ -784,7 +784,7 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-28">
+      <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6 animate-in fade-in duration-300 pb-6">
       
       <div className={cn(
         "bg-gradient-to-r shadow-md md:shadow-xl rounded-xl md:rounded-2xl p-3 md:p-6 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 md:gap-6 min-h-[auto] md:min-h-[140px] group transition-all duration-300",
