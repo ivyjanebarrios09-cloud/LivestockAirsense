@@ -619,6 +619,7 @@ export const recordStatusChange = async (
     pm2_5?: number;
     pm10?: number;
     aqi?: number;
+    timestamp?: number;
   }
 ) => {
   if (!deviceId) return;
@@ -626,7 +627,7 @@ export const recordStatusChange = async (
   try {
     const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
     await addDoc(historyRef, {
-      timestamp: Date.now(),
+      timestamp: allReadings?.timestamp || Date.now(),
       sensorName,
       status,
       reading,
@@ -1282,14 +1283,19 @@ export const addAlertToFirestore = async (
     location: string;
     deviceId?: string;
     reading?: number;
+    timestamp?: number;
   }
 ) => {
   try {
     const alertsRef = collection(db, 'alerts');
+    let alertTimestamp = Math.floor(Date.now() / 1000);
+    if (alert.timestamp) {
+      alertTimestamp = alert.timestamp > 30000000000 ? Math.floor(alert.timestamp / 1000) : alert.timestamp;
+    }
     await addDoc(alertsRef, {
       userId,
       deviceId: alert.deviceId || '',
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp: alertTimestamp,
       alertType: alert.alertType,
       message: alert.message,
       severity: alert.severity,

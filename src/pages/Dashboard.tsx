@@ -545,7 +545,7 @@ export function Dashboard() {
         currStatus: string,
         prevStatus: string
       ) => {
-        if (currStatus !== prevStatus && currVal !== 0) {
+        if (currStatus !== prevStatus) {
           console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
           await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
             temp: curr.temperature ?? 0,
@@ -556,7 +556,8 @@ export function Dashboard() {
             pm1_0: curr.pm1_0 ?? 0,
             pm2_5: curr.pm2_5 ?? 0,
             pm10: curr.pm10 ?? 0,
-            aqi: curr.aqi ?? 0
+            aqi: curr.aqi ?? 0,
+            timestamp: curr.timestamp
           });
 
           if (uid) {
@@ -573,7 +574,8 @@ export function Dashboard() {
               severity,
               location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
               deviceId: selectedDeviceId,
-              reading: currVal
+              reading: currVal,
+              timestamp: curr.timestamp
             });
 
             if (severity === 'critical') {

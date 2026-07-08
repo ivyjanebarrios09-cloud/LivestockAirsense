@@ -78,14 +78,7 @@ export function HistoryPage() {
       start.getTime(),
       end.getTime(),
       (logs) => {
-        // Filter out zero readings (common with hardware noise/offline states)
-        const filteredLogs = logs.filter(log => {
-          if (log.reading === undefined || log.reading === null) return true;
-          const val = parseFloat(log.reading.toString());
-          return val !== 0;
-        });
-
-        const formattedLogs = filteredLogs.map(log => ({
+        const formattedLogs = logs.map(log => ({
           ...log,
           timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
           chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''

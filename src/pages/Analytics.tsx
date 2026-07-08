@@ -40,9 +40,10 @@ interface SensorChartProps {
   unit: string;
   icon: React.ReactNode;
   threshold?: number;
+  index?: number;
 }
 
-function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: SensorChartProps) {
+function SensorChart({ title, data, dataKey, color, unit, icon, threshold, index = 0 }: SensorChartProps) {
   const { theme } = useAppContext();
   const status = useMemo(() => {
     if (data.length === 0) return 'GOOD';
@@ -54,7 +55,21 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
   const gridStroke = isDarkBackground ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.06)';
 
   return (
-    <div className="bg-system-panel border border-system-border rounded-2xl p-5 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ 
+        duration: 0.6, 
+        delay: index * 0.08,
+        ease: [0.16, 1, 0.3, 1]
+      }}
+      whileHover={{ 
+        y: -4, 
+        scale: 1.015,
+        transition: { duration: 0.25, ease: "easeOut" }
+      }}
+      className="bg-system-panel border border-system-border rounded-2xl p-5 flex flex-col shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-system-bg border border-system-border flex items-center justify-center text-system-accent">
@@ -82,7 +97,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
           <AreaChart data={data}>
             <defs>
               <linearGradient id={`color-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={color} stopOpacity={0.1}/>
+                <stop offset="5%" stopColor={color} stopOpacity={0.15}/>
                 <stop offset="95%" stopColor={color} stopOpacity={0}/>
               </linearGradient>
             </defs>
@@ -107,9 +122,12 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
               stroke={color} 
               fillOpacity={1} 
               fill={`url(#color-${dataKey})`} 
-              strokeWidth={2}
+              strokeWidth={2.5}
               connectNulls={true}
-              isAnimationActive={false}
+              isAnimationActive={true}
+              animationDuration={1200}
+              animationBegin={index * 100}
+              animationEasing="ease-out"
             />
             {threshold && (
               <ReferenceLine y={threshold} stroke="#ef4444" strokeDasharray="3 3" opacity={0.3} />
@@ -117,7 +135,7 @@ function SensorChart({ title, data, dataKey, color, unit, icon, threshold }: Sen
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -399,6 +417,7 @@ export function AnalyticsPage() {
               unit="AQI" 
               icon={<Wind className="w-5 h-5" />} 
               threshold={100}
+              index={0}
             />
             <SensorChart 
               title="Ambient Temp" 
@@ -408,6 +427,7 @@ export function AnalyticsPage() {
               unit="°C" 
               icon={<Thermometer className="w-5 h-5" />} 
               threshold={30}
+              index={1}
             />
             <SensorChart 
               title="Rel. Humidity" 
@@ -417,6 +437,7 @@ export function AnalyticsPage() {
               unit="%" 
               icon={<Droplets className="w-5 h-5" />} 
               threshold={70}
+              index={2}
             />
             <SensorChart 
               title="Carbon Dioxide" 
@@ -426,6 +447,7 @@ export function AnalyticsPage() {
               unit="PPM" 
               icon={<AlertTriangle className="w-5 h-5" />} 
               threshold={800}
+              index={3}
             />
             <SensorChart 
               title="Ammonia (NH3)" 
@@ -435,6 +457,7 @@ export function AnalyticsPage() {
               unit="PPM" 
               icon={<Activity className="w-5 h-5" />} 
               threshold={25}
+              index={4}
             />
             <SensorChart 
               title="Methane (CH4)" 
@@ -444,6 +467,7 @@ export function AnalyticsPage() {
               unit="PPM" 
               icon={<TrendingUp className="w-5 h-5" />} 
               threshold={50}
+              index={5}
             />
             <SensorChart 
               title="Particulate 2.5" 
@@ -453,6 +477,7 @@ export function AnalyticsPage() {
               unit="µg/m³" 
               icon={<Search className="w-5 h-5" />} 
               threshold={12}
+              index={6}
             />
             <SensorChart 
               title="Particulate 10" 
@@ -462,6 +487,7 @@ export function AnalyticsPage() {
               unit="µg/m³" 
               icon={<BarChart3 className="w-5 h-5" />} 
               threshold={54}
+              index={7}
             />
           </>
         )}
