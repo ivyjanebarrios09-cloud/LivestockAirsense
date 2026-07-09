@@ -51,6 +51,7 @@ export interface AppContextType {
   addAlert: (alert: Omit<Alert, 'id' | 'time'>) => void;
   resolveAlert: (id: string) => void;
   deleteAlert: (id: string) => Promise<void>;
+  purgeResolvedAlerts: () => number;
   unreadAlertsCount: number;
   refreshInterval: number;
   firebaseSync: boolean;
@@ -475,6 +476,15 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     await deleteAlertFromFirestore(id);
   };
 
+  const purgeResolvedAlerts = () => {
+    const resolvedIds = alertsList.filter(a => a.resolved).map(a => a.id);
+    setAlertsList(prev => prev.filter(alert => !alert.resolved));
+    resolvedIds.forEach(id => {
+      deleteAlertFromFirestore(id).catch(err => console.error(err));
+    });
+    return resolvedIds.length;
+  };
+
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
@@ -690,6 +700,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       addAlert,
       resolveAlert,
       deleteAlert,
+      purgeResolvedAlerts,
       unreadAlertsCount,
       refreshInterval,
       firebaseSync,

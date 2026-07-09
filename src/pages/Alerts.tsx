@@ -4,12 +4,11 @@ import { cn, parseSafeDate } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
-import { clearResolvedAlerts } from '../lib/firebase';
 import { toast } from 'sonner';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList } = useAppContext();
+  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts } = useAppContext();
   
   const [isPurging, setIsPurging] = useState(false);
 
@@ -173,7 +172,7 @@ export function AlertsPage() {
                     if (window.confirm('Are you sure you want to permanently delete all resolved alerts?')) {
                       try {
                         setIsPurging(true);
-                        const count = await clearResolvedAlerts(uid);
+                        const count = purgeResolvedAlerts();
                         toast.success(`Purged ${count} resolved alerts`);
                       } catch (err) {
                         toast.error('Failed to purge resolved alerts');
