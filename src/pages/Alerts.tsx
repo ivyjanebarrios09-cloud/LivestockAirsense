@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
-import { subscribeToAlerts } from '../lib/firebase';
+import { clearResolvedAlerts } from '../lib/firebase';
+import { toast } from 'sonner';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, clearAllAlerts, selectedDeviceId, connectionStatus } = useAppContext();
+  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList } = useAppContext();
   
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [isPurging, setIsPurging] = useState(false);
 
   const [now, setNow] = useState(Date.now());
   
@@ -25,16 +26,9 @@ export function AlertsPage() {
 
   const uid = user?.uid || 'guest';
 
-  useEffect(() => {
-    const unsubscribe = subscribeToAlerts(uid, (data) => {
-        setAlerts(data);
-    }, selectedDeviceId);
-    return () => unsubscribe();
-  }, [uid, selectedDeviceId]);
-
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'resolved'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active');
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -80,21 +74,14 @@ export function AlertsPage() {
     }
   };
 
-  const filteredAlerts = alerts.filter((item) => {
-    // Filter out zero readings
-    // If the alert object has a reading field, use it
-    if (item.reading !== undefined && item.reading !== null) {
-      if (parseFloat(item.reading.toString()) === 0) return false;
-    } else if (item.message) {
-      // Fallback: parse from message if reading field is missing (legacy)
-      // Messages look like: "Temperature shifted from Good to Warning (Value: 0)"
-      const match = item.message.match(/\(Value: ([\d.-]+)\)/);
-      if (match && parseFloat(match[1]) === 0) return false;
+  const filteredAlerts = alertsList.filter((item) => {
+    if (activeTab === 'active') {
+      if (item.resolved) return false;
+    } else if (activeTab === 'resolved') {
+      if (!item.resolved) return false;
     }
 
-    if (activeTab === 'active') return !item.resolved;
-    if (activeTab === 'resolved') return item.resolved;
-    return true; // 'all'
+    return true;
   });
 
   return (
@@ -158,12 +145,11 @@ export function AlertsPage() {
       ) : (
         <div className="space-y-4">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-system-panel border border-system-border p-3 rounded-2xl">
-            <div className="flex bg-system-bg p-1 rounded-xl border border-system-border select-none self-start sm:self-auto">
+          <div className="bg-system-panel border border-system-border p-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
               {[
                 { id: 'active', label: 'Active Alerts' },
-                { id: 'resolved', label: 'Resolved History' },
-                { id: 'all', label: 'All Logs' }
+                { id: 'resolved', label: 'Resolved History' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -180,15 +166,35 @@ export function AlertsPage() {
               ))}
             </div>
 
-            {activeTab === 'resolved' && (
-              <button
-                onClick={clearAllAlerts}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase text-red-600 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-all cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Purge History
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {activeTab === 'resolved' && (
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to permanently delete all resolved alerts?')) {
+                      try {
+                        setIsPurging(true);
+                        const count = await clearResolvedAlerts(uid);
+                        toast.success(`Purged ${count} resolved alerts`);
+                      } catch (err) {
+                        toast.error('Failed to purge resolved alerts');
+                      } finally {
+                        setIsPurging(false);
+                      }
+                    }
+                  }}
+                  disabled={isPurging}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-orange-500 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Purge Resolved Alerts"
+                >
+                  {isPurging ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  Purge Resolved
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
@@ -231,19 +237,23 @@ export function AlertsPage() {
 
                     <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
                       <div className="flex flex-col text-right">
-                        <span className="text-[10px] font-mono text-system-muted font-bold leading-none">{log.time}</span>
                         <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
                       </div>
 
-                      {!log.resolved && (
-                        <button
-                          onClick={() => resolveAlert(log.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm cursor-pointer select-none"
-                        >
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          Resolve
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!log.resolved && (
+                          <button
+                            onClick={() => {
+                              resolveAlert(log.id);
+                              toast.success('Alert resolved successfully');
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm cursor-pointer select-none"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            Resolve
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

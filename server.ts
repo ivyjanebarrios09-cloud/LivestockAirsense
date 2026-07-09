@@ -3,8 +3,9 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc, onSnapshot, deleteDoc, where } from 'firebase/firestore';
 import autoConfig from './firebase-config.json';
+import webpush from 'web-push';
 
 const app = express();
 const PORT = 3000;
@@ -28,12 +29,152 @@ const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
   ? initializeFirestore(fbApp, {}, dbId)
   : getFirestore(fbApp);
 
+// Web Push VAPID keys setup
+let vapidKeys: { publicKey: string; privateKey: string };
+const keysPath = path.join(process.cwd(), 'vapid-keys.json');
+
+if (fs.existsSync(keysPath)) {
+  try {
+    vapidKeys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
+    console.log('[Server] Loaded existing VAPID keys.');
+  } catch (err) {
+    vapidKeys = webpush.generateVAPIDKeys();
+    fs.writeFileSync(keysPath, JSON.stringify(vapidKeys), 'utf8');
+    console.log('[Server] Re-generated VAPID keys.');
+  }
+} else {
+  vapidKeys = webpush.generateVAPIDKeys();
+  fs.writeFileSync(keysPath, JSON.stringify(vapidKeys), 'utf8');
+  console.log('[Server] Generated and saved new VAPID keys.');
+}
+
+webpush.setVapidDetails(
+  'mailto:romerotech0@gmail.com',
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
+
+function getSensorStatus(type: string, value: number): 'GOOD' | 'WARNING' | 'POOR' | 'DANGER' {
+  switch (type.toLowerCase()) {
+    case 'temperature':
+    case 'temp':
+      if (value <= 30) return 'GOOD';
+      if (value <= 35) return 'WARNING';
+      if (value <= 40) return 'POOR';
+      return 'DANGER';
+    case 'humidity':
+    case 'hum':
+      if (value <= 70) return 'GOOD';
+      if (value <= 85) return 'WARNING';
+      if (value <= 90) return 'POOR';
+      return 'DANGER';
+    case 'co2':
+      if (value <= 800) return 'GOOD';
+      if (value <= 1200) return 'WARNING';
+      if (value <= 2000) return 'POOR';
+      return 'DANGER';
+    case 'nh3':
+    case 'ammonia':
+      if (value < 25) return 'GOOD';
+      if (value <= 50) return 'WARNING';
+      if (value <= 100) return 'POOR';
+      return 'DANGER';
+    case 'ch4':
+    case 'methane':
+      if (value <= 50) return 'GOOD';
+      if (value <= 100) return 'WARNING';
+      if (value <= 500) return 'POOR';
+      return 'DANGER';
+    case 'pm2_5':
+    case 'pm2.5':
+      if (value <= 12) return 'GOOD';
+      if (value <= 35.4) return 'WARNING';
+      if (value <= 55.4) return 'POOR';
+      return 'DANGER';
+    case 'pm10':
+      if (value <= 54) return 'GOOD';
+      if (value <= 154) return 'WARNING';
+      if (value <= 254) return 'POOR';
+      return 'DANGER';
+    default:
+      return 'GOOD';
+  }
+}
+
+function getStatusLabel(type: string, val: number): string {
+  const s = getSensorStatus(type, val);
+  switch (s) {
+    case 'DANGER': return 'Danger';
+    case 'POOR': return 'Poor';
+    case 'WARNING': return 'Warning';
+    case 'GOOD':
+    default:
+      return 'Good';
+  }
+}
+
+async function dispatchServerPush(
+  userId: string,
+  alertId: string,
+  alertData: { severity: string; location: string; message: string }
+) {
+  if (!userId || userId === 'guest') return;
+  try {
+    const subsRef = collection(db, 'users', userId, 'push_subscriptions');
+    const subsSnap = await getDocs(subsRef);
+    
+    if (subsSnap.empty) {
+      console.log(`[Direct Push] No active push subscriptions found for user: ${userId}`);
+      return;
+    }
+
+    console.log(`[Direct Push] Dispatching notifications to ${subsSnap.size} endpoints for user: ${userId}`);
+
+    const payload = JSON.stringify({
+      title: alertData.severity === 'critical' ? '🚨 Critical Air Quality Alert' : '⚠️ Air Quality Warning',
+      body: `${alertData.location}: ${alertData.message}`,
+      icon: '/logo.png',
+      badge: '/logo.png',
+      tag: alertId,
+      data: {
+        alertId,
+        url: '/app/alerts'
+      }
+    });
+
+    for (const subDoc of subsSnap.docs) {
+      const subscription = subDoc.data() as webpush.PushSubscription;
+      webpush.sendNotification(subscription, payload)
+        .catch(async (err) => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            console.log(`[Direct Push] Cleaning up expired subscription document: ${subDoc.id}`);
+            try {
+              const staleSubRef = doc(db, 'users', userId, 'push_subscriptions', subDoc.id);
+              await deleteDoc(staleSubRef);
+            } catch (e) {
+              console.error('[Direct Push] Failed to delete expired subscription document:', e);
+            }
+          } else {
+            console.warn(`[Direct Push] Push dispatch failed:`, err.message || err);
+          }
+        });
+    }
+  } catch (err) {
+    console.error(`[Direct Push] Error in dispatchServerPush:`, err);
+  }
+}
+
 async function startServer() {
   app.use(express.json());
 
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', projectId: firebaseConfig.projectId, databaseId: firebaseConfig.firestoreDatabaseId });
+  });
+
+  // Web Push Public Key check
+  app.get('/api/push/public-key', (req, res) => {
+    res.json({ publicKey: vapidKeys.publicKey });
   });
 
 // Latest Data API Route - Now dynamic
@@ -119,6 +260,28 @@ async function startServer() {
         const ownerId = registrySnap.data().ownerId;
         if (ownerId && ownerId !== 'guest') {
           const userDevRef = doc(db, 'users', ownerId, 'devices', deviceId);
+          const userDevSnap = await getDoc(userDevRef);
+          let prevReading: any = null;
+          if (userDevSnap.exists()) {
+            const devData = userDevSnap.data();
+            prevReading = devData.latestReading || devData;
+          }
+          if (!prevReading) {
+            // Provide baseline/default readings if there are none to ensure state comparisons work
+            prevReading = {
+              temperature: flatReading.temperature ?? 24,
+              humidity: flatReading.humidity ?? 50,
+              co2: flatReading.co2 ?? 400,
+              nh3: flatReading.nh3 ?? flatReading.ammonia ?? 0,
+              ch4: flatReading.ch4 ?? flatReading.methane ?? 0,
+              pm1_0: flatReading.pm1_0 ?? 0,
+              pm2_5: flatReading.pm2_5 ?? 0,
+              pm10: flatReading.pm10 ?? 0,
+              aqi: flatReading.aqi ?? 0,
+              timestamp: Date.now() - 60000
+            };
+          }
+
           await setDoc(userDevRef, { 
             ...flatReading,
             latestReading: flatReading,
@@ -130,12 +293,173 @@ async function startServer() {
           const today = new Date().toISOString().split('T')[0];
           const historyRef = collection(db, 'users', ownerId, 'devices', deviceId, 'history', today, 'readings');
           await addDoc(historyRef, flatReading);
+
+          // Server-side threshold checks and alert generation (when tab is not active / closed)
+          const checkAndRecordServer = async (
+            sensorName: string,
+            currVal: number,
+            prevVal: number,
+            currStatus: string,
+            prevStatus: string
+          ) => {
+            if (currStatus !== prevStatus) {
+              console.log(`[Server Alert Gen] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
+              
+              // Record status change in status history
+              const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+              await addDoc(historyRef, {
+                deviceId: canonicalId,
+                sensorName,
+                status: currStatus,
+                value: currVal,
+                reading: currVal, // Dual compatibility
+                timestamp: flatReading.timestamp,
+                context: {
+                  temp: flatReading.temperature ?? 0,
+                  humidity: flatReading.humidity ?? 0,
+                  co2: flatReading.co2 ?? 0,
+                  ammonia: flatReading.nh3 ?? flatReading.ammonia ?? 0,
+                  methane: flatReading.ch4 ?? flatReading.methane ?? 0,
+                  pm1_0: flatReading.pm1_0 ?? 0,
+                  pm2_5: flatReading.pm2_5 ?? 0,
+                  pm10: flatReading.pm10 ?? 0,
+                  aqi: flatReading.aqi ?? 0,
+                  timestamp: flatReading.timestamp
+                }
+              });
+
+              // Determine severity
+              let severity: 'critical' | 'warning' | 'normal' = 'normal';
+              if (currStatus === 'Danger') {
+                severity = 'critical';
+              } else if (currStatus === 'Warning' || currStatus === 'Poor') {
+                severity = 'warning';
+              }
+
+              const deviceName = registrySnap.data()?.name || deviceId;
+
+              // Add Alert document
+              const alertsRef = collection(db, 'alerts');
+              const alertDocRef = await addDoc(alertsRef, {
+                userId: ownerId,
+                deviceId: deviceId,
+                timestamp: Math.floor(flatReading.timestamp / 1000),
+                alertType: `${sensorName} Status Change`,
+                message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
+                severity,
+                location: deviceName,
+                resolved: false,
+                isRead: false,
+                reading: currVal,
+                value: currVal // Dual compatibility
+              });
+
+              // Dispatch direct Web Push Notification
+              if (severity === 'critical' || severity === 'warning') {
+                await dispatchServerPush(ownerId, alertDocRef.id, {
+                  severity,
+                  location: deviceName,
+                  message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`
+                });
+              }
+            }
+          };
+
+          const currTempStat = getStatusLabel('temp', flatReading.temperature ?? 0);
+          const prevTempStat = getStatusLabel('temp', prevReading.temperature ?? 0);
+          await checkAndRecordServer('Temperature', flatReading.temperature ?? 0, prevReading.temperature ?? 0, currTempStat, prevTempStat);
+
+          const currHumStat = getStatusLabel('hum', flatReading.humidity ?? 0);
+          const prevHumStat = getStatusLabel('hum', prevReading.humidity ?? 0);
+          await checkAndRecordServer('Humidity', flatReading.humidity ?? 0, prevReading.humidity ?? 0, currHumStat, prevHumStat);
+
+          const currCo2Stat = getStatusLabel('co2', flatReading.co2 ?? 0);
+          const prevCo2Stat = getStatusLabel('co2', prevReading.co2 ?? 0);
+          await checkAndRecordServer('CO2 Level', flatReading.co2 ?? 0, prevReading.co2 ?? 0, currCo2Stat, prevCo2Stat);
+
+          const currNh3Stat = getStatusLabel('nh3', flatReading.nh3 ?? flatReading.ammonia ?? 0);
+          const prevNh3Stat = getStatusLabel('nh3', prevReading.nh3 ?? prevReading.ammonia ?? 0);
+          await checkAndRecordServer('Ammonia NH3', flatReading.nh3 ?? flatReading.ammonia ?? 0, prevReading.nh3 ?? prevReading.ammonia ?? 0, currNh3Stat, prevNh3Stat);
+
+          const currCh4Stat = getStatusLabel('ch4', flatReading.ch4 ?? flatReading.methane ?? 0);
+          const prevCh4Stat = getStatusLabel('ch4', prevReading.ch4 ?? prevReading.methane ?? 0);
+          await checkAndRecordServer('Methane CH4', flatReading.ch4 ?? flatReading.methane ?? 0, prevReading.ch4 ?? prevReading.methane ?? 0, currCh4Stat, prevCh4Stat);
         }
       }
 
       res.json({ success: true, timestamp, routed: registrySnap.exists() });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Set up background Firestore 'alerts' collection listener to trigger standard Web Push
+  const alertsCollectionRef = collection(db, 'alerts');
+  let isInitialLoad = true;
+
+  onSnapshot(alertsCollectionRef, async (snapshot) => {
+    if (isInitialLoad) {
+      isInitialLoad = false;
+      console.log('[Server Push] Loaded pre-existing alerts. Active live push listener running.');
+      return;
+    }
+
+    for (const change of snapshot.docChanges()) {
+      if (change.type === 'added') {
+        const alertData = change.doc.data();
+        const alertId = change.doc.id;
+        
+        console.log(`[Server Push] Live alert detected:`, alertId, alertData);
+
+        if (alertData.severity === 'critical' || alertData.severity === 'warning') {
+          const userId = alertData.userId;
+          if (!userId || userId === 'guest') continue;
+
+          try {
+            const subsRef = collection(db, 'users', userId, 'push_subscriptions');
+            const subsSnap = await getDocs(subsRef);
+            
+            if (subsSnap.empty) {
+              console.log(`[Server Push] No active push subscriptions for user: ${userId}`);
+              continue;
+            }
+
+            console.log(`[Server Push] Dispatching notifications to ${subsSnap.size} endpoints for user: ${userId}`);
+
+            const payload = JSON.stringify({
+              title: alertData.severity === 'critical' ? '🚨 Critical Air Quality Alert' : '⚠️ Air Quality Warning',
+              body: `${alertData.location}: ${alertData.message}`,
+              icon: '/logo.png',
+              badge: '/logo.png',
+              tag: alertId,
+              data: {
+                alertId,
+                url: '/app/alerts'
+              }
+            });
+
+            for (const subDoc of subsSnap.docs) {
+              const subscription = subDoc.data() as webpush.PushSubscription;
+              webpush.sendNotification(subscription, payload)
+                .catch(async (err) => {
+                  if (err.statusCode === 410 || err.statusCode === 404) {
+                    console.log(`[Server Push] Cleaning up expired subscription document: ${subDoc.id}`);
+                    try {
+                      const staleSubRef = doc(db, 'users', userId, 'push_subscriptions', subDoc.id);
+                      await deleteDoc(staleSubRef);
+                    } catch (e) {
+                      console.error('[Server Push] Failed to delete expired subscription document:', e);
+                    }
+                  } else {
+                    console.warn(`[Server Push] Push dispatch failed to endpoint:`, err.message || err);
+                  }
+                });
+            }
+          } catch (err) {
+            console.error(`[Server Push] Error querying user push subscriptions:`, err);
+          }
+        }
+      }
     }
   });
 

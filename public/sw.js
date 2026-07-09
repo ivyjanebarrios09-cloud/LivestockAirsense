@@ -82,3 +82,27 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'AirSense Alert', body: 'Sensor reading threshold reached' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (err) {
+      data = { title: 'AirSense Alert', body: event.data.text() };
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
+    tag: data.tag || 'critical-alert',
+    data: data.data || {},
+    vibrate: [200, 100, 200]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});

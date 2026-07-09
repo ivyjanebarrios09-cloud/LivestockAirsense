@@ -334,7 +334,6 @@ export function Dashboard() {
     thresholds, 
     isSyncing, 
     triggerSync, 
-    alertsList, 
     selectedDeviceId, 
     setSelectedDeviceId,
     devices, 
@@ -409,30 +408,9 @@ export function Dashboard() {
 
   const registeredDevices = devices;
 
-  const [deviceData, setDeviceData] = useState<any>(null);
+  const { deviceData, setDeviceData } = useAppContext();
 
   const currentDevice = devices.find(d => d.id === selectedDeviceId);
-  const deviceOwnerUid = currentDevice?.sharedFromUid || uid;
-
-  useEffect(() => {
-    // Reset data when switching devices to avoid showing stale data from the previous device
-    setDeviceData(null);
-
-    // Only subscribe if we have a valid selection and the device actually exists in our list
-    if (!selectedDeviceId || !deviceOwnerUid || devices.length === 0) return;
-    
-    // Safety check: ensure selectedDeviceId is in the current devices list
-    const exists = devices.some(d => d.id === selectedDeviceId);
-    if (!exists) return;
-
-    const unsubscribeData = subscribeToSensorData(deviceOwnerUid, selectedDeviceId, (data) => {
-        setDeviceData(data);
-    });
-
-    return () => {
-      unsubscribeData();
-    };
-  }, [selectedDeviceId, deviceOwnerUid, devices.length]);
 
   const lastReading = deviceData || { 
       temperature: 0, 
@@ -529,100 +507,7 @@ export function Dashboard() {
     };
   };
 
-  const prevDeviceDataRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (!deviceData) return;
-    
-    if (prevDeviceDataRef.current) {
-      const prev = prevDeviceDataRef.current;
-      const curr = deviceData;
-
-      const checkAndRecord = async (
-        sensorName: string,
-        currVal: number,
-        prevVal: number,
-        currStatus: string,
-        prevStatus: string
-      ) => {
-        if (currStatus !== prevStatus) {
-          console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
-          await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
-            temp: curr.temperature ?? 0,
-            humidity: curr.humidity ?? 0,
-            co2: curr.co2 ?? 0,
-            ammonia: curr.nh3 ?? curr.ammonia ?? 0,
-            methane: curr.ch4 ?? curr.methane ?? 0,
-            pm1_0: curr.pm1_0 ?? 0,
-            pm2_5: curr.pm2_5 ?? 0,
-            pm10: curr.pm10 ?? 0,
-            aqi: curr.aqi ?? 0,
-            timestamp: curr.timestamp
-          });
-
-          if (uid) {
-            let severity: 'critical' | 'warning' | 'normal' = 'normal';
-            if (currStatus === 'Dangerous' || currStatus === 'Hazardous' || currStatus === 'Very Poor') {
-              severity = 'critical';
-            } else if (currStatus === 'Warning' || currStatus === 'Poor' || currStatus === 'Moderate') {
-              severity = 'warning';
-            }
-
-            await addAlertToFirestore(uid, {
-              alertType: `${sensorName} Status Change`,
-              message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
-              severity,
-              location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
-              deviceId: selectedDeviceId,
-              reading: currVal,
-              timestamp: curr.timestamp
-            });
-
-            if (severity === 'critical') {
-              toast.error(`Critical Alert: ${sensorName}`, {
-                description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
-                duration: 8000,
-              });
-            }
-          }
-        }
-      };
-
-      const currTempStat = getStatus('Temperature', curr.temperature ?? 0).label;
-      const prevTempStat = getStatus('Temperature', prev.temperature ?? 0).label;
-      checkAndRecord('Temperature', curr.temperature ?? 0, prev.temperature ?? 0, currTempStat, prevTempStat);
-
-      const currHumStat = getStatus('Humidity', curr.humidity ?? 0).label;
-      const prevHumStat = getStatus('Humidity', prev.humidity ?? 0).label;
-      checkAndRecord('Humidity', curr.humidity ?? 0, prev.humidity ?? 0, currHumStat, prevHumStat);
-
-      const currCo2Stat = getStatus('CO2 Level', curr.co2 ?? 0).label;
-      const prevCo2Stat = getStatus('CO2 Level', prev.co2 ?? 0).label;
-      checkAndRecord('CO2 Level', curr.co2 ?? 0, prev.co2 ?? 0, currCo2Stat, prevCo2Stat);
-
-      const currNh3Stat = getStatus('Ammonia NH3', curr.nh3 ?? curr.ammonia ?? 0).label;
-      const prevNh3Stat = getStatus('Ammonia NH3', prev.nh3 ?? prev.ammonia ?? 0).label;
-      checkAndRecord('Ammonia NH3', curr.nh3 ?? curr.ammonia ?? 0, prev.nh3 ?? prev.ammonia ?? 0, currNh3Stat, prevNh3Stat);
-
-      const currCh4Stat = getStatus('Methane CH4', curr.ch4 ?? curr.methane ?? 0).label;
-      const prevCh4Stat = getStatus('Methane CH4', prev.ch4 ?? prev.methane ?? 0).label;
-      checkAndRecord('Methane CH4', curr.ch4 ?? curr.methane ?? 0, prev.ch4 ?? prev.methane ?? 0, currCh4Stat, prevCh4Stat);
-
-      const currPm25Stat = getStatus('PM2.5 Feed Dust', curr.pm2_5 ?? 0).label;
-      const prevPm25Stat = getStatus('PM2.5 Feed Dust', prev.pm2_5 ?? 0).label;
-      checkAndRecord('PM2.5 Feed Dust', curr.pm2_5 ?? 0, prev.pm2_5 ?? 0, currPm25Stat, prevPm25Stat);
-
-      const currPm10Stat = getStatus('PM10 Coarse Dust', curr.pm10 ?? 0).label;
-      const prevPm10Stat = getStatus('PM10 Coarse Dust', prev.pm10 ?? 0).label;
-      checkAndRecord('PM10 Coarse Dust', curr.pm10 ?? 0, prev.pm10 ?? 0, currPm10Stat, prevPm10Stat);
-
-      const currAqiStat = getStatus('AQI', curr.aqi ?? 0).label;
-      const prevAqiStat = getStatus('AQI', prev.aqi ?? 0).label;
-      checkAndRecord('AQI', curr.aqi ?? 0, prev.aqi ?? 0, currAqiStat, prevAqiStat);
-    }
-
-    prevDeviceDataRef.current = deviceData;
-  }, [deviceData, thresholds]);
 
   const readingTimestamp = lastReading.timestamp ? parseSafeDate(lastReading.timestamp).getTime() : 0;
   const isDataStale = readingTimestamp > 0 && (now - readingTimestamp > 300000); // 5 minutes without data is stale
@@ -1058,7 +943,7 @@ export function Dashboard() {
       <div className="max-w-md w-full ml-0">
         
         {/* Recent Node Logs & Status Diagnostics */}
-        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-[400px] overflow-hidden select-none">
+        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 md:p-6 flex flex-col h-auto overflow-hidden select-none">
           <div className="space-y-4 flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between border-b border-system-border pb-3 shrink-0">
               <h3 className="text-sm font-bold tracking-tight uppercase font-mono">Telemetry Receivers</h3>
@@ -1127,83 +1012,6 @@ export function Dashboard() {
                   })
                 )}
               </div>
-            </div>
-
-            <div className="border-t border-system-border/40 my-1 shrink-0" />
-
-            <div className="flex items-center justify-between shrink-0">
-              <div className="text-[10px] uppercase font-mono tracking-wider text-system-muted font-bold">
-                Microclimate Feed Stream <span className="opacity-40 text-[9px] font-normal lowercase ml-1">({selectedDeviceId})</span>
-              </div>
-              <div className={cn(
-                "flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all duration-500",
-                isEffectiveOnline ? getStatusBgColor('GOOD') : getStatusBgColor('DANGER')
-              )}>
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className={cn(
-                    "absolute inline-flex h-full w-full rounded-full opacity-75",
-                    isEffectiveOnline ? "bg-emerald-400 animate-ping" : "bg-red-400"
-                  )}></span>
-                  <span className={cn(
-                    "relative inline-flex rounded-full h-1.5 w-1.5",
-                    isEffectiveOnline ? "bg-emerald-500" : "bg-red-500"
-                  )}></span>
-                </span>
-                <span className="text-[8px] font-black uppercase font-mono tracking-tighter">
-                  {isEffectiveOnline ? 'Live' : 'Stale'}
-                </span>
-              </div>
-            </div>
-
-            {/* Warn/Telemetry Events */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin">
-              <AnimatePresence mode="popLayout">
-                {!deviceData ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full flex flex-col items-center justify-center text-center p-4"
-                  >
-                    <Wifi className="w-8 h-8 text-system-muted mb-2 opacity-20" />
-                    <p className="text-[10px] text-system-muted font-mono uppercase tracking-widest">No Active Device Data</p>
-                    <p className="text-[8px] text-system-muted font-mono opacity-60">No active data stream fetching.</p>
-                  </motion.div>
-                ) : alertsList.length === 0 ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full flex flex-col items-center justify-center text-center p-4"
-                  >
-                    <p className="text-[10px] text-system-muted font-mono">Environmental triggers normal.</p>
-                  </motion.div>
-                ) : (
-                  alertsList
-                    .slice(0, 10)
-                    .map((log, i) => (
-                      <motion.div 
-                        key={log.id || i} 
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }}
-                        className="flex gap-2.5 text-xs pb-2 border-b border-system-bg last:border-0"
-                      >
-                        <span className="font-mono text-[9px] text-system-muted w-12 shrink-0 mt-0.5">{log.time}</span>
-                        <div className="flex-1 space-y-0.5 min-w-0">
-                          <p className={cn(
-                            "font-semibold break-words whitespace-normal text-[11px]",
-                            log.resolved ? "text-system-muted line-through" : log.severity === 'critical' ? "text-red-500" : "text-yellow-600"
-                          )}>
-                            {log.alertType}
-                          </p>
-                          <p className="text-system-muted text-[10px] leading-normal break-words whitespace-normal">{log.message}</p>
-                        </div>
-                      </motion.div>
-                    ))
-                )}
-              </AnimatePresence>
             </div>
           </div>
         </div>

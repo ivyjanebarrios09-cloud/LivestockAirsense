@@ -29,7 +29,8 @@ import {
   getDoc,
   Timestamp,
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
+  writeBatch
 } from 'firebase/firestore';
 import { parseSafeDate, getSensorStatus } from './utils';
 import autoConfig from '../../firebase-config.json';
@@ -317,29 +318,39 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
   }
   const alertsRef = collection(db, 'alerts');
   
+  // Query simple constraints to avoid missing composite index failures, and sort/limit client-side
   let q;
   if (deviceId) {
     q = query(
       alertsRef, 
       where('userId', '==', uid),
-      where('deviceId', '==', deviceId),
-      orderBy('timestamp', 'desc'),
-      limit(50)
+      where('deviceId', '==', deviceId)
     );
   } else {
     q = query(
       alertsRef, 
-      where('userId', '==', uid),
-      orderBy('timestamp', 'desc'),
-      limit(50)
+      where('userId', '==', uid)
     );
   }
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const alerts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      callback(alerts);
+      const alerts = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const rawTime = data.createdAt || data.timestamp;
+        const ts = rawTime ? parseSafeDate(rawTime).getTime() : 0;
+        return { 
+          id: doc.id, 
+          ...data, 
+          timestamp: ts,
+          resolved: data.resolved === true || data.status === 'resolved' || false
+        };
+      });
+      // Sort client-side descending by timestamp
+      alerts.sort((a, b) => b.timestamp - a.timestamp);
+      // Limit to latest 100 alerts
+      callback(alerts.slice(0, 100));
     },
     (error) => {
       console.warn('[Firestore] Alerts subscription stream error or timed out/cancelled:', error);
@@ -983,19 +994,31 @@ export const getStatusHistory = async (
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
     const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+    const q = query(historyRef, orderBy('timestamp', 'desc'), limit(500));
+    const querySnapshot = await getDocs(q);
     
-    const constraints: any[] = [orderBy('timestamp', 'desc')];
-    if (startTime) constraints.push(where('timestamp', '>=', startTime));
-    if (endTime) constraints.push(where('timestamp', '<=', endTime));
-    
-    // If no range is specified, we still want a limit to prevent loading too much data
-    if (!startTime && !endTime) {
-      constraints.push(limit(100));
+    const logs = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const ts = parseSafeDate(data.timestamp).getTime();
+      return { 
+        id: doc.id, 
+        ...data,
+        reading: data.reading !== undefined ? data.reading : data.value,
+        value: data.value !== undefined ? data.value : data.reading,
+        timestamp: ts 
+      };
+    });
+
+    let filteredLogs = logs;
+    if (startTime !== undefined) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp >= startTime);
+    }
+    if (endTime !== undefined) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp <= endTime);
     }
 
-    const q = query(historyRef, ...constraints);
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    filteredLogs.sort((a, b) => b.timestamp - a.timestamp);
+    return filteredLogs;
   } catch (error) {
     handleFirestoreError(error, OperationType.READ, 'status_history');
     return [];
@@ -1015,26 +1038,53 @@ export const subscribeToStatusHistory = (
   const canonicalId = getCanonicalDeviceId(deviceId);
   const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
   
-  const constraints: any[] = [orderBy('timestamp', 'desc')];
-  if (startTime) constraints.push(where('timestamp', '>=', startTime));
-  if (endTime) constraints.push(where('timestamp', '<=', endTime));
-  
-  if (!startTime && !endTime) {
-    constraints.push(limit(100));
-  }
-
-  const q = query(historyRef, ...constraints);
+  // Fetch latest 500 records and filter client-side to prevent missing index errors and unit mismatches
+  const q = query(historyRef, orderBy('timestamp', 'desc'), limit(500));
   
   return onSnapshot(
     q,
     (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      callback(logs);
+      const logs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const ts = parseSafeDate(data.timestamp).getTime();
+        return { 
+          id: doc.id, 
+          ...data,
+          reading: data.reading !== undefined ? data.reading : data.value,
+          value: data.value !== undefined ? data.value : data.reading,
+          timestamp: ts 
+        };
+      });
+
+      // Filter by startTime and endTime client-side
+      let filteredLogs = logs;
+      if (startTime !== undefined) {
+        filteredLogs = filteredLogs.filter(log => log.timestamp >= startTime);
+      }
+      if (endTime !== undefined) {
+        filteredLogs = filteredLogs.filter(log => log.timestamp <= endTime);
+      }
+
+      // Sort descending
+      filteredLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+      callback(filteredLogs);
     },
     (error) => {
       console.warn('[Firestore] Status history subscription stream error:', error);
     }
   );
+};
+
+export const deleteStatusHistoryLog = async (deviceId: string, logId: string) => {
+  if (!deviceId || !logId) return;
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  try {
+    const logRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+    await deleteDoc(logRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `airMonitoring/${canonicalId}/status_history/${logId}`);
+  }
 };
 
 export const getAnalyticsData = async (
@@ -1324,6 +1374,173 @@ export const deleteAlertFromFirestore = async (alertId: string) => {
     await deleteDoc(alertRef);
   } catch (error) {
     console.error('deleteAlertFromFirestore failed:', error);
+  }
+};
+
+export const savePushSubscription = async (uid: string, subscriptionJSON: any) => {
+  if (!uid || uid === 'guest' || !subscriptionJSON) return;
+  try {
+    const endpointHash = encodeURIComponent(subscriptionJSON.endpoint);
+    const subRef = doc(db, 'users', uid, 'push_subscriptions', endpointHash);
+    await setDoc(subRef, {
+      ...subscriptionJSON,
+      updatedAt: Date.now()
+    });
+  } catch (error) {
+    console.error('Failed to save push subscription to Firestore:', error);
+  }
+};
+
+export const deletePushSubscription = async (uid: string, endpoint: string) => {
+  if (!uid || uid === 'guest' || !endpoint) return;
+  try {
+    const endpointHash = encodeURIComponent(endpoint);
+    const subRef = doc(db, 'users', uid, 'push_subscriptions', endpointHash);
+    await deleteDoc(subRef);
+  } catch (error) {
+    console.error('Failed to delete push subscription from Firestore:', error);
+  }
+};
+
+export const getLocalDateString = (timestamp: any): string => {
+  if (!timestamp) return '';
+  const d = parseSafeDate(timestamp);
+  if (isNaN(d.getTime())) return '';
+  const offsetMs = d.getTimezoneOffset() * 60 * 1000;
+  const localDate = new Date(d.getTime() - offsetMs);
+  return localDate.toISOString().split('T')[0];
+};
+
+export const deleteStatusHistoryByDate = async (deviceId: string, dateStr: string) => {
+  if (!deviceId || !dateStr) return 0;
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  try {
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+    const q = query(historyRef);
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    let count = 0;
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      const logDate = getLocalDateString(data.timestamp);
+      if (logDate === dateStr) {
+        batch.delete(docSnap.ref);
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return count;
+  } catch (error) {
+    console.error('[Firestore] deleteStatusHistoryByDate failed:', error);
+    throw error;
+  }
+};
+
+export const deleteAllStatusHistory = async (deviceId: string) => {
+  if (!deviceId) return 0;
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  try {
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
+    const q = query(historyRef);
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(docSnap => {
+      batch.delete(docSnap.ref);
+    });
+    if (snapshot.size > 0) {
+      await batch.commit();
+    }
+    return snapshot.size;
+  } catch (error) {
+    console.error('[Firestore] deleteAllStatusHistory failed:', error);
+    throw error;
+  }
+};
+
+export const clearResolvedAlerts = async (userId: string) => {
+  if (!userId) return 0;
+  try {
+    const alertsRef = collection(db, 'alerts');
+    const q = query(alertsRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    
+    let count = 0;
+    let batch = writeBatch(db);
+    let batchCount = 0;
+    
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const isResolved = data.resolved === true || data.status === 'resolved' || data.resolved === 'true';
+      if (isResolved) {
+        batch.delete(docSnap.ref);
+        count++;
+        batchCount++;
+        
+        if (batchCount === 500) {
+          await batch.commit();
+          batch = writeBatch(db);
+          batchCount = 0;
+        }
+      }
+    }
+    
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+    
+    return count;
+  } catch (error) {
+    console.error('[Firestore] clearResolvedAlerts failed:', error);
+    throw error;
+  }
+};
+
+export const deleteAllAlerts = async (userId: string) => {
+  if (!userId) return 0;
+  try {
+    const alertsRef = collection(db, 'alerts');
+    const q = query(alertsRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(docSnap => {
+      batch.delete(docSnap.ref);
+    });
+    if (snapshot.size > 0) {
+      await batch.commit();
+    }
+    return snapshot.size;
+  } catch (error) {
+    console.error('[Firestore] deleteAllAlerts failed:', error);
+    throw error;
+  }
+};
+
+export const deleteAlertsByDate = async (userId: string, dateStr: string) => {
+  if (!userId || !dateStr) return 0;
+  try {
+    const alertsRef = collection(db, 'alerts');
+    const q = query(alertsRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    let count = 0;
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      const rawTime = data.createdAt || data.timestamp;
+      const logDate = getLocalDateString(rawTime);
+      if (logDate === dateStr) {
+        batch.delete(docSnap.ref);
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return count;
+  } catch (error) {
+    console.error('[Firestore] deleteAlertsByDate failed:', error);
+    throw error;
   }
 };
 

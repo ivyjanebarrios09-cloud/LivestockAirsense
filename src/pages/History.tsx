@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Filter, Download, FileText, CheckCircle } from 'lucide-react';
+import { Calendar, Filter, Download, FileText, CheckCircle, Trash2 } from 'lucide-react';
 import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -8,11 +8,12 @@ import { useAppContext } from '../hooks/useAppContext';
 import { getStatusHistory, subscribeToStatusHistory } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
+import { toast } from 'sonner';
 
 export function HistoryPage() {
   const { devices, selectedDeviceId, connectionStatus } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('week');
+  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
 
   const [now, setNow] = useState(Date.now());
   

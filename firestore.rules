@@ -69,6 +69,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if true;
 
+      match /push_subscriptions/{subId} {
+        allow read, write: if true;
+      }
+
       match /devices/{deviceId} {
         allow read, write: if true;
 
@@ -127,7 +131,7 @@ service cloud.firestore {
     }
 
     match /alerts/{alertId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
 
     match /status_history/{changeId} {
