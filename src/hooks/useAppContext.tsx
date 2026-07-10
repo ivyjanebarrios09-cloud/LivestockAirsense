@@ -3,6 +3,7 @@ import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocation
 import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate, getSensorStatus } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 import { toast } from 'sonner';
 
 export interface Thresholds {
@@ -384,7 +385,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         .map(a => ({
           id: a.id,
           timestamp: a.timestamp,
-          time: a.timestamp ? parseSafeDate(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '',
+          time: a.timestamp ? formatPHDate(a.timestamp) : '',
           location: a.location || 'Unknown',
           alertType: a.alertType || 'Alert',
           message: a.message || '',
@@ -461,7 +462,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     const newAlert: Alert = {
       ...alert,
       id: Date.now().toString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: formatPHDate(Date.now())
     };
     setAlertsList(prev => [newAlert, ...prev]);
   };
@@ -601,7 +602,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           pm2_5: curr.pm2_5 ?? 0,
           pm10: curr.pm10 ?? 0,
           aqi: curr.aqi ?? 0,
-          timestamp: curr.timestamp
+          timestamp: currentDevice?.lastSeen || Date.now()
         });
 
         if (uid && uid !== 'guest') {
@@ -619,7 +620,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
             location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
             deviceId: selectedDeviceId,
             reading: currVal,
-            timestamp: curr.timestamp
+            timestamp: currentDevice?.lastSeen || Date.now()
           });
 
           if (severity === 'critical') {

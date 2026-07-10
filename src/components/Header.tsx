@@ -7,6 +7,7 @@ import { InstallModal } from './InstallModal';
 import { useAppContext } from '../hooks/useAppContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, parseSafeDate, getStatusBgColor } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 
 export function Header() {
   const { user, loading } = useAuthState();
@@ -138,7 +139,7 @@ export function Header() {
                     isStale ? "text-rose-500/80 font-black" : "text-system-muted/60"
                   )}>
                     <span className="hidden sm:inline">Heartbeat: </span>
-                    {parseSafeDate(connectionStatus.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {formatPHDate(connectionStatus.lastSeen, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     {isStale && <span className="ml-1 animate-pulse">(STALE)</span>}
                   </span>
                 )}

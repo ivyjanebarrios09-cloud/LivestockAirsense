@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
 import { cn, getSensorStatus } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
 
@@ -146,7 +147,7 @@ export function ReportsPage() {
     const splitSummary = doc.splitTextToSize(airQualitySummary, 180);
     doc.text(splitSummary, 14, 43);
 
-    doc.text(`Generated Date: ${new Date().toLocaleDateString()}`, 14, 55);
+    doc.text(`Generated Date: ${formatPHDate(Date.now(), { year: 'numeric', month: 'numeric', day: 'numeric' })}`, 14, 55);
     doc.setLineWidth(0.5);
     doc.line(14, 58, 196, 58);
 

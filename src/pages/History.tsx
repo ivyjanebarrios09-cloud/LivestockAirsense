@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Calendar, Filter, Download, FileText, CheckCircle, Trash2 } from 'lucide-react';
 import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
@@ -81,8 +82,8 @@ export function HistoryPage() {
       (logs) => {
         const formattedLogs = logs.map(log => ({
           ...log,
-          timestamp: log.timestamp ? parseSafeDate(log.timestamp).toLocaleString() : '',
-          chartLabel: log.timestamp ? parseSafeDate(log.timestamp).toLocaleDateString() : ''
+          timestamp: log.timestamp ? formatPHDate(log.timestamp) : '',
+          chartLabel: log.timestamp ? formatPHDate(log.timestamp, { month: '2-digit', day: '2-digit' }) : ''
         }));
         setHistoricalLogs(formattedLogs);
         setIsLoading(false);
@@ -131,8 +132,8 @@ export function HistoryPage() {
     if (!activeDevice) return;
     const { start, end } = dateRange;
     const dateStr = timeRange === 'today' 
-      ? start.toLocaleDateString() 
-      : `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+      ? formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' }) 
+      : `${formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' })} - ${formatPHDate(end, { year: 'numeric', month: 'numeric', day: 'numeric' })}`;
 
     const headers = [
       'Timestamp', 
@@ -173,8 +174,8 @@ export function HistoryPage() {
     if (!activeDevice) return;
     const { start, end } = dateRange;
     const dateStr = timeRange === 'today' 
-      ? start.toLocaleDateString() 
-      : `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
+      ? formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' }) 
+      : `${formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' })} to ${formatPHDate(end, { year: 'numeric', month: 'numeric', day: 'numeric' })}`;
 
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");

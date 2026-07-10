@@ -236,6 +236,7 @@ export function AlertsPage() {
 
                     <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
                       <div className="flex flex-col text-right">
+                        <span className="text-[12px] font-bold text-system-text leading-none">{log.time}</span>
                         <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
                       </div>
 

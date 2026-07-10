@@ -30,6 +30,7 @@ import { useAppContext } from '../hooks/useAppContext';
 import { useAuthState } from '../hooks/useAuthState';
 import { getAnalyticsData, subscribeToSensorReadings } from '../lib/firebase';
 import { cn, parseSafeDate, getSensorStatus, getStatusBgColor, getStatusColor } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 
 // Helper component for individual sensor charts
 interface SensorChartProps {
@@ -175,7 +176,7 @@ export function AnalyticsPage() {
           if (data && data.length > 0) {
             const chartData = data.map(d => ({
               ...d,
-              timeLabel: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+              timeLabel: d.timestamp ? formatPHDate(d.timestamp, { hour: '2-digit', minute: '2-digit' }) : ''
             })).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
             setAnalyticsData(chartData);
           } else {
@@ -207,7 +208,7 @@ export function AnalyticsPage() {
       if (data && data.length > 0) {
         const chartData = data.map(d => ({
           ...d,
-          timeLabel: d.timestamp ? parseSafeDate(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+          timeLabel: d.timestamp ? formatPHDate(d.timestamp, { hour: '2-digit', minute: '2-digit' }) : ''
         })).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setAnalyticsData(chartData);
       } else {
@@ -244,7 +245,7 @@ export function AnalyticsPage() {
     if (!summary || !activeDevice) return;
 
     const doc = new jsPDF();
-    const timestamp = new Date().toLocaleString();
+    const timestamp = formatPHDate(Date.now());
     
     // Header
     doc.setFontSize(20);

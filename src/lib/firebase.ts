@@ -33,6 +33,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { parseSafeDate, getSensorStatus } from './utils';
+import { formatPHDate } from '../utils/date';
 import autoConfig from '../../firebase-config.json';
 
 const firebaseConfig = {
@@ -1096,7 +1097,7 @@ export const getAnalyticsData = async (
   const canonicalId = getCanonicalDeviceId(deviceId);
   const idsToTry = [canonicalId, deviceId];
 
-  console.log(`[Analytics] Fetching range: ${new Date(startTime).toLocaleString()} - ${new Date(endTime).toLocaleString()}`);
+  console.log(`[Analytics] Fetching range: ${formatPHDate(startTime)} - ${formatPHDate(endTime)}`);
   
   for (const idToTry of idsToTry) {
     try {
@@ -1243,7 +1244,7 @@ export const getHistoricalDailyAverages = async (deviceId: string, days: number 
       const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
       return {
         dateStr,
-        time: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        time: formatPHDate(d, { month: 'short', day: 'numeric' }),
         aqi: metrics.aqiCount > 0 ? Math.round(metrics.aqiSum / metrics.aqiCount) : 0,
         co2: metrics.co2Count > 0 ? Math.round(metrics.co2Sum / metrics.co2Count) : 0,
         temp: metrics.tempCount > 0 ? Math.round((metrics.tempSum / metrics.tempCount) * 10) / 10 : 0,
@@ -1340,7 +1341,11 @@ export const addAlertToFirestore = async (
     const alertsRef = collection(db, 'alerts');
     let alertTimestamp = Math.floor(Date.now() / 1000);
     if (alert.timestamp) {
-      alertTimestamp = alert.timestamp > 30000000000 ? Math.floor(alert.timestamp / 1000) : alert.timestamp;
+      const candidate = alert.timestamp > 30000000000 ? Math.floor(alert.timestamp / 1000) : alert.timestamp;
+      // Ensure candidate represents a modern date after Jan 1, 2025 (1735689600 seconds)
+      if (candidate >= 1735689600) {
+        alertTimestamp = candidate;
+      }
     }
     await addDoc(alertsRef, {
       userId,
