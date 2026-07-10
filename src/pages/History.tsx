@@ -6,7 +6,7 @@ import { formatPHDate } from '../utils/date';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
-import { getStatusHistory, subscribeToStatusHistory } from '../lib/firebase';
+import { getStatusHistory, subscribeToStatusHistory, deleteStatusHistoryLog } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
 import { toast } from 'sonner';
@@ -33,6 +33,9 @@ export function HistoryPage() {
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
   const [historicalLogs, setHistoricalLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<any | null>(null);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const dateRange = useMemo(() => {
     const baseDate = new Date(selectedDate);
@@ -205,6 +208,42 @@ export function HistoryPage() {
     triggerFeedback(`Generated PDF for ${activeDevice.name}`);
   };
 
+  const handleDeleteLog = async (log: any) => {
+    if (!activeDevice || !log.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteStatusHistoryLog(activeDevice.id, log.id);
+      toast.success(`Deleted log from ${log.timestamp}`);
+      setLogToDelete(null);
+    } catch (error) {
+      toast.error('Failed to delete log');
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAllForDate = async () => {
+    if (!activeDevice || historicalLogs.length === 0) return;
+    setIsDeleting(true);
+    try {
+      let count = 0;
+      for (const log of historicalLogs) {
+        if (log.id) {
+          await deleteStatusHistoryLog(activeDevice.id, log.id);
+          count++;
+        }
+      }
+      toast.success(`Successfully deleted ${count} log entries for the set date`);
+      setShowDeleteAllConfirm(false);
+    } catch (error) {
+      toast.error('Failed to delete historical logs');
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!activeDevice) {
     return (
       <div className="p-8 text-center">
@@ -287,9 +326,20 @@ export function HistoryPage() {
             <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Historical Status Changes</h3>
             <p className="text-[11px] text-system-muted font-mono mt-0.5">Logs of sensor status changes filtered by time range.</p>
           </div>
-          <span className="text-[10px] bg-system-accent/15 text-system-accent font-bold px-2.5 py-0.5 rounded-full font-mono">
-            {historicalLogs.length} RECORDS
-          </span>
+          <div className="flex items-center gap-3">
+            {historicalLogs.length > 0 && (
+              <button
+                onClick={() => setShowDeleteAllConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-500 hover:text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete All For {timeRange === 'today' ? 'Set Date' : 'This Range'}</span>
+              </button>
+            )}
+            <span className="text-[10px] bg-system-accent/15 text-system-accent font-bold px-2.5 py-0.5 rounded-full font-mono">
+              {historicalLogs.length} RECORDS
+            </span>
+          </div>
         </div>
         
         {/* Scrollable Container */}
@@ -303,6 +353,7 @@ export function HistoryPage() {
                   <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Sensor Name</th>
                   <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Status</th>
                   <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Reading</th>
+                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-system-border font-mono text-xs">
@@ -325,6 +376,15 @@ export function HistoryPage() {
                       </span>
                     </td>
                     <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
+                    <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => setLogToDelete(row)}
+                        className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                        title="Delete log entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </motion.tr>
                 ))}
               </tbody>
@@ -346,12 +406,21 @@ export function HistoryPage() {
                     <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
                     <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
                   </div>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
-                    getStatusStyles(row.status)
-                  )}>
-                    {row.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
+                      getStatusStyles(row.status)
+                    )}>
+                      {row.status}
+                    </span>
+                    <button
+                      onClick={() => setLogToDelete(row)}
+                      className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      title="Delete log entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
@@ -412,6 +481,79 @@ export function HistoryPage() {
           </div>
         </div>
       </div>
+
+      {/* Custom Confirmation Modals */}
+      {logToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-system-panel border border-system-border rounded-2xl max-w-md w-full overflow-hidden shadow-2xl"
+          >
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-500 font-mono font-bold uppercase text-sm">
+                <Trash2 className="w-5 h-5 animate-pulse" />
+                <span>Confirm Delete Log</span>
+              </div>
+              <p className="text-xs text-system-text font-mono leading-relaxed">
+                Are you sure you want to permanently delete the log for <span className="font-bold text-system-accent">{logToDelete.sensorName}</span> from <span className="font-bold text-system-accent">{logToDelete.timestamp}</span>? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  disabled={isDeleting}
+                  onClick={() => setLogToDelete(null)}
+                  className="px-4 py-2 border border-system-border bg-system-bg hover:bg-system-panel text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isDeleting}
+                  onClick={() => handleDeleteLog(logToDelete)}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono flex items-center gap-1.5"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-system-panel border border-system-border rounded-2xl max-w-md w-full overflow-hidden shadow-2xl"
+          >
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-500 font-mono font-bold uppercase text-sm">
+                <Trash2 className="w-5 h-5 animate-pulse" />
+                <span>Confirm Delete All Logs</span>
+              </div>
+              <p className="text-xs text-system-text font-mono leading-relaxed">
+                Are you sure you want to permanently delete <span className="font-bold text-red-500">{historicalLogs.length}</span> historical logs for <span className="font-bold text-system-accent">{timeRange === 'today' ? `the set date: ${selectedDate}` : `the selected ${timeRange} range`}</span>? This action is irreversible.
+              </p>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  disabled={isDeleting}
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  className="px-4 py-2 border border-system-border bg-system-bg hover:bg-system-panel text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isDeleting}
+                  onClick={() => handleDeleteAllForDate()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono flex items-center gap-1.5"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete All'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );
