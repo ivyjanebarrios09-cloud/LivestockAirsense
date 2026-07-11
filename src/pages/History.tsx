@@ -6,13 +6,20 @@ import { formatPHDate } from '../utils/date';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
-import { getStatusHistory, subscribeToStatusHistory, deleteStatusHistoryLog } from '../lib/firebase';
+import { 
+  getStatusHistory, 
+  subscribeToStatusHistory, 
+  deleteStatusHistoryLog,
+  deleteStatusHistoryByDate,
+  deleteSensorReadingsByDate,
+  deleteAlertsByDate
+} from '../lib/firebase';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
 import { toast } from 'sonner';
 
 export function HistoryPage() {
-  const { devices, selectedDeviceId, connectionStatus } = useAppContext();
+  const { uid, devices, selectedDeviceId, connectionStatus } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
 
@@ -224,17 +231,19 @@ export function HistoryPage() {
   };
 
   const handleDeleteAllForDate = async () => {
-    if (!activeDevice || historicalLogs.length === 0) return;
+    if (!activeDevice || !selectedDate) return;
     setIsDeleting(true);
     try {
-      let count = 0;
-      for (const log of historicalLogs) {
-        if (log.id) {
-          await deleteStatusHistoryLog(activeDevice.id, log.id);
-          count++;
-        }
-      }
-      toast.success(`Successfully deleted ${count} log entries for the set date`);
+      // 1. Delete status history logs for that date
+      const statusCount = await deleteStatusHistoryByDate(activeDevice.id, selectedDate);
+      
+      // 2. Delete sensor readings for that date
+      const readingsCount = await deleteSensorReadingsByDate(uid, activeDevice.id, selectedDate);
+
+      // 3. Delete alerts for that date
+      const alertsCount = await deleteAlertsByDate(uid, selectedDate);
+
+      toast.success(`Successfully deleted historical data for ${selectedDate} (${statusCount} status logs, ${readingsCount} readings, ${alertsCount} alerts)`);
       setShowDeleteAllConfirm(false);
     } catch (error) {
       toast.error('Failed to delete historical logs');
@@ -274,6 +283,14 @@ export function HistoryPage() {
               className="bg-transparent border-none text-xs font-bold text-system-text focus:outline-none font-mono cursor-pointer uppercase"
             />
           </div>
+
+          <button
+            onClick={() => setShowDeleteAllConfirm(true)}
+            className="flex items-center justify-center p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 hover:text-red-400 rounded-xl transition-all cursor-pointer shrink-0"
+            title={`Delete all historical data for ${selectedDate}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
 
           <div className="flex bg-system-panel border border-system-border rounded-xl p-1 shrink-0 select-none">
             {(['today', 'week', 'month'] as const).map(t => (
@@ -529,10 +546,10 @@ export function HistoryPage() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-red-500 font-mono font-bold uppercase text-sm">
                 <Trash2 className="w-5 h-5 animate-pulse" />
-                <span>Confirm Delete All Logs</span>
+                <span>Confirm Delete Historical Data</span>
               </div>
               <p className="text-xs text-system-text font-mono leading-relaxed">
-                Are you sure you want to permanently delete <span className="font-bold text-red-500">{historicalLogs.length}</span> historical logs for <span className="font-bold text-system-accent">{timeRange === 'today' ? `the set date: ${selectedDate}` : `the selected ${timeRange} range`}</span>? This action is irreversible.
+                Are you sure you want to permanently delete all historical data (including status changes, sensor readings, and alerts) for the set date <span className="font-bold text-system-accent">{selectedDate}</span>? This action is completely irreversible.
               </p>
               <div className="flex justify-end gap-3 pt-2">
                 <button

@@ -80,6 +80,37 @@ const getCanonicalDeviceId = (id: string) => {
   return id;
 };
 
+// Detect and remember if the ESP32 is uploading timestamps with the GMT+8 timezone offset bug
+let gmt8OffsetDetected = typeof window !== 'undefined' && localStorage.getItem('gmt8_offset_detected') === 'true';
+
+export const adjustTimestamp = (ts: number): number => {
+  if (!ts) return ts;
+  const now = Date.now();
+  const diff = ts - now;
+
+  // If the timestamp is 7 to 9 hours in the future, we detect the GMT+8 bug
+  if (diff >= 7 * 60 * 60 * 1000 && diff <= 9 * 60 * 60 * 1000) {
+    if (!gmt8OffsetDetected) {
+      gmt8OffsetDetected = true;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('gmt8_offset_detected', 'true');
+      }
+    }
+    return ts - 8 * 60 * 60 * 1000; // Subtract 8 hours
+  }
+
+  // If we previously detected the GMT+8 bug, we subtract 8 hours from all device timestamps
+  // except client-side generated timestamps (which would be extremely close to now)
+  if (gmt8OffsetDetected) {
+    const isClientFresh = diff >= -5 * 60 * 1000 && diff <= 5 * 60 * 1000;
+    if (!isClientFresh) {
+      return ts - 8 * 60 * 60 * 1000; // Subtract 8 hours
+    }
+  }
+
+  return ts;
+};
+
 const ensureNumber = (val: any) => {
   if (val === undefined || val === null || val === '') return undefined;
   const n = Number(val);
@@ -148,7 +179,11 @@ const mapReadings = (rData: any, deviceId: string, metadata: any = {}) => {
     pm2_5Level: getSensorStatus('pm2.5', pm2_5),
     pm10: pm10,
     pm10Level: getSensorStatus('pm10', pm10),
-    timestamp: rData.timestamp || rData.time || rData.date || rData.createdAt || Date.now(),
+    timestamp: (() => {
+      const rawTime = rData.timestamp || rData.time || rData.date || rData.createdAt;
+      const parsedTime = rawTime ? parseSafeDate(rawTime).getTime() : Date.now();
+      return adjustTimestamp(parsedTime);
+    })(),
     ammonia: nh3 ?? 0,
     methane: ch4 ?? 0,
     pm1_0,
@@ -340,7 +375,7 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
       const alerts = snapshot.docs.map(doc => {
         const data = doc.data();
         const rawTime = data.createdAt || data.timestamp;
-        const ts = rawTime ? parseSafeDate(rawTime).getTime() : 0;
+        const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
         return { 
           id: doc.id, 
           ...data, 
@@ -396,10 +431,12 @@ export const getSensorReadings = async (uid: string, deviceId: string, limitCoun
         const legacySnap = await getDocs(legacyQ);
         let docs = legacySnap.docs.map(docSnap => {
           const data = docSnap.data();
+          const parsedTime = parseSafeDate(data.timestamp || data.time).getTime();
           return { 
             id: docSnap.id, 
             deviceId: canonicalId,
             ...data,
+            timestamp: adjustTimestamp(parsedTime),
             pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
             pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
             pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
@@ -417,9 +454,11 @@ export const getSensorReadings = async (uid: string, deviceId: string, limitCoun
             
             docs = querySnapshot.docs.map(docSnap => {
               const data = docSnap.data();
+              const parsedTime = parseSafeDate(data.timestamp || data.time).getTime();
               return {
                 id: docSnap.id,
                 ...data,
+                timestamp: adjustTimestamp(parsedTime),
                 pm1_0: data.pm1_0 ?? data.pm10 ?? data['pm1.0'] ?? data['pm1_0'] ?? data.pm1 ?? 0,
                 pm2_5: data.pm2_5 ?? data.pm25 ?? data['pm2.5'] ?? data['pm2_5'] ?? 0,
                 pm10: data.pm10 ?? data.pm2_5 ?? data['pm10'] ?? data['pm10_0'] ?? data.pm10_0 ?? 0,
@@ -473,11 +512,13 @@ export const subscribeToSensorReadings = (
           const pm1_0 = ensureNumber(getValue(data, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
           const pm2_5 = ensureNumber(getValue(data, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
           const pm10 = ensureNumber(getValue(data, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+          const parsedTime = parseSafeDate(data.timestamp || data.time).getTime();
 
           return {
             id: docSnap.id,
             deviceId: canonicalId,
             ...data,
+            timestamp: adjustTimestamp(parsedTime),
             temperature: temp ?? 0,
             humidity: hum ?? 0,
             aqi: aqi ?? 0,
@@ -508,11 +549,13 @@ export const subscribeToSensorReadings = (
               const pm1_0 = ensureNumber(getValue(data, ['pm1_0', 'pm10', 'pm1.0', 'pm1', 'PM1_0'])) ?? 0;
               const pm2_5 = ensureNumber(getValue(data, ['pm2_5', 'pm25', 'pm2.5', 'PM2_5'])) ?? 0;
               const pm10 = ensureNumber(getValue(data, ['pm10', 'pm10_0', 'PM10'])) ?? pm2_5;
+              const parsedTime = parseSafeDate(data.timestamp || data.time).getTime();
 
               return { 
                 id: docSnap.id, 
                 deviceId: deviceId,
                 ...data,
+                timestamp: adjustTimestamp(parsedTime),
                 temperature: temp ?? 0,
                 humidity: hum ?? 0,
                 aqi: aqi ?? 0,
@@ -1000,7 +1043,7 @@ export const getStatusHistory = async (
     
     const logs = querySnapshot.docs.map(doc => {
       const data = doc.data();
-      const ts = parseSafeDate(data.timestamp).getTime();
+      const ts = adjustTimestamp(parseSafeDate(data.timestamp).getTime());
       return { 
         id: doc.id, 
         ...data,
@@ -1047,7 +1090,7 @@ export const subscribeToStatusHistory = (
     (snapshot) => {
       const logs = snapshot.docs.map(doc => {
         const data = doc.data();
-        const ts = parseSafeDate(data.timestamp).getTime();
+        const ts = adjustTimestamp(parseSafeDate(data.timestamp).getTime());
         return { 
           id: doc.id, 
           ...data,
@@ -1127,7 +1170,8 @@ export const getAnalyticsData = async (
           docs = latestSnap.docs
             .map(d => ({ id: d.id, ...d.data() as any }))
             .filter((data: any) => {
-              const t = parseSafeDate(data.timestamp || data.time).getTime();
+              const parsed = parseSafeDate(data.timestamp || data.time).getTime();
+              const t = adjustTimestamp(parsed);
               // If the user requested the latest, we skip filtering
               if (startTime === 0) return true;
               return t >= startTime && t <= endTime;
@@ -1548,4 +1592,63 @@ export const deleteAlertsByDate = async (userId: string, dateStr: string) => {
     throw error;
   }
 };
+
+export const deleteSensorReadingsByDate = async (userId: string, deviceId: string, dateStr: string) => {
+  if (!deviceId || !dateStr) return 0;
+  const canonicalId = getCanonicalDeviceId(deviceId);
+  let count = 0;
+  try {
+    // 1. Delete from shared airMonitoring readings
+    const sharedRef = collection(db, 'airMonitoring', canonicalId, 'readings');
+    const sharedSnap = await getDocs(sharedRef);
+    let batch = writeBatch(db);
+    let batchCount = 0;
+    for (const docSnap of sharedSnap.docs) {
+      const data = docSnap.data();
+      const rawTime = data.timestamp || data.time || data.createdAt;
+      const logDate = getLocalDateString(rawTime);
+      if (logDate === dateStr) {
+        batch.delete(docSnap.ref);
+        count++;
+        batchCount++;
+        if (batchCount === 500) {
+          await batch.commit();
+          batch = writeBatch(db);
+          batchCount = 0;
+        }
+      }
+    }
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    // 2. Delete from user specific history readings for that date
+    if (userId && userId !== 'guest') {
+      const userReadingsRef = collection(db, 'users', userId, 'devices', deviceId, 'history', dateStr, 'readings');
+      const userReadingsSnap = await getDocs(userReadingsRef);
+      if (!userReadingsSnap.empty) {
+        let userBatch = writeBatch(db);
+        let userBatchCount = 0;
+        for (const docSnap of userReadingsSnap.docs) {
+          userBatch.delete(docSnap.ref);
+          count++;
+          userBatchCount++;
+          if (userBatchCount === 500) {
+            await userBatch.commit();
+            userBatch = writeBatch(db);
+            userBatchCount = 0;
+          }
+        }
+        if (userBatchCount > 0) {
+          await userBatch.commit();
+        }
+      }
+    }
+    return count;
+  } catch (error) {
+    console.error('[Firestore] deleteSensorReadingsByDate failed:', error);
+    throw error;
+  }
+};
+
 

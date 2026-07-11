@@ -60,16 +60,6 @@ export function parseRawDate(timestamp: any): Date {
     return new Date();
   }
 
-  // Handle double-timezone offset issues (e.g. ESP32 saving local-time epoch instead of UTC-time epoch)
-  // This occurs when the ESP32 clock is set to local time (GMT+8) but interpreted as UTC by the library,
-  // causing the saved timestamp to be exactly 8 hours in the future.
-  // We only adjust if the future offset is approximately 8 hours (between 7 and 9 hours) to avoid false positives.
-  const now = Date.now();
-  const diff = d.getTime() - now;
-  if (diff >= 7 * 60 * 60 * 1000 && diff <= 9 * 60 * 60 * 1000) {
-    return new Date(d.getTime() - 8 * 60 * 60 * 1000); // Subtract 8 hours
-  }
-
   return d;
 }
 
