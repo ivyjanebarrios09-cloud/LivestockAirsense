@@ -15,7 +15,7 @@ export function Header() {
   const navigate = useNavigate();
   const { isInstallable, install, showModal, setShowModal, triggerNativeInstall, hasNativePrompt } = usePWAInstall();
 
-  // Real-time staleness check (30s threshold)
+  // Real-time staleness check (1m threshold)
   const [now, setNow] = useState(Date.now());
   
   useEffect(() => {
@@ -24,7 +24,7 @@ export function Header() {
   }, []);
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
-  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 60000);
   // A node is only considered online if its status is 'Online' AND it has a fresh heartbeat
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
   const effectiveStatus = isEffectiveOnline ? 'Online' : 'Offline';

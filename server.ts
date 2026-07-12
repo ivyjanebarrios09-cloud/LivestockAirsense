@@ -413,10 +413,10 @@ async function startServer() {
   // Set up background Firestore 'readings' collection listener to detect telemetry uploaded from ESP32 directly to the database
   let isReadingsInitialLoad = true;
 
-  onSnapshot(query(collectionGroup(db, 'readings')), async (snapshot) => {
+  onSnapshot(query(collectionGroup(db, 'readings'), where('timestamp', '>=', Date.now() - 300000)), async (snapshot) => {
     if (isReadingsInitialLoad) {
       isReadingsInitialLoad = false;
-      console.log('[Server Readings] Loaded existing readings. Active live telemetry observer running.');
+      console.log('[Server Readings] Loaded recent readings. Active live telemetry observer running.');
       // Populate processed set so we don't double process existing data
       snapshot.docs.forEach(docSnap => {
         processedReadingDocIds.add(docSnap.id);
@@ -634,7 +634,7 @@ async function startServer() {
             const lastSeen = devData.lastSeen || 0;
             const lastSeenMsVal = typeof lastSeen === 'string' ? new Date(lastSeen).getTime() : Number(lastSeen);
             
-            if (devData.status === 'Online' && lastSeenMsVal > 0 && (nowMs - lastSeenMsVal > 35000)) {
+            if (devData.status === 'Online' && lastSeenMsVal > 0 && (nowMs - lastSeenMsVal > 60000)) {
               console.log(`[Server Offline Sweeper] Marking device ${deviceId} as Offline due to inactivity (lastSeen: ${lastSeen})`);
               await setDoc(userDevRef, { status: 'Offline' }, { merge: true });
             }

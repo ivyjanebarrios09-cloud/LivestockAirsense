@@ -20,7 +20,7 @@ export function AlertsPage() {
   }, []);
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
-  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 60000);
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
 
   const uid = user?.uid || 'guest';

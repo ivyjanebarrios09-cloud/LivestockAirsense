@@ -419,7 +419,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
         const currentStatus = connectionStatusRef.current;
         const lastSeenMsVal = currentStatus.lastSeen ? parseSafeDate(currentStatus.lastSeen).getTime() : 0;
-        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 30000);
+        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 60000);
         const isDeviceOnlineVal = currentStatus.status === 'Online' && lastSeenMsVal > 0 && !isStaleVal;
 
         if (isDeviceOnlineVal && storedPush && 'Notification' in window && Notification.permission === 'granted') {
@@ -503,7 +503,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   };
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
-  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 60000);
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
 
   const unreadAlertsCount = isEffectiveOnline ? alertsList.filter(alert => !alert.resolved).length : 0;
