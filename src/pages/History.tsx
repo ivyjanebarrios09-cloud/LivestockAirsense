@@ -12,7 +12,8 @@ import {
   deleteStatusHistoryLog,
   deleteStatusHistoryByDate,
   deleteSensorReadingsByDate,
-  deleteAlertsByDate
+  deleteAlertsByDate,
+  deleteAllStatusHistory
 } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
@@ -21,7 +22,7 @@ import { toast } from 'sonner';
 export function HistoryPage() {
   const { uid, devices, selectedDeviceId, connectionStatus } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
+  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   const [now, setNow] = useState(Date.now());
   
@@ -31,7 +32,7 @@ export function HistoryPage() {
   }, []);
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
-  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 60000);
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
@@ -45,6 +46,9 @@ export function HistoryPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const dateRange = useMemo(() => {
+    if (timeRange === 'all') {
+      return { start: new Date(0), end: new Date(32503680000000) }; // wide range covering all timestamps
+    }
     const baseDate = new Date(selectedDate);
     if (isNaN(baseDate.getTime())) return { start: new Date(), end: new Date() };
 
@@ -141,7 +145,9 @@ export function HistoryPage() {
   const downloadCSV = () => {
     if (!activeDevice) return;
     const { start, end } = dateRange;
-    const dateStr = timeRange === 'today' 
+    const dateStr = timeRange === 'all'
+      ? 'All-Time Logs'
+      : timeRange === 'today' 
       ? formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' }) 
       : `${formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' })} - ${formatPHDate(end, { year: 'numeric', month: 'numeric', day: 'numeric' })}`;
 
@@ -183,7 +189,9 @@ export function HistoryPage() {
   const downloadPDF = () => {
     if (!activeDevice) return;
     const { start, end } = dateRange;
-    const dateStr = timeRange === 'today' 
+    const dateStr = timeRange === 'all'
+      ? 'All-Time Logs'
+      : timeRange === 'today' 
       ? formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' }) 
       : `${formatPHDate(start, { year: 'numeric', month: 'numeric', day: 'numeric' })} to ${formatPHDate(end, { year: 'numeric', month: 'numeric', day: 'numeric' })}`;
 
@@ -231,19 +239,25 @@ export function HistoryPage() {
   };
 
   const handleDeleteAllForDate = async () => {
-    if (!activeDevice || !selectedDate) return;
+    if (!activeDevice) return;
     setIsDeleting(true);
     try {
-      // 1. Delete status history logs for that date
-      const statusCount = await deleteStatusHistoryByDate(activeDevice.id, selectedDate);
-      
-      // 2. Delete sensor readings for that date
-      const readingsCount = await deleteSensorReadingsByDate(uid, activeDevice.id, selectedDate);
+      if (timeRange === 'all') {
+        const statusCount = await deleteAllStatusHistory(activeDevice.id);
+        toast.success(`Successfully deleted all historical status logs (${statusCount} logs)`);
+      } else {
+        if (!selectedDate) return;
+        // 1. Delete status history logs for that date
+        const statusCount = await deleteStatusHistoryByDate(activeDevice.id, selectedDate);
+        
+        // 2. Delete sensor readings for that date
+        const readingsCount = await deleteSensorReadingsByDate(uid, activeDevice.id, selectedDate);
 
-      // 3. Delete alerts for that date
-      const alertsCount = await deleteAlertsByDate(uid, selectedDate);
+        // 3. Delete alerts for that date
+        const alertsCount = await deleteAlertsByDate(uid, selectedDate);
 
-      toast.success(`Successfully deleted historical data for ${selectedDate} (${statusCount} status logs, ${readingsCount} readings, ${alertsCount} alerts)`);
+        toast.success(`Successfully deleted historical data for ${selectedDate} (${statusCount} status logs, ${readingsCount} readings, ${alertsCount} alerts)`);
+      }
       setShowDeleteAllConfirm(false);
     } catch (error) {
       toast.error('Failed to delete historical logs');
@@ -279,7 +293,12 @@ export function HistoryPage() {
             <input 
               type="date" 
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                if (timeRange === 'all') {
+                  setTimeRange('today');
+                }
+              }}
               className="bg-transparent border-none text-xs font-bold text-system-text focus:outline-none font-mono cursor-pointer uppercase"
             />
           </div>
@@ -293,7 +312,7 @@ export function HistoryPage() {
           </button>
 
           <div className="flex bg-system-panel border border-system-border rounded-xl p-1 shrink-0 select-none">
-            {(['today', 'week', 'month'] as const).map(t => (
+            {(['all', 'today', 'week', 'month'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTimeRange(t)}
@@ -302,7 +321,7 @@ export function HistoryPage() {
                   timeRange === t ? "bg-system-bg text-system-text shadow-sm" : "text-system-muted hover:text-system-text"
                 )}
               >
-                {t}
+                {t === 'all' ? 'Latest' : t}
               </button>
             ))}
           </div>
@@ -350,7 +369,7 @@ export function HistoryPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-500 hover:text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer font-mono"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete All For {timeRange === 'today' ? 'Set Date' : 'This Range'}</span>
+                <span>Delete All For {timeRange === 'today' ? 'Set Date' : (timeRange === 'all' ? 'All-Time' : 'This Range')}</span>
               </button>
             )}
             <span className="text-[10px] bg-system-accent/15 text-system-accent font-bold px-2.5 py-0.5 rounded-full font-mono">
@@ -549,7 +568,11 @@ export function HistoryPage() {
                 <span>Confirm Delete Historical Data</span>
               </div>
               <p className="text-xs text-system-text font-mono leading-relaxed">
-                Are you sure you want to permanently delete all historical data (including status changes, sensor readings, and alerts) for the set date <span className="font-bold text-system-accent">{selectedDate}</span>? This action is completely irreversible.
+                {timeRange === 'all' ? (
+                  <span>Are you sure you want to permanently delete <span className="font-bold text-red-500">ALL historical status logs</span> for this device? This action is completely irreversible.</span>
+                ) : (
+                  <span>Are you sure you want to permanently delete all historical data (including status changes, sensor readings, and alerts) for the set date <span className="font-bold text-system-accent">{selectedDate}</span>? This action is completely irreversible.</span>
+                )}
               </p>
               <div className="flex justify-end gap-3 pt-2">
                 <button

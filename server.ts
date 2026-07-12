@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc, onSnapshot, deleteDoc, where, collectionGroup } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc, onSnapshot, deleteDoc, where } from 'firebase/firestore';
 import autoConfig from './firebase-config.json';
 import webpush from 'web-push';
 
@@ -54,60 +54,44 @@ webpush.setVapidDetails(
   vapidKeys.privateKey
 );
 
-const processedReadingDocIds = new Set<string>();
-
 function getSensorStatus(type: string, value: number): 'GOOD' | 'WARNING' | 'POOR' | 'DANGER' {
   switch (type.toLowerCase()) {
     case 'temperature':
     case 'temp':
-    case 'temp.':
       if (value <= 30) return 'GOOD';
       if (value <= 35) return 'WARNING';
       if (value <= 40) return 'POOR';
       return 'DANGER';
     case 'humidity':
     case 'hum':
-    case 'hum.':
       if (value <= 70) return 'GOOD';
       if (value <= 85) return 'WARNING';
       if (value <= 90) return 'POOR';
       return 'DANGER';
     case 'co2':
-    case 'co2 level':
       if (value <= 800) return 'GOOD';
       if (value <= 1200) return 'WARNING';
       if (value <= 2000) return 'POOR';
       return 'DANGER';
-    case 'aqi':
-    case 'aqi index':
-    case 'aqi status':
-      if (value <= 100) return 'GOOD';
-      if (value <= 200) return 'WARNING';
-      if (value <= 300) return 'POOR';
-      return 'DANGER';
     case 'nh3':
     case 'ammonia':
-    case 'ammonia nh3':
       if (value < 25) return 'GOOD';
       if (value <= 50) return 'WARNING';
       if (value <= 100) return 'POOR';
       return 'DANGER';
     case 'ch4':
     case 'methane':
-    case 'methane ch4':
       if (value <= 50) return 'GOOD';
       if (value <= 100) return 'WARNING';
       if (value <= 500) return 'POOR';
       return 'DANGER';
     case 'pm2_5':
     case 'pm2.5':
-    case 'pm2.5 feed dust':
       if (value <= 12) return 'GOOD';
       if (value <= 35.4) return 'WARNING';
       if (value <= 55.4) return 'POOR';
       return 'DANGER';
     case 'pm10':
-    case 'pm10 coarse dust':
       if (value <= 54) return 'GOOD';
       if (value <= 154) return 'WARNING';
       if (value <= 254) return 'POOR';
@@ -264,15 +248,23 @@ async function startServer() {
 
       await setDoc(globalRef, { 
         ...flatReading,
-        latestReading: flatReading 
+        latestReading: flatReading,
+        status: 'Online',
+        lastSeen: timestamp
       }, { merge: true });
       
-      const docRef = await addDoc(collection(db, 'airMonitoring', canonicalId, 'readings'), flatReading);
-      processedReadingDocIds.add(docRef.id);
+      await addDoc(collection(db, 'airMonitoring', canonicalId, 'readings'), flatReading);
       
       // Update Registry lookup to find which user owns this prototype
       const registryRef = doc(db, 'deviceRegistry', deviceId);
       const registrySnap = await getDoc(registryRef);
+      
+      // Keep Registry status Online
+      await setDoc(registryRef, {
+        status: 'Online',
+        lastSeen: timestamp
+      }, { merge: true });
+
       if (registrySnap.exists()) {
         const ownerId = registrySnap.data().ownerId;
         if (ownerId && ownerId !== 'guest') {
@@ -322,15 +314,17 @@ async function startServer() {
             if (currStatus !== prevStatus) {
               console.log(`[Server Alert Gen] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
               
-              // Record status change in status history
-              const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-              await addDoc(historyRef, {
+              // Record status change in status history (deterministic ID to prevent duplicates)
+              const logId = `history_${canonicalId}_${sensorName.replace(/\s+/g, '')}_${currStatus}_${flatReading.timestamp}`;
+              const historyDocRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+              await setDoc(historyDocRef, {
                 deviceId: canonicalId,
                 sensorName,
                 status: currStatus,
                 value: currVal,
                 reading: currVal, // Dual compatibility
                 timestamp: flatReading.timestamp,
+                prevStatus,
                 context: {
                   temp: flatReading.temperature ?? 0,
                   humidity: flatReading.humidity ?? 0,
@@ -353,14 +347,17 @@ async function startServer() {
                 severity = 'warning';
               }
 
-              const deviceName = registrySnap.data()?.name || deviceId;
+              const deviceName = registrySnap.data()?.name || registrySnap.data()?.deviceName || deviceId;
 
-              // Add Alert document
-              const alertsRef = collection(db, 'alerts');
-              const alertDocRef = await addDoc(alertsRef, {
+              // Add Alert document (deterministic ID to prevent duplicates)
+              const alertTimestamp = Math.floor(flatReading.timestamp / 1000);
+              const cleanAlertType = `${sensorName}StatusChange`;
+              const alertId = `alert_${ownerId}_${deviceId}_${cleanAlertType}_${severity}_${alertTimestamp}`;
+              const alertDocRef = doc(db, 'alerts', alertId);
+              await setDoc(alertDocRef, {
                 userId: ownerId,
                 deviceId: deviceId,
-                timestamp: Math.floor(flatReading.timestamp / 1000),
+                timestamp: alertTimestamp,
                 alertType: `${sensorName} Status Change`,
                 message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
                 severity,
@@ -373,7 +370,7 @@ async function startServer() {
 
               // Dispatch direct Web Push Notification
               if (severity === 'critical' || severity === 'warning') {
-                await dispatchServerPush(ownerId, alertDocRef.id, {
+                await dispatchServerPush(ownerId, alertId, {
                   severity,
                   location: deviceName,
                   message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`
@@ -409,242 +406,6 @@ async function startServer() {
       res.status(500).json({ error: err.message });
     }
   });
-
-  // Set up background Firestore 'readings' collection listener to detect telemetry uploaded from ESP32 directly to the database
-  let isReadingsInitialLoad = true;
-
-  onSnapshot(query(collectionGroup(db, 'readings'), where('timestamp', '>=', Date.now() - 300000)), async (snapshot) => {
-    if (isReadingsInitialLoad) {
-      isReadingsInitialLoad = false;
-      console.log('[Server Readings] Loaded recent readings. Active live telemetry observer running.');
-      // Populate processed set so we don't double process existing data
-      snapshot.docs.forEach(docSnap => {
-        processedReadingDocIds.add(docSnap.id);
-      });
-      return;
-    }
-
-    for (const change of snapshot.docChanges()) {
-      if (change.type === 'added') {
-        const docId = change.doc.id;
-        if (processedReadingDocIds.has(docId)) {
-          continue;
-        }
-        processedReadingDocIds.add(docId);
-        // Limit set size to avoid memory leaks
-        if (processedReadingDocIds.size > 2000) {
-          const iterator = processedReadingDocIds.values();
-          const firstValue = iterator.next().value;
-          if (firstValue) {
-            processedReadingDocIds.delete(firstValue);
-          }
-        }
-
-        const flatReading = change.doc.data();
-        const pathParts = change.doc.ref.path.split('/');
-        
-        // Path should be "airMonitoring/{deviceId}/readings/{docId}"
-        if (pathParts.length === 4 && pathParts[0] === 'airMonitoring' && pathParts[2] === 'readings') {
-          const deviceId = pathParts[1];
-          const timestamp = flatReading.timestamp || flatReading.lastUpdate || flatReading.time || Date.now();
-          const canonicalId = deviceId.includes('LAS-001') ? 'LAS-001' : deviceId;
-
-          console.log(`[Server Readings] New telemetry write detected for device: ${deviceId}`, flatReading);
-
-          try {
-            // Find who owns this device
-            const registryRef = doc(db, 'deviceRegistry', deviceId);
-            const registrySnap = await getDoc(registryRef);
-            if (registrySnap.exists()) {
-              const ownerId = registrySnap.data().ownerId;
-              if (ownerId && ownerId !== 'guest') {
-                const userDevRef = doc(db, 'users', ownerId, 'devices', deviceId);
-                const userDevSnap = await getDoc(userDevRef);
-                
-                let prevReading: any = null;
-                if (userDevSnap.exists()) {
-                  const devData = userDevSnap.data();
-                  prevReading = devData.latestReading || devData;
-                }
-
-                if (!prevReading) {
-                  prevReading = {
-                    temperature: flatReading.temperature ?? 24,
-                    humidity: flatReading.humidity ?? 50,
-                    co2: flatReading.co2 ?? 400,
-                    nh3: flatReading.nh3 ?? flatReading.ammonia ?? 0,
-                    ch4: flatReading.ch4 ?? flatReading.methane ?? 0,
-                    pm1_0: flatReading.pm1_0 ?? 0,
-                    pm2_5: flatReading.pm2_5 ?? 0,
-                    pm10: flatReading.pm10 ?? 0,
-                    aqi: flatReading.aqi ?? 0,
-                    timestamp: Date.now() - 60000
-                  };
-                }
-
-                // Update the user's specific device state in Firestore
-                // This ensures the device's main status is "Online" and lastSeen is fresh!
-                await setDoc(userDevRef, {
-                  ...flatReading,
-                  latestReading: flatReading,
-                  status: 'Online',
-                  lastSeen: timestamp
-                }, { merge: true });
-
-                // Synchronize the reading into the user's date-specific history collection
-                const today = new Date(timestamp).toISOString().split('T')[0];
-                const historyRef = collection(db, 'users', ownerId, 'devices', deviceId, 'history', today, 'readings');
-                
-                // Write with docId to prevent duplicates!
-                await setDoc(doc(historyRef, docId), flatReading, { merge: true });
-
-                // Helper to perform threshold/status checks and generate alerts & status history entries
-                const checkAndRecordServer = async (
-                  sensorName: string,
-                  currVal: number,
-                  prevVal: number,
-                  currStatus: string,
-                  prevStatus: string
-                ) => {
-                  if (currStatus !== prevStatus) {
-                    console.log(`[Server Telemetry Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
-                    
-                    // Record status change in status history
-                    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-                    await addDoc(historyRef, {
-                      deviceId: canonicalId,
-                      sensorName,
-                      status: currStatus,
-                      value: currVal,
-                      reading: currVal, // Dual compatibility
-                      timestamp: timestamp,
-                      context: {
-                        temp: flatReading.temperature ?? 0,
-                        humidity: flatReading.humidity ?? 0,
-                        co2: flatReading.co2 ?? 0,
-                        ammonia: flatReading.nh3 ?? flatReading.ammonia ?? 0,
-                        methane: flatReading.ch4 ?? flatReading.methane ?? 0,
-                        pm1_0: flatReading.pm1_0 ?? 0,
-                        pm2_5: flatReading.pm2_5 ?? 0,
-                        pm10: flatReading.pm10 ?? 0,
-                        aqi: flatReading.aqi ?? 0,
-                        timestamp: timestamp
-                      }
-                    });
-
-                    // Determine severity
-                    let severity: 'critical' | 'warning' | 'normal' = 'normal';
-                    if (currStatus === 'Danger') {
-                      severity = 'critical';
-                    } else if (currStatus === 'Warning' || currStatus === 'Poor') {
-                      severity = 'warning';
-                    }
-
-                    const deviceName = registrySnap.data()?.name || deviceId;
-
-                    // Add Alert document
-                    const alertsRef = collection(db, 'alerts');
-                    const alertDocRef = await addDoc(alertsRef, {
-                      userId: ownerId,
-                      deviceId: deviceId,
-                      timestamp: Math.floor(timestamp / 1000),
-                      alertType: `${sensorName} Status Change`,
-                      message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
-                      severity,
-                      location: deviceName,
-                      resolved: false,
-                      isRead: false,
-                      reading: currVal,
-                      value: currVal // Dual compatibility
-                    });
-
-                    // Dispatch direct Web Push Notification
-                    if (severity === 'critical' || severity === 'warning') {
-                      await dispatchServerPush(ownerId, alertDocRef.id, {
-                        severity,
-                        location: deviceName,
-                        message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`
-                      });
-                    }
-                  }
-                };
-
-                // Perform comparisons using getStatusLabel (which uses the updated getSensorStatus with full support)
-                const currTempStat = getStatusLabel('temp', flatReading.temperature ?? 0);
-                const prevTempStat = getStatusLabel('temp', prevReading.temperature ?? 0);
-                await checkAndRecordServer('Temperature', flatReading.temperature ?? 0, prevReading.temperature ?? 0, currTempStat, prevTempStat);
-
-                const currHumStat = getStatusLabel('hum', flatReading.humidity ?? 0);
-                const prevHumStat = getStatusLabel('hum', prevReading.humidity ?? 0);
-                await checkAndRecordServer('Humidity', flatReading.humidity ?? 0, prevReading.humidity ?? 0, currHumStat, prevHumStat);
-
-                const currCo2Stat = getStatusLabel('co2', flatReading.co2 ?? 0);
-                const prevCo2Stat = getStatusLabel('co2', prevReading.co2 ?? 0);
-                await checkAndRecordServer('CO2 Level', flatReading.co2 ?? 0, prevReading.co2 ?? 0, currCo2Stat, prevCo2Stat);
-
-                const currNh3Stat = getStatusLabel('nh3', flatReading.nh3 ?? flatReading.ammonia ?? 0);
-                const prevNh3Stat = getStatusLabel('nh3', prevReading.nh3 ?? prevReading.ammonia ?? 0);
-                await checkAndRecordServer('Ammonia NH3', flatReading.nh3 ?? flatReading.ammonia ?? 0, prevReading.nh3 ?? prevReading.ammonia ?? 0, currNh3Stat, prevNh3Stat);
-
-                const currCh4Stat = getStatusLabel('ch4', flatReading.ch4 ?? flatReading.methane ?? 0);
-                const prevCh4Stat = getStatusLabel('ch4', prevReading.ch4 ?? prevReading.methane ?? 0);
-                await checkAndRecordServer('Methane CH4', flatReading.ch4 ?? flatReading.methane ?? 0, prevReading.ch4 ?? prevReading.methane ?? 0, currCh4Stat, prevCh4Stat);
-
-                const currPm25Stat = getStatusLabel('pm2.5', flatReading.pm2_5 ?? 0);
-                const prevPm25Stat = getStatusLabel('pm2.5', prevReading.pm2_5 ?? 0);
-                await checkAndRecordServer('PM2.5 Feed Dust', flatReading.pm2_5 ?? 0, prevReading.pm2_5 ?? 0, currPm25Stat, prevPm25Stat);
-
-                const currPm10Stat = getStatusLabel('pm10', flatReading.pm10 ?? 0);
-                const prevPm10Stat = getStatusLabel('pm10', prevReading.pm10 ?? 0);
-                await checkAndRecordServer('PM10 Coarse Dust', flatReading.pm10 ?? 0, prevReading.pm10 ?? 0, currPm10Stat, prevPm10Stat);
-
-                const currAqiStat = getStatusLabel('aqi', flatReading.aqi ?? 0);
-                const prevAqiStat = getStatusLabel('aqi', prevReading.aqi ?? 0);
-                await checkAndRecordServer('AQI Index', flatReading.aqi ?? 0, prevReading.aqi ?? 0, currAqiStat, prevAqiStat);
-              }
-            }
-          } catch (err) {
-            console.error('[Server Readings] Failed to process telemetry update:', err);
-          }
-        }
-      }
-    }
-  }, (err) => {
-    console.error('[Server Readings] Background collectionGroup observer failed:', err);
-  });
-
-  // Periodically check for stale devices and mark them as offline in Firestore
-  setInterval(async () => {
-    try {
-      const registryRef = collection(db, 'deviceRegistry');
-      const registrySnap = await getDocs(registryRef);
-      const nowMs = Date.now();
-      
-      for (const regDoc of registrySnap.docs) {
-        const regData = regDoc.data();
-        const deviceId = regDoc.id;
-        const ownerId = regData.ownerId;
-        
-        if (ownerId && ownerId !== 'guest') {
-          const userDevRef = doc(db, 'users', ownerId, 'devices', deviceId);
-          const userDevSnap = await getDoc(userDevRef);
-          
-          if (userDevSnap.exists()) {
-            const devData = userDevSnap.data();
-            const lastSeen = devData.lastSeen || 0;
-            const lastSeenMsVal = typeof lastSeen === 'string' ? new Date(lastSeen).getTime() : Number(lastSeen);
-            
-            if (devData.status === 'Online' && lastSeenMsVal > 0 && (nowMs - lastSeenMsVal > 60000)) {
-              console.log(`[Server Offline Sweeper] Marking device ${deviceId} as Offline due to inactivity (lastSeen: ${lastSeen})`);
-              await setDoc(userDevRef, { status: 'Offline' }, { merge: true });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[Server Offline Sweeper] Error sweeping stale devices:', err);
-    }
-  }, 30000);
 
   // Set up background Firestore 'alerts' collection listener to trigger standard Web Push
   const alertsCollectionRef = collection(db, 'alerts');
@@ -715,6 +476,209 @@ async function startServer() {
       }
     }
   });
+
+  // 1. Central Listener for Sensor Status Transitions & Alerts
+  const airMonitoringCol = collection(db, 'airMonitoring');
+  const processedTimestamps = new Map<string, number>();
+  const lastDeviceStatuses = new Map<string, Record<string, string>>();
+
+  onSnapshot(airMonitoringCol, async (snapshot) => {
+    for (const change of snapshot.docChanges()) {
+      if (change.type === 'added' || change.type === 'modified') {
+        const docId = change.doc.id;
+        const data = change.doc.data();
+        
+        const latestReading = data.latestReading || {};
+        const timestamp = latestReading.timestamp || data.timestamp || data.lastUpdate || 0;
+        
+        if (!timestamp) continue;
+        
+        // Prevent reprocessing the same reading timestamp
+        const lastProcessed = processedTimestamps.get(docId) || 0;
+        if (timestamp <= lastProcessed) continue;
+        processedTimestamps.set(docId, timestamp);
+
+        // Fetch registered device owner info from deviceRegistry
+        const registryRef = doc(db, 'deviceRegistry', docId);
+        const registrySnap = await getDoc(registryRef);
+        const regData = registrySnap.exists() ? registrySnap.data() : {};
+        const ownerId = regData.ownerId;
+        const deviceName = regData.deviceName || regData.name || docId;
+
+        // Retrieve last known sensor statuses for this device
+        let prevStatuses = lastDeviceStatuses.get(docId);
+        if (!prevStatuses) {
+          prevStatuses = {};
+          lastDeviceStatuses.set(docId, prevStatuses);
+          // Pre-populate with current statuses from getStatusLabel to prevent spurious initial alerts
+          prevStatuses['Temperature'] = getStatusLabel('temp', latestReading.temperature ?? 0);
+          prevStatuses['Humidity'] = getStatusLabel('hum', latestReading.humidity ?? 0);
+          prevStatuses['CO2 Level'] = getStatusLabel('co2', latestReading.co2 ?? 0);
+          prevStatuses['Ammonia NH3'] = getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0);
+          prevStatuses['Methane CH4'] = getStatusLabel('ch4', latestReading.ch4 ?? latestReading.methane ?? 0);
+          prevStatuses['PM2.5 Feed Dust'] = getStatusLabel('pm2.5', latestReading.pm2_5 ?? 0);
+          prevStatuses['PM10 Coarse Dust'] = getStatusLabel('pm10', latestReading.pm10 ?? 0);
+        }
+
+        const checkAndRecordServer = async (sensorName: string, currVal: number, type: string) => {
+          const currStatus = getStatusLabel(type, currVal);
+          const prevStatus = prevStatuses![sensorName] || 'Good';
+          
+          if (currStatus !== prevStatus) {
+            console.log(`[Server Central Listener] ${docId} - ${sensorName} transition: ${prevStatus} -> ${currStatus} (${currVal})`);
+            prevStatuses![sensorName] = currStatus;
+
+            // 1. Record in status history using deterministic ID to prevent duplicates
+            const logId = `history_${docId}_${sensorName.replace(/\s+/g, '')}_${currStatus}_${timestamp}`;
+            const historyRef = doc(db, 'airMonitoring', docId, 'status_history', logId);
+            await setDoc(historyRef, {
+              deviceId: docId,
+              sensorName,
+              status: currStatus,
+              reading: currVal,
+              prevStatus,
+              timestamp,
+              context: {
+                temp: latestReading.temperature ?? 0,
+                humidity: latestReading.humidity ?? 0,
+                co2: latestReading.co2 ?? 0,
+                ammonia: latestReading.nh3 ?? latestReading.ammonia ?? 0,
+                methane: latestReading.ch4 ?? latestReading.methane ?? 0,
+                pm1_0: latestReading.pm1_0 ?? 0,
+                pm2_5: latestReading.pm2_5 ?? 0,
+                pm10: latestReading.pm10 ?? 0,
+                aqi: latestReading.aqi ?? 0,
+                timestamp
+              }
+            });
+
+            // 2. Add Alert document using deterministic ID to prevent duplicates (only if device has registered owner)
+            if (ownerId && ownerId !== 'guest') {
+              let severity: 'critical' | 'warning' | 'normal' = 'normal';
+              if (currStatus === 'Danger') {
+                severity = 'critical';
+              } else if (currStatus === 'Warning' || currStatus === 'Poor') {
+                severity = 'warning';
+              }
+
+              const alertTimestamp = Math.floor(timestamp / 1000);
+              const cleanAlertType = `${sensorName}StatusChange`;
+              const alertId = `alert_${ownerId}_${docId}_${cleanAlertType}_${severity}_${alertTimestamp}`;
+              const alertRef = doc(db, 'alerts', alertId);
+              await setDoc(alertRef, {
+                userId: ownerId,
+                deviceId: docId,
+                timestamp: alertTimestamp,
+                alertType: `${sensorName} Status Change`,
+                message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
+                severity,
+                location: deviceName,
+                resolved: false,
+                isRead: false,
+                reading: currVal
+              });
+            }
+          }
+        };
+
+        // Run checks for all sensors
+        await checkAndRecordServer('Temperature', latestReading.temperature ?? 0, 'temp');
+        await checkAndRecordServer('Humidity', latestReading.humidity ?? 0, 'hum');
+        await checkAndRecordServer('CO2 Level', latestReading.co2 ?? 0, 'co2');
+        await checkAndRecordServer('Ammonia NH3', latestReading.nh3 ?? latestReading.ammonia ?? 0, 'nh3');
+        await checkAndRecordServer('Methane CH4', latestReading.ch4 ?? latestReading.methane ?? 0, 'ch4');
+        await checkAndRecordServer('PM2.5 Feed Dust', latestReading.pm2_5 ?? 0, 'pm2.5');
+        await checkAndRecordServer('PM10 Coarse Dust', latestReading.pm10 ?? 0, 'pm10');
+      }
+    }
+  });
+
+  // 2. Background Task for Online/Offline Detection (Timeout of 60 seconds)
+  setInterval(async () => {
+    try {
+      const now = Date.now();
+      const timeoutMs = 60000; // 60 seconds timeout
+
+      const airMonitoringRef = collection(db, 'airMonitoring');
+      const airSnap = await getDocs(airMonitoringRef);
+
+      for (const airDoc of airSnap.docs) {
+        const deviceId = airDoc.id;
+        const data = airDoc.data();
+        
+        const latestReading = data.latestReading || {};
+        const lastSeen = data.lastSeen || data.lastUpdate || latestReading.timestamp || 0;
+        
+        if (lastSeen > 0 && (now - lastSeen > timeoutMs)) {
+          if (data.status !== 'Offline') {
+            console.log(`[Server Offline Check] Device ${deviceId} has timed out. Setting to Offline. Last seen: ${lastSeen}`);
+            
+            // 1. Update airMonitoring status
+            const airDocRef = doc(db, 'airMonitoring', deviceId);
+            await setDoc(airDocRef, {
+              status: 'Offline',
+              lastSeen: lastSeen
+            }, { merge: true });
+
+            // 2. Update deviceRegistry status
+            const registryRef = doc(db, 'deviceRegistry', deviceId);
+            await setDoc(registryRef, {
+              status: 'Offline',
+              lastSeen: lastSeen
+            }, { merge: true });
+
+            // 3. Update owner's device doc in users collection if owner is known
+            const registrySnap = await getDoc(registryRef);
+            let ownerId = null;
+            let deviceName = deviceId;
+            if (registrySnap.exists()) {
+              const regData = registrySnap.data();
+              ownerId = regData.ownerId;
+              deviceName = regData.deviceName || regData.name || deviceId;
+            }
+
+            if (ownerId && ownerId !== 'guest') {
+              const userDevRef = doc(db, 'users', ownerId, 'devices', deviceId);
+              await setDoc(userDevRef, {
+                status: 'Offline',
+                lastSeen: lastSeen
+              }, { merge: true });
+
+              // 4. Create an alert for Device Offline status change! (Deterministic ID)
+              const alertTimestamp = Math.floor(now / 1000);
+              const alertId = `alert_${ownerId}_${deviceId}_DeviceConnection_Offline_${alertTimestamp}`;
+              const alertDocRef = doc(db, 'alerts', alertId);
+              await setDoc(alertDocRef, {
+                userId: ownerId,
+                deviceId: deviceId,
+                timestamp: alertTimestamp,
+                alertType: 'Device Connection Status Change',
+                message: `Device connection status shifted from Online to Offline (No signal received for over 60 seconds)`,
+                severity: 'warning',
+                location: deviceName,
+                resolved: false,
+                isRead: false,
+                reading: null
+              });
+            }
+
+            // 5. Add status history log for Device Connection (Deterministic ID)
+            const logId = `history_${deviceId}_DeviceConnection_Offline_${now}`;
+            const historyDocRef = doc(db, 'airMonitoring', deviceId, 'status_history', logId);
+            await setDoc(historyDocRef, {
+              timestamp: now,
+              sensorName: 'Device Connection',
+              status: 'Offline',
+              reading: 0,
+              prevStatus: 'Online'
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Server Offline Check] Error in background offline check:', err);
+    }
+  }, 10000); // Check every 10 seconds
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

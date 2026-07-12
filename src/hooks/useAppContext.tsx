@@ -400,26 +400,10 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         });
         isFirstMountRef.current = false;
       } else {
-        mappedAlerts.forEach(alert => {
-          if (!alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
-            if (alert.severity === 'critical') {
-              toast.error(`Critical Alert: ${alert.alertType}`, {
-                description: alert.message,
-                duration: 8000,
-              });
-            } else if (alert.severity === 'warning') {
-              toast.warning(`Warning: ${alert.alertType}`, {
-                description: alert.message,
-                duration: 6000,
-              });
-            }
-          }
-        });
-
         const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
         const currentStatus = connectionStatusRef.current;
         const lastSeenMsVal = currentStatus.lastSeen ? parseSafeDate(currentStatus.lastSeen).getTime() : 0;
-        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 60000);
+        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 30000);
         const isDeviceOnlineVal = currentStatus.status === 'Online' && lastSeenMsVal > 0 && !isStaleVal;
 
         if (isDeviceOnlineVal && storedPush && 'Notification' in window && Notification.permission === 'granted') {
@@ -503,7 +487,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   };
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
-  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 60000);
+  const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
   const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
 
   const unreadAlertsCount = isEffectiveOnline ? alertsList.filter(alert => !alert.resolved).length : 0;
@@ -595,8 +579,111 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   useEffect(() => {
     if (!deviceData) return;
+
+    const checkAndRecord = async (
+      sensorName: string,
+      currVal: number,
+      prevVal: number,
+      currStatus: string,
+      prevStatus: string
+    ) => {
+      if (currStatus !== prevStatus) {
+        console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
+        
+        const currentDevice = devices.find(d => d.id === selectedDeviceId);
+        
+        await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
+          temp: curr.temperature ?? 0,
+          humidity: curr.humidity ?? 0,
+          co2: curr.co2 ?? 0,
+          ammonia: curr.nh3 ?? curr.ammonia ?? 0,
+          methane: curr.ch4 ?? curr.methane ?? 0,
+          pm1_0: curr.pm1_0 ?? 0,
+          pm2_5: curr.pm2_5 ?? 0,
+          pm10: curr.pm10 ?? 0,
+          aqi: curr.aqi ?? 0,
+          timestamp: curr.timestamp || Date.now()
+        });
+
+        if (uid && uid !== 'guest') {
+          let severity: 'critical' | 'warning' | 'normal' = 'normal';
+          if (currStatus === 'Danger') {
+            severity = 'critical';
+          } else if (currStatus === 'Warning' || currStatus === 'Poor') {
+            severity = 'warning';
+          }
+
+          await addAlertToFirestore(uid, {
+            alertType: `${sensorName} Status Change`,
+            message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
+            severity,
+            location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
+            deviceId: selectedDeviceId,
+            reading: currVal,
+            timestamp: curr.timestamp || Date.now()
+          });
+
+          if (severity === 'critical') {
+            toast.error(`Critical Alert: ${sensorName}`, {
+              description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
+              duration: 8000,
+            });
+          }
+        }
+      }
+    };
+
+    const curr = deviceData;
+    const prev = prevDeviceDataRef.current;
+
+    if (prev) {
+      const getStatusLabel = (type: string, val: number) => {
+        const s = getSensorStatus(type, val);
+        switch (s) {
+          case 'DANGER': return 'Danger';
+          case 'POOR': return 'Poor';
+          case 'WARNING': return 'Warning';
+          case 'GOOD':
+          default:
+            return 'Good';
+        }
+      };
+
+      const currTempStat = getStatusLabel('temp', curr.temperature ?? 0);
+      const prevTempStat = getStatusLabel('temp', prev.temperature ?? 0);
+      checkAndRecord('Temperature', curr.temperature ?? 0, prev.temperature ?? 0, currTempStat, prevTempStat);
+
+      const currHumStat = getStatusLabel('hum', curr.humidity ?? 0);
+      const prevHumStat = getStatusLabel('hum', prev.humidity ?? 0);
+      checkAndRecord('Humidity', curr.humidity ?? 0, prev.humidity ?? 0, currHumStat, prevHumStat);
+
+      const currCo2Stat = getStatusLabel('co2', curr.co2 ?? 0);
+      const prevCo2Stat = getStatusLabel('co2', prev.co2 ?? 0);
+      checkAndRecord('CO2 Level', curr.co2 ?? 0, prev.co2 ?? 0, currCo2Stat, prevCo2Stat);
+
+      const currNh3Stat = getStatusLabel('nh3', curr.nh3 ?? curr.ammonia ?? 0);
+      const prevNh3Stat = getStatusLabel('nh3', prev.nh3 ?? prev.ammonia ?? 0);
+      checkAndRecord('Ammonia NH3', curr.nh3 ?? curr.ammonia ?? 0, prev.nh3 ?? prev.ammonia ?? 0, currNh3Stat, prevNh3Stat);
+
+      const currCh4Stat = getStatusLabel('ch4', curr.ch4 ?? curr.methane ?? 0);
+      const prevCh4Stat = getStatusLabel('ch4', prev.ch4 ?? prev.methane ?? 0);
+      checkAndRecord('Methane CH4', curr.ch4 ?? curr.methane ?? 0, prev.ch4 ?? prev.methane ?? 0, currCh4Stat, prevCh4Stat);
+
+      const currPm25Stat = getStatusLabel('pm2.5', curr.pm2_5 ?? 0);
+      const prevPm25Stat = getStatusLabel('pm2.5', prev.pm2_5 ?? 0);
+      checkAndRecord('PM2.5 Feed Dust', curr.pm2_5 ?? 0, prev.pm2_5 ?? 0, currPm25Stat, prevPm25Stat);
+
+      const currPm10Stat = getStatusLabel('pm10', curr.pm10 ?? 0);
+      const prevPm10Stat = getStatusLabel('pm10', prev.pm10 ?? 0);
+      checkAndRecord('PM10 Coarse Dust', curr.pm10 ?? 0, prev.pm10 ?? 0, currPm10Stat, prevPm10Stat);
+
+      const currAqiStat = getStatusLabel('aqi', curr.aqi ?? 0);
+      const prevAqiStat = getStatusLabel('aqi', prev.aqi ?? 0);
+      checkAndRecord('AQI', curr.aqi ?? 0, prev.aqi ?? 0, currAqiStat, prevAqiStat);
+    }
+
     prevDeviceDataRef.current = deviceData;
-  }, [deviceData]);
+  }, [deviceData, thresholds, devices, selectedDeviceId, uid]);
 
   return (
     <AppContext.Provider value={{

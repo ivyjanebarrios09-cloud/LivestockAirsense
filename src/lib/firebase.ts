@@ -680,9 +680,11 @@ export const recordStatusChange = async (
   if (!deviceId) return;
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    await addDoc(historyRef, {
-      timestamp: allReadings?.timestamp || Date.now(),
+    const timestamp = allReadings?.timestamp || Date.now();
+    const logId = `history_${canonicalId}_${sensorName.replace(/\s+/g, '')}_${status}_${timestamp}`;
+    const logDocRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+    await setDoc(logDocRef, {
+      timestamp,
       sensorName,
       status,
       reading,
@@ -724,7 +726,9 @@ export const updateDeviceTelemetry = async (
       latestReading: {
         ...readings,
         timestamp: Date.now()
-      }
+      },
+      status: 'Online',
+      lastSeen: Date.now()
     });
 
     // 2. Add to history readings subcollection for charts
@@ -739,6 +743,8 @@ export const updateDeviceTelemetry = async (
     const telemetryDoc = {
       deviceId: canonicalId,
       lastUpdate: Date.now(),
+      status: 'Online',
+      lastSeen: Date.now(),
       alerts: {
         activeAlert: (readings.temperature > 38 || readings.nh3 > 25),
         lastAlertTime: Date.now(),
@@ -755,6 +761,13 @@ export const updateDeviceTelemetry = async (
 
     const oldDocRef = doc(db, 'airMonitoring', canonicalId);
     await setDoc(oldDocRef, telemetryDoc, { merge: true });
+
+    // Update Device Registry lookup
+    const registryRef = doc(db, 'deviceRegistry', deviceId);
+    await setDoc(registryRef, {
+      status: 'Online',
+      lastSeen: Date.now()
+    }, { merge: true });
 
     const legacyReadingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     await addDoc(legacyReadingsRef, {
@@ -963,12 +976,20 @@ export const updateDeviceDataById = async (deviceId: string, readings: any) => {
     const airMonitoringRef = doc(db, 'airMonitoring', canonicalId);
     await setDoc(airMonitoringRef, {
       latestReading: processedReadings,
-      lastUpdate: timestamp
+      lastUpdate: timestamp,
+      status: 'Online',
+      lastSeen: timestamp
     }, { merge: true });
 
     // Add to history
     const readingsRef = collection(db, 'airMonitoring', canonicalId, 'readings');
     await addDoc(readingsRef, processedReadings);
+
+    // Update Device Registry lookup
+    await setDoc(registryRef, {
+      status: 'Online',
+      lastSeen: timestamp
+    }, { merge: true });
 
     // 3. Update the owner's user-specific document if registered
     if (registrySnap.exists()) {
@@ -981,12 +1002,15 @@ export const updateDeviceDataById = async (deviceId: string, readings: any) => {
           lastSeen: timestamp
         }, { merge: true });
         
-        // Status history tracking
-        const statusHistoryRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-        await addDoc(statusHistoryRef, {
+        // Status history tracking (deterministic ID to prevent duplicates)
+        const logId = `history_${canonicalId}_DeviceConnection_Online_${timestamp}`;
+        const statusHistoryRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+        await setDoc(statusHistoryRef, {
           timestamp,
           status: 'Online',
-          sensorName: registrySnap.data().deviceName || 'AIRSENSE'
+          sensorName: 'Device Connection',
+          prevStatus: 'Offline',
+          reading: 1
         });
       }
     }
@@ -1391,7 +1415,12 @@ export const addAlertToFirestore = async (
         alertTimestamp = candidate;
       }
     }
-    await addDoc(alertsRef, {
+    const cleanAlertType = alert.alertType.replace(/\s+/g, '');
+    const cleanSeverity = alert.severity;
+    const devId = alert.deviceId || 'node';
+    const alertId = `alert_${userId}_${devId}_${cleanAlertType}_${cleanSeverity}_${alertTimestamp}`;
+    const alertDocRef = doc(alertsRef, alertId);
+    await setDoc(alertDocRef, {
       userId,
       deviceId: alert.deviceId || '',
       timestamp: alertTimestamp,
