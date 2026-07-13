@@ -362,7 +362,7 @@ export function Dashboard() {
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
   
   // A node is only considered online if its status is 'Online' AND it has a fresh heartbeat
-  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
+  const isEffectiveOnline = connectionStatus.status === 'Online';
   const effectiveStatus = isEffectiveOnline ? 'Online' : 'Offline';
 
   const handleCustomRegisterSetup = async (e?: React.FormEvent | React.MouseEvent) => {

@@ -33,7 +33,7 @@ export function HistoryPage() {
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
-  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
+  const isEffectiveOnline = connectionStatus.status === 'Online';
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [exportSuccessText, setExportSuccessText] = useState<string | null>(null);
   
