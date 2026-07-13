@@ -753,22 +753,29 @@ export const updateDeviceTelemetry = async (
     const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     
     // 1. Update the latestReading on the device document
-    const isWarning = (
-      getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ||
-      getSensorStatus('nh3', readings.nh3 ?? 0) !== 'GOOD' ||
-      getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ||
-      getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD'
-    );
+    const sensors = [
+      { type: 'temp', val: readings.temperature ?? 0, name: 'Temperature' },
+      { type: 'nh3', val: readings.nh3 ?? 0, name: 'Ammonia' },
+      { type: 'co2', val: readings.co2 ?? 0, name: 'CO2' },
+      { type: 'aqi', val: readings.aqi ?? 0, name: 'Air Quality' },
+      { type: 'hum', val: readings.humidity ?? 0, name: 'Humidity' },
+      { type: 'pm2.5', val: readings.pm2_5 ?? 0, name: 'PM2.5' },
+      { type: 'pm10', val: readings.pm10 ?? 0, name: 'PM10' },
+      { type: 'ch4', val: readings.ch4 ?? 0, name: 'Methane' }
+    ];
 
-    const alertType = getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ? 'Temperature' : 
-                     (getSensorStatus('nh3', readings.nh3 ?? 0) !== 'GOOD' ? 'Ammonia' : 
-                     (getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ? 'CO2' : 
-                     (getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD' ? 'Air Quality' : '')));
+    let isWarning = false;
+    let alertType = '';
+    let alertValue = 0;
 
-    const alertValue = alertType === 'Temperature' ? (readings.temperature ?? 0) :
-                      (alertType === 'Ammonia' ? (readings.nh3 ?? 0) :
-                      (alertType === 'CO2' ? (readings.co2 ?? 0) :
-                      (alertType === 'Air Quality' ? (readings.aqi ?? 0) : 0)));
+    for (const s of sensors) {
+      if (getSensorStatus(s.type, s.val) !== 'GOOD') {
+        isWarning = true;
+        alertType = s.name;
+        alertValue = s.val;
+        break;
+      }
+    }
 
     const alertStatus = {
       activeAlert: isWarning,

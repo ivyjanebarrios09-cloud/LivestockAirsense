@@ -99,6 +99,11 @@ function getSensorStatus(type: string, value: number): 'GOOD' | 'WARNING' | 'POO
       if (value <= 154) return 'WARNING';
       if (value <= 254) return 'POOR';
       return 'DANGER';
+    case 'aqi':
+      if (value <= 100) return 'GOOD';
+      if (value <= 200) return 'WARNING';
+      if (value <= 300) return 'POOR';
+      return 'DANGER';
     default:
       return 'GOOD';
   }
@@ -236,22 +241,29 @@ async function startServer() {
       const canonicalId = deviceId.includes('LAS-001') ? 'LAS-001' : deviceId;
       const globalRef = doc(db, 'airMonitoring', canonicalId);
       
-      const isWarning = (
-        getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ||
-        getSensorStatus('nh3', readings.nh3 ?? readings.ammonia ?? 0) !== 'GOOD' ||
-        getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ||
-        getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD'
-      );
+      const sensors = [
+        { type: 'temp', val: readings.temperature ?? readings.temp ?? 0, name: 'Temperature' },
+        { type: 'nh3', val: readings.nh3 ?? readings.ammonia ?? 0, name: 'Ammonia' },
+        { type: 'co2', val: readings.co2 ?? 0, name: 'CO2' },
+        { type: 'aqi', val: readings.aqi ?? 0, name: 'Air Quality' },
+        { type: 'hum', val: readings.humidity ?? readings.hum ?? 0, name: 'Humidity' },
+        { type: 'pm2.5', val: readings.pm2_5 ?? 0, name: 'PM2.5' },
+        { type: 'pm10', val: readings.pm10 ?? 0, name: 'PM10' },
+        { type: 'ch4', val: readings.ch4 ?? readings.methane ?? 0, name: 'Methane' }
+      ];
 
-      const alertType = getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ? 'Temperature' : 
-                       (getSensorStatus('nh3', readings.nh3 ?? readings.ammonia ?? 0) !== 'GOOD' ? 'Ammonia' : 
-                       (getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ? 'CO2' : 
-                       (getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD' ? 'Air Quality' : '')));
+      let isWarning = false;
+      let alertType = '';
+      let alertValue = 0;
 
-      const alertValue = alertType === 'Temperature' ? (readings.temperature ?? 0) :
-                        (alertType === 'Ammonia' ? (readings.nh3 ?? readings.ammonia ?? 0) :
-                        (alertType === 'CO2' ? (readings.co2 ?? 0) :
-                        (alertType === 'Air Quality' ? (readings.aqi ?? 0) : 0)));
+      for (const s of sensors) {
+        if (getSensorStatus(s.type, s.val) !== 'GOOD') {
+          isWarning = true;
+          alertType = s.name;
+          alertValue = s.val;
+          break;
+        }
+      }
 
       const flatReading = {
         ...readings,
@@ -433,6 +445,10 @@ async function startServer() {
           const currCh4Stat = getStatusLabel('ch4', flatReading.ch4 ?? flatReading.methane ?? 0);
           const prevCh4Stat = getStatusLabel('ch4', prevReading.ch4 ?? prevReading.methane ?? 0);
           await checkAndRecordServer('Methane CH4', flatReading.ch4 ?? flatReading.methane ?? 0, prevReading.ch4 ?? prevReading.methane ?? 0, currCh4Stat, prevCh4Stat);
+
+          const currAqiStat = getStatusLabel('aqi', flatReading.aqi ?? 0);
+          const prevAqiStat = getStatusLabel('aqi', prevReading.aqi ?? 0);
+          await checkAndRecordServer('Air Quality', flatReading.aqi ?? 0, prevReading.aqi ?? 0, currAqiStat, prevAqiStat);
         }
       }
 
@@ -712,25 +728,33 @@ async function startServer() {
         await checkAndRecordServer('Methane CH4', latestReading.ch4 ?? latestReading.methane ?? 0, 'ch4');
         await checkAndRecordServer('PM2.5 Feed Dust', latestReading.pm2_5 ?? 0, 'pm2.5');
         await checkAndRecordServer('PM10 Coarse Dust', latestReading.pm10 ?? 0, 'pm10');
+        await checkAndRecordServer('Air Quality', latestReading.aqi ?? 0, 'aqi');
 
         // Sync activeAlert flag to the user's device document
         if (ownerId && ownerId !== 'guest') {
-          const isWarning = (
-            getStatusLabel('temp', latestReading.temperature ?? 0) !== 'Good' ||
-            getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) !== 'Good' ||
-            getStatusLabel('co2', latestReading.co2 ?? 0) !== 'Good' ||
-            getStatusLabel('aqi', latestReading.aqi ?? 0) !== 'Good'
-          );
+          const sensors = [
+            { type: 'temp', val: latestReading.temperature ?? latestReading.temp ?? 0, name: 'Temperature' },
+            { type: 'nh3', val: latestReading.nh3 ?? latestReading.ammonia ?? 0, name: 'Ammonia' },
+            { type: 'co2', val: latestReading.co2 ?? 0, name: 'CO2' },
+            { type: 'aqi', val: latestReading.aqi ?? 0, name: 'Air Quality' },
+            { type: 'hum', val: latestReading.humidity ?? latestReading.hum ?? 0, name: 'Humidity' },
+            { type: 'pm2.5', val: latestReading.pm2_5 ?? 0, name: 'PM2.5' },
+            { type: 'pm10', val: latestReading.pm10 ?? 0, name: 'PM10' },
+            { type: 'ch4', val: latestReading.ch4 ?? latestReading.methane ?? 0, name: 'Methane' }
+          ];
 
-          const alertType = getStatusLabel('temp', latestReading.temperature ?? 0) !== 'Good' ? 'Temperature' : 
-                           (getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) !== 'Good' ? 'Ammonia' : 
-                           (getStatusLabel('co2', latestReading.co2 ?? 0) !== 'Good' ? 'CO2' : 
-                           (getStatusLabel('aqi', latestReading.aqi ?? 0) !== 'Good' ? 'Air Quality' : '')));
+          let isWarning = false;
+          let alertType = '';
+          let alertValue = 0;
 
-          const alertValue = alertType === 'Temperature' ? (latestReading.temperature ?? 0) :
-                            (alertType === 'Ammonia' ? (latestReading.nh3 ?? latestReading.ammonia ?? 0) :
-                            (alertType === 'CO2' ? (latestReading.co2 ?? 0) :
-                            (alertType === 'Air Quality' ? (latestReading.aqi ?? 0) : 0)));
+          for (const s of sensors) {
+            if (getStatusLabel(s.type, s.val) !== 'Good') {
+              isWarning = true;
+              alertType = s.name;
+              alertValue = s.val;
+              break; // Take the first one that is bad
+            }
+          }
 
           const userDevRef = doc(db, 'users', ownerId, 'devices', docId);
           await setDoc(userDevRef, {
