@@ -24,8 +24,11 @@ const firebaseConfig = {
 console.log('[Server] Initializing Firebase with Project ID:', firebaseConfig.projectId);
 
 const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const dbId = firebaseConfig.firestoreDatabaseId;
-const db = (dbId && dbId !== '(default)' && dbId.trim() !== '')
+const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId.trim() !== '' 
+  ? firebaseConfig.firestoreDatabaseId.trim() 
+  : undefined;
+
+const db = dbId 
   ? initializeFirestore(fbApp, {}, dbId)
   : getFirestore(fbApp);
 
@@ -496,6 +499,7 @@ async function startServer() {
   const airMonitoringCol = collection(db, 'airMonitoring');
   const processedTimestamps = new Map<string, number>();
   const lastDeviceStatuses = new Map<string, Record<string, string>>();
+  const lastDeviceReadings = new Map<string, any>();
 
   onSnapshot(airMonitoringCol, async (snapshot) => {
     for (const change of snapshot.docChanges()) {
@@ -519,6 +523,84 @@ async function startServer() {
         const regData = registrySnap.exists() ? registrySnap.data() : {};
         const ownerId = regData.ownerId;
         const deviceName = regData.deviceName || regData.name || docId;
+
+        // Keep track of any sensor value changes and record to historical logs
+        const prevReading = lastDeviceReadings.get(docId);
+        const currTemp = latestReading.temperature ?? latestReading.temp ?? 0;
+        const prevTemp = prevReading ? (prevReading.temperature ?? prevReading.temp ?? 0) : null;
+        
+        const currHum = latestReading.humidity ?? latestReading.hum ?? 0;
+        const prevHum = prevReading ? (prevReading.humidity ?? prevReading.hum ?? 0) : null;
+        
+        const currCo2 = latestReading.co2 ?? 0;
+        const prevCo2 = prevReading ? (prevReading.co2 ?? 0) : null;
+        
+        const currNh3 = latestReading.nh3 ?? latestReading.ammonia ?? 0;
+        const prevNh3 = prevReading ? (prevReading.nh3 ?? prevReading.ammonia ?? 0) : null;
+        
+        const currCh4 = latestReading.ch4 ?? latestReading.methane ?? 0;
+        const prevCh4 = prevReading ? (prevReading.ch4 ?? prevReading.methane ?? 0) : null;
+        
+        const currPm25 = latestReading.pm2_5 ?? 0;
+        const prevPm25 = prevReading ? (prevReading.pm2_5 ?? 0) : null;
+        
+        const currPm10 = latestReading.pm10 ?? 0;
+        const prevPm10 = prevReading ? (prevReading.pm10 ?? 0) : null;
+        
+        const currAqi = latestReading.aqi ?? 0;
+        const prevAqi = prevReading ? (prevReading.aqi ?? 0) : null;
+
+        const hasSensorValueChange = !prevReading || 
+          currTemp !== prevTemp ||
+          currHum !== prevHum ||
+          currCo2 !== prevCo2 ||
+          currNh3 !== prevNh3 ||
+          currCh4 !== prevCh4 ||
+          currPm25 !== prevPm25 ||
+          currPm10 !== prevPm10 ||
+          currAqi !== prevAqi;
+
+        if (hasSensorValueChange) {
+          const today = new Date(timestamp).toISOString().split('T')[0];
+          const dateDocRef = doc(db, 'airMonitoring', docId, 'history', today);
+          await setDoc(dateDocRef, { exists: true }, { merge: true });
+
+          const logId = `history_${docId}_SensorReadingChange_${timestamp}`;
+          const historyRef = doc(db, 'airMonitoring', docId, 'history', today, 'readings', logId);
+          await setDoc(historyRef, {
+            deviceId: docId,
+            sensorName: 'Sensor Readings',
+            status: 'Updated',
+            reading: currAqi || currTemp || 0,
+            value: currAqi || currTemp || 0,
+            prevStatus: prevReading ? 'Good' : 'Initial',
+            timestamp,
+            temperature: currTemp,
+            humidity: currHum,
+            co2: currCo2,
+            nh3: currNh3,
+            ammonia: currNh3,
+            ch4: currCh4,
+            methane: currCh4,
+            pm2_5: currPm25,
+            pm10: currPm10,
+            aqi: currAqi,
+            context: {
+              temp: currTemp,
+              humidity: currHum,
+              co2: currCo2,
+              ammonia: currNh3,
+              methane: currCh4,
+              pm1_0: latestReading.pm1_0 ?? 0,
+              pm2_5: currPm25,
+              pm10: currPm10,
+              aqi: currAqi,
+              timestamp
+            }
+          });
+          
+          lastDeviceReadings.set(docId, { ...latestReading });
+        }
 
         // Retrieve last known sensor statuses for this device
         let prevStatuses = lastDeviceStatuses.get(docId);

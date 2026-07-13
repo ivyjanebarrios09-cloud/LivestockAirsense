@@ -37,7 +37,22 @@ export function parseRawDate(timestamp: any): Date {
     d = new Date(isSeconds ? timestamp * 1000 : timestamp);
   } else if (typeof timestamp === 'string') {
     // String timestamp
-    const parsed = new Date(timestamp);
+    let cleanStr = timestamp.trim();
+    // Normalize " at " (e.g., "July 13, 2026 at 11:48:19 PM UTC+8")
+    cleanStr = cleanStr.replace(/\s+at\s+/i, ' ');
+    // Clean weird unicode space characters like U+202F
+    cleanStr = cleanStr.replace(/[\u202F\u00A0\u2000-\u200A]/g, ' ');
+
+    let parsed = new Date(cleanStr);
+
+    // Fallback for YYYYMMDD_HHMMSS
+    if (isNaN(parsed.getTime())) {
+      const match = cleanStr.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/);
+      if (match) {
+        parsed = new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}`);
+      }
+    }
+
     if (!isNaN(parsed.getTime())) {
       d = parsed;
     } else {

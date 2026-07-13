@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus, subscribeToSensorData, recordStatusChange, addAlertToFirestore, savePushSubscription, deletePushSubscription } from '../lib/firebase';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate, getSensorStatus } from '../lib/utils';
 import { formatPHDate } from '../utils/date';
@@ -129,25 +129,73 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     }
 
     setIsDevicesLoading(true);
+
+    let userDevices: any[] = [];
+    let airMonitoringDevices: any[] = [];
+
+    const updateCombinedDevices = () => {
+      const mergedMap = new Map<string, any>();
+      
+      // Add user devices first
+      userDevices.forEach(d => {
+        mergedMap.set(d.id, { ...d });
+      });
+      
+      // Merge/overwrite with airMonitoring devices (which contain the real hardware telemetry and status)
+      airMonitoringDevices.forEach(d => {
+        const existing = mergedMap.get(d.id);
+        const name = d.deviceName || d.name || existing?.name || existing?.deviceName || (d.id === 'LAS-001' ? 'AIRSENSE' : 'AIRSENSE NODE');
+        mergedMap.set(d.id, {
+          ...existing,
+          ...d,
+          name,
+          deviceName: name
+        });
+      });
+      
+      const mergedList = Array.from(mergedMap.values());
+      setDevices(mergedList);
+    };
+
     const devicesRef = collection(db, 'users', uid, 'devices');
-    const unsubscribeDevices = onSnapshot(devicesRef, (snapshot) => {
-      const docs = snapshot.docs.map(doc => {
+    const unsubscribeUserDevices = onSnapshot(devicesRef, (snapshot) => {
+      userDevices = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
-          // Ensure id and deviceId are always present and not overwritten by empty data
           deviceId: data.deviceId || doc.id
         };
       });
-      setDevices(docs);
+      updateCombinedDevices();
       setIsDevicesLoading(false);
     }, (error) => {
-      console.error('Error subscribing to devices:', error);
+      console.error('Error subscribing to user devices:', error);
       setIsDevicesLoading(false);
     });
 
-    return () => unsubscribeDevices();
+    const airRef = collection(db, 'airMonitoring');
+    const airQuery = query(airRef, where('ownerId', '==', uid));
+    const unsubscribeAirDevices = onSnapshot(airQuery, (snapshot) => {
+      airMonitoringDevices = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          deviceId: data.deviceId || doc.id
+        };
+      });
+      updateCombinedDevices();
+      setIsDevicesLoading(false);
+    }, (error) => {
+      console.error('Error subscribing to airMonitoring devices:', error);
+      setIsDevicesLoading(false);
+    });
+
+    return () => {
+      unsubscribeUserDevices();
+      unsubscribeAirDevices();
+    };
   }, [uid]);
 
   const [selectedDeviceId, setInternalSelectedDeviceId] = useState<string>(() => {

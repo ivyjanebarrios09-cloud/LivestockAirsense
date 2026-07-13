@@ -189,7 +189,8 @@ export function HistoryPage() {
         }));
         setHistoricalLogs(formattedLogs);
         setIsLoading(false);
-      }
+      },
+      uid
     );
 
     return () => unsubscribe();
@@ -352,7 +353,7 @@ export function HistoryPage() {
     if (!activeDevice || !log.id) return;
     setIsDeleting(true);
     try {
-      await deleteStatusHistoryLog(activeDevice.id, log.id, log.dateStr);
+      await deleteStatusHistoryLog(activeDevice.id, log.id, log.dateStr, uid);
       toast.success(`Deleted log from ${log.timestamp}`);
       setLogToDelete(null);
     } catch (error) {
@@ -368,12 +369,12 @@ export function HistoryPage() {
     setIsDeleting(true);
     try {
       if (timeRange === 'all') {
-        const statusCount = await deleteAllStatusHistory(activeDevice.id);
+        const statusCount = await deleteAllStatusHistory(activeDevice.id, uid);
         toast.success(`Successfully deleted all historical status logs (${statusCount} logs)`);
       } else {
         if (!selectedDate) return;
         // 1. Delete status history logs for that date
-        const statusCount = await deleteStatusHistoryByDate(activeDevice.id, selectedDate);
+        const statusCount = await deleteStatusHistoryByDate(activeDevice.id, selectedDate, uid);
         
         // 2. Delete sensor readings for that date
         const readingsCount = await deleteSensorReadingsByDate(uid, activeDevice.id, selectedDate);
@@ -588,8 +589,8 @@ export function HistoryPage() {
       <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-system-border bg-system-bg flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Historical Status Changes</h3>
-            <p className="text-[11px] text-system-muted font-mono mt-0.5">Logs of sensor status changes filtered by time range.</p>
+            <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">Historical Sensor Readings</h3>
+            <p className="text-[11px] text-system-muted font-mono mt-0.5">Logs of continuous sensor readings uploaded from the device.</p>
           </div>
           <div className="flex items-center gap-3">
             {historicalLogs.length > 0 && (
