@@ -354,20 +354,12 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
   }
   const alertsRef = collection(db, 'alerts');
   
-  // Query simple constraints to avoid missing composite index failures, and sort/limit client-side
-  let q;
-  if (deviceId) {
-    q = query(
-      alertsRef, 
-      where('userId', '==', uid),
-      where('deviceId', '==', deviceId)
-    );
-  } else {
-    q = query(
-      alertsRef, 
-      where('userId', '==', uid)
-    );
-  }
+  // Query all alerts for this user to ensure we capture records created when the app was closed, 
+  // including any system or fallback alerts that may have empty or missing deviceId fields.
+  const q = query(
+    alertsRef, 
+    where('userId', '==', uid)
+  );
 
   return onSnapshot(
     q,
@@ -381,12 +373,18 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
           ...data, 
           timestamp: ts,
           resolved: data.resolved === true || data.status === 'resolved' || false
-        };
+        } as any;
       });
       // Sort client-side descending by timestamp
       alerts.sort((a, b) => b.timestamp - a.timestamp);
-      // Limit to latest 100 alerts
-      callback(alerts.slice(0, 100));
+      
+      // Filter client-side if a specific deviceId is provided, while keeping alerts that are device-generic (empty/missing deviceId)
+      let filteredAlerts = alerts;
+      if (deviceId) {
+        filteredAlerts = alerts.filter(a => !a.deviceId || a.deviceId === deviceId);
+      }
+      
+      callback(filteredAlerts);
     },
     (error) => {
       console.warn('[Firestore] Alerts subscription stream error or timed out/cancelled:', error);
@@ -1062,7 +1060,8 @@ export const getStatusHistory = async (
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
     const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    const q = query(historyRef, orderBy('timestamp', 'desc'), limit(500));
+    // Retrieve all records without arbitrary limit constraints
+    const q = query(historyRef, orderBy('timestamp', 'desc'));
     const querySnapshot = await getDocs(q);
     
     const logs = querySnapshot.docs.map(doc => {
@@ -1106,8 +1105,8 @@ export const subscribeToStatusHistory = (
   const canonicalId = getCanonicalDeviceId(deviceId);
   const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
   
-  // Fetch latest 500 records and filter client-side to prevent missing index errors and unit mismatches
-  const q = query(historyRef, orderBy('timestamp', 'desc'), limit(500));
+  // Retrieve all records without arbitrary limit constraints and filter/sort client-side
+  const q = query(historyRef, orderBy('timestamp', 'desc'));
   
   return onSnapshot(
     q,
