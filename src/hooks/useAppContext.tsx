@@ -453,7 +453,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         const currentStatus = connectionStatusRef.current;
         const lastSeenMsVal = currentStatus.lastSeen ? parseSafeDate(currentStatus.lastSeen).getTime() : 0;
         const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 30000);
-        const isDeviceOnlineVal = currentStatus.status === 'Online';
+        const isDeviceOnlineVal = currentStatus.status === 'Online' && lastSeenMsVal > 0 && !isStaleVal;
 
         if (isDeviceOnlineVal && storedPush && 'Notification' in window && Notification.permission === 'granted') {
           mappedAlerts.forEach(alert => {
@@ -549,7 +549,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
-  const isEffectiveOnline = connectionStatus.status === 'Online';
+  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
 
   const unreadAlertsCount = isEffectiveOnline ? alertsList.filter(alert => !alert.resolved).length : 0;
 

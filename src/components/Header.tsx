@@ -26,7 +26,7 @@ export function Header() {
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
   // A node is only considered online if its status is 'Online' AND it has a fresh heartbeat
-  const isEffectiveOnline = connectionStatus.status === 'Online';
+  const isEffectiveOnline = connectionStatus.status === 'Online' && lastSeenMs > 0 && !isStale;
   const effectiveStatus = isEffectiveOnline ? 'Online' : 'Offline';
 
   return (
