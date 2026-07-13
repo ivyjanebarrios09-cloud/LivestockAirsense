@@ -255,6 +255,17 @@ async function startServer() {
       
       await addDoc(collection(db, 'airMonitoring', canonicalId, 'readings'), flatReading);
       
+      // Write to global airMonitoring date-based history structure unconditionally
+      const today = new Date(timestamp).toISOString().split('T')[0];
+      const dateDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today);
+      await setDoc(dateDocRef, { exists: true }, { merge: true });
+      
+      const globalHistoryRef = collection(db, 'airMonitoring', canonicalId, 'history', today, 'readings');
+      await addDoc(globalHistoryRef, {
+        ...flatReading,
+        deviceId: canonicalId
+      });
+      
       // Update Registry lookup to find which user owns this prototype
       const registryRef = doc(db, 'deviceRegistry', deviceId);
       const registrySnap = await getDoc(registryRef);
@@ -315,8 +326,12 @@ async function startServer() {
               console.log(`[Server Alert Gen] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
               
               // Record status change in status history (deterministic ID to prevent duplicates)
+              const today = new Date(flatReading.timestamp).toISOString().split('T')[0];
+              const dateDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today);
+              await setDoc(dateDocRef, { exists: true }, { merge: true });
+
               const logId = `history_${canonicalId}_${sensorName.replace(/\s+/g, '')}_${currStatus}_${flatReading.timestamp}`;
-              const historyDocRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+              const historyDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today, 'readings', logId);
               await setDoc(historyDocRef, {
                 deviceId: canonicalId,
                 sensorName,
@@ -529,8 +544,12 @@ async function startServer() {
             prevStatuses![sensorName] = currStatus;
 
             // 1. Record in status history using deterministic ID to prevent duplicates
+            const today = new Date(timestamp).toISOString().split('T')[0];
+            const dateDocRef = doc(db, 'airMonitoring', docId, 'history', today);
+            await setDoc(dateDocRef, { exists: true }, { merge: true });
+
             const logId = `history_${docId}_${sensorName.replace(/\s+/g, '')}_${currStatus}_${timestamp}`;
-            const historyRef = doc(db, 'airMonitoring', docId, 'status_history', logId);
+            const historyRef = doc(db, 'airMonitoring', docId, 'history', today, 'readings', logId);
             await setDoc(historyRef, {
               deviceId: docId,
               sensorName,
@@ -663,8 +682,12 @@ async function startServer() {
             }
 
             // 5. Add status history log for Device Connection (Deterministic ID)
+            const today = new Date(now).toISOString().split('T')[0];
+            const dateDocRef = doc(db, 'airMonitoring', deviceId, 'history', today);
+            await setDoc(dateDocRef, { exists: true }, { merge: true });
+
             const logId = `history_${deviceId}_DeviceConnection_Offline_${now}`;
-            const historyDocRef = doc(db, 'airMonitoring', deviceId, 'status_history', logId);
+            const historyDocRef = doc(db, 'airMonitoring', deviceId, 'history', today, 'readings', logId);
             await setDoc(historyDocRef, {
               timestamp: now,
               sensorName: 'Device Connection',

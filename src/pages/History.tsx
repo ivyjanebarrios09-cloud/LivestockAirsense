@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Calendar, Filter, Download, FileText, CheckCircle, Trash2 } from 'lucide-react';
-import { cn, parseSafeDate, getStatusColor } from '../lib/utils';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Calendar, Filter, Download, FileText, CheckCircle, Trash2, Activity, Thermometer, Droplets, Wind } from 'lucide-react';
+import { cn, parseSafeDate, getStatusColor, getSensorStatus } from '../lib/utils';
 import { formatPHDate } from '../utils/date';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -20,7 +20,7 @@ import { DeviceName } from '../components/DeviceName';
 import { toast } from 'sonner';
 
 export function HistoryPage() {
-  const { uid, devices, selectedDeviceId, connectionStatus } = useAppContext();
+  const { uid, devices, selectedDeviceId, connectionStatus, theme } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [timeRange, setTimeRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
@@ -44,6 +44,93 @@ export function HistoryPage() {
   const [logToDelete, setLogToDelete] = useState<any | null>(null);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [selectedChartSensor, setSelectedChartSensor] = useState<string>('aqi');
+
+  const chartSensors = useMemo(() => [
+    { key: 'aqi', label: 'AQI', color: '#2563eb', unit: '' },
+    { key: 'temp', label: 'Temperature', color: '#dc2626', unit: '°C' },
+    { key: 'hum', label: 'Humidity', color: '#0ea5e9', unit: '%' },
+    { key: 'co2', label: 'CO2', color: '#8b5cf6', unit: 'ppm' },
+    { key: 'nh3', label: 'Ammonia (NH3)', color: '#ca8a04', unit: 'ppm' },
+    { key: 'ch4', label: 'Methane (CH4)', color: '#ec4899', unit: 'ppm' },
+    { key: 'pm2.5', label: 'PM2.5', color: '#16a34a', unit: 'µg/m³' },
+    { key: 'pm10', label: 'PM10', color: '#ea580c', unit: 'µg/m³' },
+  ], []);
+
+  const getSensorValue = (row: any, key: string) => {
+    switch (key) {
+      case 'temp':
+      case 'temperature':
+        return row.temperature !== undefined ? row.temperature : row.temp;
+      case 'hum':
+      case 'humidity':
+        return row.humidity !== undefined ? row.humidity : row.hum;
+      case 'co2':
+        return row.co2;
+      case 'nh3':
+      case 'ammonia':
+        return row.nh3 !== undefined ? row.nh3 : row.ammonia;
+      case 'ch4':
+      case 'methane':
+        return row.ch4 !== undefined ? row.ch4 : row.methane;
+      case 'pm2.5':
+      case 'pm2_5':
+      case 'pm25':
+        return row.pm2_5 !== undefined ? row.pm2_5 : (row.pm25 !== undefined ? row.pm25 : row['pm2.5']);
+      case 'pm10':
+        return row.pm10;
+      case 'aqi':
+        return row.aqi;
+      default:
+        return undefined;
+    }
+  };
+
+  const chartData = useMemo(() => {
+    const sorted = [...historicalLogs].sort((a, b) => {
+      const tsA = a.rawTimestamp || 0;
+      const tsB = b.rawTimestamp || 0;
+      return tsA - tsB;
+    });
+    
+    return sorted.map(row => {
+      const item: any = {
+        name: row.chartLabel || '',
+        timestamp: row.timestamp || '',
+      };
+      
+      chartSensors.forEach(s => {
+        const val = getSensorValue(row, s.key);
+        if (val !== undefined && val !== null) {
+          item[s.key] = Number(val);
+        }
+      });
+      
+      return item;
+    });
+  }, [historicalLogs, chartSensors]);
+
+  const renderValueWithStatus = (value: number | undefined, type: string) => {
+    if (value === undefined || value === null) {
+      return <span className="text-system-muted font-mono">-</span>;
+    }
+    const status = getSensorStatus(type, value);
+    let statusColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    if (status === 'WARNING') statusColor = "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
+    if (status === 'POOR') statusColor = "text-orange-500 bg-orange-500/10 border-orange-500/20";
+    if (status === 'DANGER') statusColor = "text-red-500 bg-red-500/10 border-red-500/20";
+    
+    const formattedVal = (type === 'co2' || type === 'aqi' || type === 'pm2.5' || type === 'pm10') 
+      ? Math.round(value) 
+      : value.toFixed(1);
+      
+    return (
+      <span className={cn("px-1.5 py-0.5 rounded border text-[11px] font-bold font-mono transition-colors", statusColor)}>
+        {formattedVal}
+      </span>
+    );
+  };
 
   const dateRange = useMemo(() => {
     if (timeRange === 'all') {
@@ -96,6 +183,7 @@ export function HistoryPage() {
       (logs) => {
         const formattedLogs = logs.map(log => ({
           ...log,
+          rawTimestamp: log.timestamp,
           timestamp: log.timestamp ? formatPHDate(log.timestamp) : '',
           chartLabel: log.timestamp ? formatPHDate(log.timestamp, { month: '2-digit', day: '2-digit' }) : ''
         }));
@@ -153,21 +241,42 @@ export function HistoryPage() {
 
     const headers = [
       'Timestamp', 
-      'Sensor Name',
-      'Status',
-      'Reading',
+      'Temperature (°C)',
+      'Humidity (%)',
+      'CO2 (ppm)',
+      'Ammonia NH3 (ppm)',
+      'Methane CH4 (ppm)',
+      'PM2.5 (ug/m3)',
+      'PM10 (ug/m3)',
+      'AQI',
       'Device Name', 
       'Device ID'
     ];
     
-    const rows = historicalLogs.map(row => [
-      row.timestamp,
-      row.sensorName ?? '-',
-      row.status ?? '-',
-      row.reading ?? '-',
-      activeDevice.name,
-      activeDevice.id
-    ]);
+    const rows = historicalLogs.map(row => {
+      const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+      const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+      const co2Val = row.co2;
+      const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+      const ch4Val = row.ch4 !== undefined ? row.ch4 : row.methane;
+      const pm25Val = row.pm2_5 !== undefined ? row.pm2_5 : row.pm25;
+      const pm10Val = row.pm10;
+      const aqiVal = row.aqi;
+
+      return [
+        row.timestamp,
+        tempVal !== undefined ? tempVal.toFixed(1) : '-',
+        humVal !== undefined ? humVal.toFixed(1) : '-',
+        co2Val !== undefined ? Math.round(co2Val).toString() : '-',
+        nh3Val !== undefined ? nh3Val.toFixed(1) : '-',
+        ch4Val !== undefined ? ch4Val.toFixed(1) : '-',
+        pm25Val !== undefined ? Math.round(pm25Val).toString() : '-',
+        pm10Val !== undefined ? Math.round(pm10Val).toString() : '-',
+        aqiVal !== undefined ? Math.round(aqiVal).toString() : '-',
+        activeDevice.name,
+        activeDevice.id
+      ];
+    });
     
     const csvContent = [
       `Report for ${activeDevice.name}, Range: ${dateStr}`,
@@ -206,13 +315,29 @@ export function HistoryPage() {
     doc.line(14, 30, 196, 30);
 
     autoTable(doc, {
-      head: [['Timestamp', 'Sensor', 'Status', 'Reading']],
-      body: historicalLogs.map(row => [
-        row.timestamp, 
-        row.sensorName ?? '-',
-        row.status ?? '-',
-        row.reading ?? '-'
-      ]),
+      head: [['Timestamp', 'Temp', 'Hum', 'CO2', 'NH3', 'CH4', 'PM2.5', 'PM10', 'AQI']],
+      body: historicalLogs.map(row => {
+        const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+        const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+        const co2Val = row.co2;
+        const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+        const ch4Val = row.ch4 !== undefined ? row.ch4 : row.methane;
+        const pm25Val = row.pm2_5 !== undefined ? row.pm2_5 : row.pm25;
+        const pm10Val = row.pm10;
+        const aqiVal = row.aqi;
+
+        return [
+          row.timestamp, 
+          tempVal !== undefined ? tempVal.toFixed(1) : '-',
+          humVal !== undefined ? humVal.toFixed(1) : '-',
+          co2Val !== undefined ? Math.round(co2Val).toString() : '-',
+          nh3Val !== undefined ? nh3Val.toFixed(1) : '-',
+          ch4Val !== undefined ? ch4Val.toFixed(1) : '-',
+          pm25Val !== undefined ? Math.round(pm25Val).toString() : '-',
+          pm10Val !== undefined ? Math.round(pm10Val).toString() : '-',
+          aqiVal !== undefined ? Math.round(aqiVal).toString() : '-'
+        ];
+      }),
       startY: 35,
       theme: 'grid',
       styles: { fontSize: 7, font: 'courier' },
@@ -227,7 +352,7 @@ export function HistoryPage() {
     if (!activeDevice || !log.id) return;
     setIsDeleting(true);
     try {
-      await deleteStatusHistoryLog(activeDevice.id, log.id);
+      await deleteStatusHistoryLog(activeDevice.id, log.id, log.dateStr);
       toast.success(`Deleted log from ${log.timestamp}`);
       setLogToDelete(null);
     } catch (error) {
@@ -287,9 +412,10 @@ export function HistoryPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="flex items-center gap-2 bg-system-panel border border-system-border rounded-xl px-3 py-1.5 shrink-0">
-            <Calendar className="w-4 h-4 text-system-accent" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap items-center gap-3 w-full md:w-auto">
+          {/* Calendar Picker */}
+          <div className="flex items-center gap-2 bg-system-panel border border-system-border rounded-xl px-3 py-2 sm:py-1.5 w-full sm:w-auto">
+            <Calendar className="w-4 h-4 text-system-accent shrink-0" />
             <input 
               type="date" 
               value={selectedDate}
@@ -299,25 +425,26 @@ export function HistoryPage() {
                   setTimeRange('today');
                 }
               }}
-              className="bg-transparent border-none text-xs font-bold text-system-text focus:outline-none font-mono cursor-pointer uppercase"
+              className="bg-transparent border-none text-xs font-bold text-system-text focus:outline-none font-mono cursor-pointer uppercase w-full sm:w-auto"
             />
           </div>
 
           <button
             onClick={() => setShowDeleteAllConfirm(true)}
-            className="flex items-center justify-center p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 hover:text-red-400 rounded-xl transition-all cursor-pointer shrink-0"
+            className="flex items-center justify-center p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 hover:text-red-400 rounded-xl transition-all cursor-pointer shrink-0 hidden md:flex"
             title={`Delete all historical data for ${selectedDate}`}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
 
-          <div className="flex bg-system-panel border border-system-border rounded-xl p-1 shrink-0 select-none">
+          {/* Time Range Selector */}
+          <div className="flex bg-system-panel border border-system-border rounded-xl p-1 select-none w-full sm:w-auto justify-between sm:justify-start">
             {(['all', 'today', 'week', 'month'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTimeRange(t)}
                 className={cn(
-                  "px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer",
+                  "px-3 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer flex-1 sm:flex-initial text-center",
                   timeRange === t ? "bg-system-bg text-system-text shadow-sm" : "text-system-muted hover:text-system-text"
                 )}
               >
@@ -326,20 +453,22 @@ export function HistoryPage() {
             ))}
           </div>
           
+          {/* Export CSV Button */}
           <button 
             onClick={downloadCSV}
-            className="flex items-center gap-2 px-3.5 py-2 border border-system-border bg-system-panel hover:bg-system-bg text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 px-3.5 py-2.5 sm:py-2 border border-system-border bg-system-panel hover:bg-system-bg text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer w-full sm:w-auto"
           >
             <Download className="w-3.5 h-3.5 text-system-accent" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span>Export CSV</span>
           </button>
 
+          {/* Export PDF Button */}
           <button 
             onClick={downloadPDF}
-            className="flex items-center gap-2 px-3.5 py-2 border border-system-border bg-system-panel hover:bg-system-bg text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+            className="flex items-center justify-center gap-2 px-3.5 py-2.5 sm:py-2 border border-system-border bg-system-panel hover:bg-system-bg text-system-text text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer w-full sm:w-auto"
           >
             <FileText className="w-3.5 h-3.5 text-orange-500" />
-            <span className="hidden sm:inline">Export PDF</span>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -351,10 +480,110 @@ export function HistoryPage() {
         </div>
       )}
 
-      <div className="hidden">
-        <div className="h-[320px]">
+      {historicalLogs.length > 0 ? (
+        <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden p-5 space-y-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-system-border pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-system-accent/15 text-system-accent">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-sm tracking-tight uppercase font-mono text-system-text">
+                  Historical Telemetry Trends
+                </h3>
+              </div>
+              <p className="text-[11px] text-system-muted font-mono mt-0.5">
+                Analyze continuous chronological trends for selected calibration parameters.
+              </p>
+            </div>
+            
+            {/* Legend or status indicator */}
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6' }} />
+              <span className="text-[10px] font-mono font-bold text-system-muted uppercase">
+                Visualizing {chartSensors.find(s => s.key === selectedChartSensor)?.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Metric Selector Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin select-none">
+            {chartSensors.map(sensor => {
+              const isActive = selectedChartSensor === sensor.key;
+              return (
+                <button
+                  key={sensor.key}
+                  onClick={() => setSelectedChartSensor(sensor.key)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-mono font-bold uppercase transition-all cursor-pointer whitespace-nowrap",
+                    isActive
+                      ? "bg-system-bg border-system-accent/30 shadow-sm"
+                      : "bg-system-panel border-system-border text-system-muted hover:text-system-text hover:border-system-border/80"
+                  )}
+                  style={isActive ? { borderLeft: `3px solid ${sensor.color}` } : {}}
+                >
+                  <span 
+                    className="w-1.5 h-1.5 rounded-full" 
+                    style={{ backgroundColor: sensor.color }} 
+                  />
+                  <span>{sensor.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Recharts Area Chart */}
+          <div className="h-[280px] w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={`historyColor-${selectedChartSensor}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6'} stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor={chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6'} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' || theme === 'forest' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.06)'} />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fill: 'var(--color-system-muted)', fontSize: 9, fontFamily: 'monospace' }}
+                  axisLine={{ stroke: 'var(--color-system-border)' }}
+                  tickLine={{ stroke: 'var(--color-system-border)' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'var(--color-system-muted)', fontSize: 9, fontFamily: 'monospace' }}
+                  axisLine={{ stroke: 'var(--color-system-border)' }}
+                  tickLine={{ stroke: 'var(--color-system-border)' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: theme === 'dark' || theme === 'forest' ? '#1e293b' : '#ffffff',
+                    borderColor: 'var(--color-system-border)',
+                    borderRadius: '0.75rem',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    color: 'var(--color-system-text)'
+                  }}
+                  itemStyle={{ color: chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6' }}
+                  formatter={(value: any) => [
+                    `${Number(value).toFixed(1)} ${chartSensors.find(s => s.key === selectedChartSensor)?.unit || ''}`, 
+                    chartSensors.find(s => s.key === selectedChartSensor)?.label || ''
+                  ]}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey={selectedChartSensor} 
+                  stroke={chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6'} 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill={`url(#historyColor-${selectedChartSensor})`}
+                  dot={{ r: 3, stroke: chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6', strokeWidth: 1, fill: theme === 'dark' || theme === 'forest' ? '#0f172a' : '#ffffff' }}
+                  activeDot={{ r: 5, strokeWidth: 0, fill: chartSensors.find(s => s.key === selectedChartSensor)?.color || '#3b82f6' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-system-border bg-system-bg flex flex-wrap justify-between items-center gap-3">
@@ -385,70 +614,87 @@ export function HistoryPage() {
             <table className="w-full text-sm text-left relative border-collapse">
               <thead className="text-[10px] text-system-muted uppercase font-bold font-mono bg-system-bg border-b border-system-border sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Timestamp</th>
-                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Sensor Name</th>
-                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Status</th>
-                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap">Reading</th>
-                  <th className="px-6 py-3.5 bg-system-bg whitespace-nowrap text-right">Actions</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap">Timestamp</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">Temp (°C)</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">Hum (%)</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">CO2 (ppm)</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">NH3 (ppm)</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">CH4 (ppm)</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">PM2.5</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">PM10</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-center">AQI</th>
+                  <th className="px-4 py-3.5 bg-system-bg whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-system-border font-mono text-xs">
-                {paginatedLogs.map((row, i) => (
-                  <motion.tr 
-                    key={row.id || i} 
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
-                    className="hover:bg-system-bg/40 transition-colors"
-                  >
-                    <td className="px-6 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
-                    <td className="px-6 py-3.5 text-system-muted font-semibold whitespace-nowrap">{row.sensorName}</td>
-                    <td className="px-6 py-3.5 whitespace-nowrap">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase tracking-tight border",
-                        getStatusStyles(row.status)
-                      )}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 font-bold whitespace-nowrap transition-colors duration-300 text-system-text">{row.reading}</td>
-                    <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => setLogToDelete(row)}
-                        className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                        title="Delete log entry"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
+                {paginatedLogs.map((row, i) => {
+                  const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+                  const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+                  const co2Val = row.co2;
+                  const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+                  const ch4Val = row.ch4 !== undefined ? row.ch4 : row.methane;
+                  const pm25Val = row.pm2_5 !== undefined ? row.pm2_5 : row.pm25;
+                  const pm10Val = row.pm10;
+                  const aqiVal = row.aqi;
+
+                  return (
+                    <motion.tr 
+                      key={row.id || i} 
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
+                      className="hover:bg-system-bg/40 transition-colors"
+                    >
+                      <td className="px-4 py-3.5 text-system-text font-bold whitespace-nowrap">{row.timestamp}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(tempVal, 'temp')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(humVal, 'hum')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(co2Val, 'co2')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(nh3Val, 'nh3')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(ch4Val, 'ch4')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(pm25Val, 'pm2.5')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(pm10Val, 'pm10')}</td>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">{renderValueWithStatus(aqiVal, 'aqi')}</td>
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => setLogToDelete(row)}
+                          className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="Delete log entry"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Mobile View: Stacked cards */}
           <div className="md:hidden divide-y divide-system-border">
-            {paginatedLogs.map((row, i) => (
-              <motion.div 
-                key={row.id || i} 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
-                className="p-4 space-y-3 hover:bg-system-bg/20 transition-colors"
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Timestamp</p>
-                    <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-tight border",
-                      getStatusStyles(row.status)
-                    )}>
-                      {row.status}
-                    </span>
+            {paginatedLogs.map((row, i) => {
+              const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+              const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+              const co2Val = row.co2;
+              const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+              const ch4Val = row.ch4 !== undefined ? row.ch4 : row.methane;
+              const pm25Val = row.pm2_5 !== undefined ? row.pm2_5 : row.pm25;
+              const pm10Val = row.pm10;
+              const aqiVal = row.aqi;
+
+              return (
+                <motion.div 
+                  key={row.id || i} 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: Math.min(i * 0.03, 0.3) }}
+                  className="p-4 space-y-3.5 hover:bg-system-bg/20 transition-colors"
+                >
+                  <div className="flex justify-between items-center bg-system-bg/15 p-2 rounded-xl border border-system-border/30">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-system-accent animate-pulse" />
+                      <p className="text-[10px] font-bold text-system-text font-mono">{row.timestamp}</p>
+                    </div>
                     <button
                       onClick={() => setLogToDelete(row)}
                       className="p-1.5 text-system-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
@@ -457,20 +703,91 @@ export function HistoryPage() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-system-border/50">
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Sensor Node</p>
-                    <p className="text-[11px] font-semibold text-system-text font-mono truncate">{row.sensorName}</p>
+                  
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-red-500/10 text-red-500">
+                        <Thermometer className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">Temp</span>
+                        {renderValueWithStatus(tempVal, 'temp')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-sky-500/10 text-sky-500">
+                        <Droplets className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">Hum</span>
+                        {renderValueWithStatus(humVal, 'hum')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-violet-500/10 text-violet-500">
+                        <Wind className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">CO2</span>
+                        {renderValueWithStatus(co2Val, 'co2')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-yellow-500/10 text-yellow-500">
+                        <Activity className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">NH3</span>
+                        {renderValueWithStatus(nh3Val, 'nh3')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-pink-500/10 text-pink-500">
+                        <Activity className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">CH4</span>
+                        {renderValueWithStatus(ch4Val, 'ch4')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-500">
+                        <Activity className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">PM2.5</span>
+                        {renderValueWithStatus(pm25Val, 'pm2.5')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-orange-500/10 text-orange-500">
+                        <Activity className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">PM10</span>
+                        {renderValueWithStatus(pm10Val, 'pm10')}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-system-bg/30 border border-system-border/40 rounded-xl">
+                      <div className="p-1 rounded-lg bg-blue-500/10 text-blue-500">
+                        <Activity className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] uppercase font-mono font-bold text-system-muted leading-none mb-0.5">AQI</span>
+                        {renderValueWithStatus(aqiVal, 'aqi')}
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-0.5 sm:text-right">
-                    <p className="text-[9px] uppercase font-mono font-bold text-system-muted leading-none">Environment Reading</p>
-                    <p className="text-xs font-black font-mono transition-colors duration-300 text-system-text">{row.reading}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
@@ -532,7 +849,7 @@ export function HistoryPage() {
                 <span>Confirm Delete Log</span>
               </div>
               <p className="text-xs text-system-text font-mono leading-relaxed">
-                Are you sure you want to permanently delete the log for <span className="font-bold text-system-accent">{logToDelete.sensorName}</span> from <span className="font-bold text-system-accent">{logToDelete.timestamp}</span>? This action cannot be undone.
+                Are you sure you want to permanently delete the sensor readings from <span className="font-bold text-system-accent">{logToDelete.timestamp}</span>? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-3 pt-2">
                 <button

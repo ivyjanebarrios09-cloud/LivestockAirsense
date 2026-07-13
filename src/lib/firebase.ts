@@ -679,8 +679,12 @@ export const recordStatusChange = async (
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
     const timestamp = allReadings?.timestamp || Date.now();
+    const today = getLocalDateString(timestamp);
+    const dateDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today);
+    await setDoc(dateDocRef, { exists: true }, { merge: true });
+
     const logId = `history_${canonicalId}_${sensorName.replace(/\s+/g, '')}_${status}_${timestamp}`;
-    const logDocRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+    const logDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today, 'readings', logId);
     await setDoc(logDocRef, {
       timestamp,
       sensorName,
@@ -689,7 +693,7 @@ export const recordStatusChange = async (
       ...allReadings
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'status_history');
+    handleFirestoreError(error, OperationType.WRITE, 'history');
   }
 };
 
@@ -734,6 +738,17 @@ export const updateDeviceTelemetry = async (
     await addDoc(readingsRef, {
       ...readings,
       timestamp: Date.now()
+    });
+
+    // 2.5 Add to global airMonitoring date-based history subcollection for historical logs
+    const dateDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today);
+    await setDoc(dateDocRef, { exists: true }, { merge: true });
+    
+    const globalDeviceHistoryRef = collection(db, 'airMonitoring', canonicalId, 'history', today, 'readings');
+    await addDoc(globalDeviceHistoryRef, {
+      ...readings,
+      timestamp: Date.now(),
+      deviceId: canonicalId
     });
 
     // 3. Update legacy and shared collections for full compatibility
@@ -1001,8 +1016,12 @@ export const updateDeviceDataById = async (deviceId: string, readings: any) => {
         }, { merge: true });
         
         // Status history tracking (deterministic ID to prevent duplicates)
+        const today = getLocalDateString(timestamp);
+        const dateDocRef = doc(db, 'airMonitoring', canonicalId, 'history', today);
+        await setDoc(dateDocRef, { exists: true }, { merge: true });
+
         const logId = `history_${canonicalId}_DeviceConnection_Online_${timestamp}`;
-        const statusHistoryRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+        const statusHistoryRef = doc(db, 'airMonitoring', canonicalId, 'history', today, 'readings', logId);
         await setDoc(statusHistoryRef, {
           timestamp,
           status: 'Online',
@@ -1059,24 +1078,29 @@ export const getStatusHistory = async (
   if (!deviceId) return [];
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    // Retrieve all records without arbitrary limit constraints
-    const q = query(historyRef, orderBy('timestamp', 'desc'));
-    const querySnapshot = await getDocs(q);
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'history');
+    const historySnap = await getDocs(historyRef);
+    const allLogs: any[] = [];
     
-    const logs = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      const ts = adjustTimestamp(parseSafeDate(data.timestamp).getTime());
-      return { 
-        id: doc.id, 
-        ...data,
-        reading: data.reading !== undefined ? data.reading : data.value,
-        value: data.value !== undefined ? data.value : data.reading,
-        timestamp: ts 
-      };
-    });
+    for (const docSnap of historySnap.docs) {
+      const dateStr = docSnap.id;
+      const readingsRef = collection(db, 'airMonitoring', canonicalId, 'history', dateStr, 'readings');
+      const readingsSnap = await getDocs(readingsRef);
+      readingsSnap.docs.forEach(rDoc => {
+        const rData = rDoc.data();
+        const ts = adjustTimestamp(parseSafeDate(rData.timestamp || rData.time || rData.lastUpdate).getTime());
+        allLogs.push({
+          id: rDoc.id,
+          dateStr,
+          ...rData,
+          reading: rData.reading !== undefined ? rData.reading : rData.value,
+          value: rData.value !== undefined ? rData.value : rData.reading,
+          timestamp: ts
+        });
+      });
+    }
 
-    let filteredLogs = logs;
+    let filteredLogs = allLogs;
     if (startTime !== undefined) {
       filteredLogs = filteredLogs.filter(log => log.timestamp >= startTime);
     }
@@ -1087,7 +1111,7 @@ export const getStatusHistory = async (
     filteredLogs.sort((a, b) => b.timestamp - a.timestamp);
     return filteredLogs;
   } catch (error) {
-    handleFirestoreError(error, OperationType.READ, 'status_history');
+    handleFirestoreError(error, OperationType.READ, 'history');
     return [];
   }
 };
@@ -1103,54 +1127,91 @@ export const subscribeToStatusHistory = (
     return () => {};
   }
   const canonicalId = getCanonicalDeviceId(deviceId);
-  const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
   
-  // Retrieve all records without arbitrary limit constraints and filter/sort client-side
-  const q = query(historyRef, orderBy('timestamp', 'desc'));
+  let unsubscribes: (() => void)[] = [];
+  let isUnsubscribed = false;
+  const readingsByDate: Record<string, any[]> = {};
   
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const logs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const ts = adjustTimestamp(parseSafeDate(data.timestamp).getTime());
-        return { 
-          id: doc.id, 
-          ...data,
-          reading: data.reading !== undefined ? data.reading : data.value,
-          value: data.value !== undefined ? data.value : data.reading,
-          timestamp: ts 
-        };
-      });
-
-      // Filter by startTime and endTime client-side
-      let filteredLogs = logs;
-      if (startTime !== undefined) {
-        filteredLogs = filteredLogs.filter(log => log.timestamp >= startTime);
-      }
-      if (endTime !== undefined) {
-        filteredLogs = filteredLogs.filter(log => log.timestamp <= endTime);
-      }
-
-      // Sort descending
-      filteredLogs.sort((a, b) => b.timestamp - a.timestamp);
-
-      callback(filteredLogs);
-    },
-    (error) => {
-      console.warn('[Firestore] Status history subscription stream error:', error);
+  const triggerCallback = () => {
+    if (isUnsubscribed) return;
+    const allReadings: any[] = [];
+    Object.values(readingsByDate).forEach(list => {
+      allReadings.push(...list);
+    });
+    
+    // Filter by startTime and endTime client-side
+    let filtered = allReadings;
+    if (startTime !== undefined && startTime > 0) {
+      filtered = filtered.filter(r => r.timestamp >= startTime);
     }
-  );
+    if (endTime !== undefined) {
+      filtered = filtered.filter(r => r.timestamp <= endTime);
+    }
+    
+    // Sort descending by timestamp
+    filtered.sort((a, b) => b.timestamp - a.timestamp);
+    callback(filtered);
+  };
+
+  const historyRef = collection(db, 'airMonitoring', canonicalId, 'history');
+  
+  const unsubHistory = onSnapshot(historyRef, (historySnap) => {
+    // Cancel any existing readings subscriptions to rebuild
+    unsubscribes.forEach(unsub => unsub());
+    unsubscribes = [];
+    
+    if (historySnap.empty) {
+      callback([]);
+      return;
+    }
+    
+    historySnap.docs.forEach(docSnap => {
+      const dateStr = docSnap.id; // e.g. "2026-07-13"
+      
+      const readingsColRef = collection(db, 'airMonitoring', canonicalId, 'history', dateStr, 'readings');
+      const unsubReadings = onSnapshot(readingsColRef, (readingsSnap) => {
+        const list = readingsSnap.docs.map(rDoc => {
+          const rData = rDoc.data();
+          const ts = adjustTimestamp(parseSafeDate(rData.timestamp || rData.time || rData.lastUpdate).getTime());
+          return {
+            id: rDoc.id,
+            dateStr,
+            ...rData,
+            timestamp: ts
+          };
+        });
+        readingsByDate[dateStr] = list;
+        triggerCallback();
+      }, (err) => {
+        console.warn(`[Firestore] Failed to listen to readings for date ${dateStr}:`, err);
+      });
+      
+      unsubscribes.push(unsubReadings);
+    });
+    
+    if (unsubscribes.length === 0) {
+      callback([]);
+    }
+  }, (error) => {
+    console.warn('[Firestore] History collection listen error:', error);
+  });
+  
+  return () => {
+    isUnsubscribed = true;
+    unsubHistory();
+    unsubscribes.forEach(unsub => unsub());
+  };
 };
 
-export const deleteStatusHistoryLog = async (deviceId: string, logId: string) => {
+export const deleteStatusHistoryLog = async (deviceId: string, logId: string, dateStr?: string) => {
   if (!deviceId || !logId) return;
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const logRef = doc(db, 'airMonitoring', canonicalId, 'status_history', logId);
+    const finalDateStr = dateStr || getLocalDateString(Date.now());
+    const logRef = doc(db, 'airMonitoring', canonicalId, 'history', finalDateStr, 'readings', logId);
     await deleteDoc(logRef);
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `airMonitoring/${canonicalId}/status_history/${logId}`);
+    handleFirestoreError(error, OperationType.DELETE, `airMonitoring/${canonicalId}/history/${dateStr || 'unknown'}/readings/${logId}`);
   }
 };
 
@@ -1483,6 +1544,25 @@ export const getLocalDateString = (timestamp: any): string => {
   if (!timestamp) return '';
   const d = parseSafeDate(timestamp);
   if (isNaN(d.getTime())) return '';
+  
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(d);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {
+    console.warn('[Firestore] Intl date format error, fallback to offset math:', e);
+  }
+  
   const offsetMs = d.getTimezoneOffset() * 60 * 1000;
   const localDate = new Date(d.getTime() - offsetMs);
   return localDate.toISOString().split('T')[0];
@@ -1492,23 +1572,16 @@ export const deleteStatusHistoryByDate = async (deviceId: string, dateStr: strin
   if (!deviceId || !dateStr) return 0;
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    const q = query(historyRef);
-    const snapshot = await getDocs(q);
+    const readingsRef = collection(db, 'airMonitoring', canonicalId, 'history', dateStr, 'readings');
+    const snapshot = await getDocs(readingsRef);
     const batch = writeBatch(db);
-    let count = 0;
     snapshot.docs.forEach(docSnap => {
-      const data = docSnap.data();
-      const logDate = getLocalDateString(data.timestamp);
-      if (logDate === dateStr) {
-        batch.delete(docSnap.ref);
-        count++;
-      }
+      batch.delete(docSnap.ref);
     });
-    if (count > 0) {
+    if (snapshot.size > 0) {
       await batch.commit();
     }
-    return count;
+    return snapshot.size;
   } catch (error) {
     console.error('[Firestore] deleteStatusHistoryByDate failed:', error);
     throw error;
@@ -1519,17 +1592,26 @@ export const deleteAllStatusHistory = async (deviceId: string) => {
   if (!deviceId) return 0;
   const canonicalId = getCanonicalDeviceId(deviceId);
   try {
-    const historyRef = collection(db, 'airMonitoring', canonicalId, 'status_history');
-    const q = query(historyRef);
-    const snapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(docSnap => {
-      batch.delete(docSnap.ref);
-    });
-    if (snapshot.size > 0) {
-      await batch.commit();
+    const historyRef = collection(db, 'airMonitoring', canonicalId, 'history');
+    const historySnap = await getDocs(historyRef);
+    let totalDeleted = 0;
+    
+    for (const dateDoc of historySnap.docs) {
+      const dateStr = dateDoc.id;
+      const readingsRef = collection(db, 'airMonitoring', canonicalId, 'history', dateStr, 'readings');
+      const readingsSnap = await getDocs(readingsRef);
+      const batch = writeBatch(db);
+      readingsSnap.docs.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+        totalDeleted++;
+      });
+      // Delete the parent date document as well
+      batch.delete(dateDoc.ref);
+      if (readingsSnap.size > 0 || historySnap.size > 0) {
+        await batch.commit();
+      }
     }
-    return snapshot.size;
+    return totalDeleted;
   } catch (error) {
     console.error('[Firestore] deleteAllStatusHistory failed:', error);
     throw error;
