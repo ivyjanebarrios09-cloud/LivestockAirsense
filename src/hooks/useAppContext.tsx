@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus, subscribeToSensorData, recordStatusChange, addAlertToFirestore, savePushSubscription, deletePushSubscription } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus, subscribeToSensorData, recordStatusChange, addAlertToFirestore, savePushSubscription, deletePushSubscription, subscribeToAlertDiagnostics, getLocalDateString } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate, getSensorStatus } from '../lib/utils';
@@ -66,6 +66,7 @@ export interface AppContextType {
   setTheme: (theme: 'light' | 'dark' | 'forest' | 'wind' | 'farm') => void;
   deviceData: any;
   setDeviceData: React.Dispatch<React.SetStateAction<any>>;
+  alertDiagnostics: any[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -506,6 +507,18 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     return () => unsubscribe();
   }, [uid, pushEnabled, selectedDeviceId]);
 
+  useEffect(() => {
+    if (!uid || uid === 'guest' || !selectedDeviceId) {
+      setAlertDiagnostics([]);
+      return;
+    }
+    const today = getLocalDateString(Date.now());
+    const unsubscribe = subscribeToAlertDiagnostics(uid, selectedDeviceId, today, (data) => {
+      setAlertDiagnostics(data);
+    });
+    return () => unsubscribe();
+  }, [uid, selectedDeviceId]);
+
   const addAlert = (alert: Omit<Alert, 'id' | 'time'>) => {
     const newAlert: Alert = {
       ...alert,
@@ -602,6 +615,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
   }, [theme]);
 
   const [deviceData, setDeviceData] = useState<any>(null);
+  const [alertDiagnostics, setAlertDiagnostics] = useState<any[]>([]);
   const prevDeviceDataRef = useRef<any>(null);
 
   useEffect(() => {
@@ -762,7 +776,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       theme,
       setTheme,
       deviceData,
-      setDeviceData
+      setDeviceData,
+      alertDiagnostics
     }}>
       {children}
     </AppContext.Provider>

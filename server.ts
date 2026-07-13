@@ -236,16 +236,33 @@ async function startServer() {
       const canonicalId = deviceId.includes('LAS-001') ? 'LAS-001' : deviceId;
       const globalRef = doc(db, 'airMonitoring', canonicalId);
       
+      const isWarning = (
+        getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ||
+        getSensorStatus('nh3', readings.nh3 ?? readings.ammonia ?? 0) !== 'GOOD' ||
+        getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ||
+        getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD'
+      );
+
+      const alertType = getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ? 'Temperature' : 
+                       (getSensorStatus('nh3', readings.nh3 ?? readings.ammonia ?? 0) !== 'GOOD' ? 'Ammonia' : 
+                       (getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ? 'CO2' : 
+                       (getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD' ? 'Air Quality' : '')));
+
+      const alertValue = alertType === 'Temperature' ? (readings.temperature ?? 0) :
+                        (alertType === 'Ammonia' ? (readings.nh3 ?? readings.ammonia ?? 0) :
+                        (alertType === 'CO2' ? (readings.co2 ?? 0) :
+                        (alertType === 'Air Quality' ? (readings.aqi ?? 0) : 0)));
+
       const flatReading = {
         ...readings,
         deviceId: canonicalId,
         lastUpdate: timestamp,
         timestamp,
         alerts: {
-          activeAlert: (readings.temperature > 38 || readings.nh3 > 25),
-          lastAlertTime: timestamp,
-          lastAlertType: readings.temperature > 38 ? 'High Temp' : (readings.nh3 > 25 ? 'High NH3' : ''),
-          lastAlertValue: readings.temperature > 38 ? readings.temperature : readings.nh3
+          activeAlert: isWarning,
+          lastAlertTime: isWarning ? timestamp : 0,
+          lastAlertType: alertType,
+          lastAlertValue: alertValue
         }
       };
 
@@ -665,11 +682,16 @@ async function startServer() {
               const alertTimestamp = Math.floor(timestamp / 1000);
               const cleanAlertType = `${sensorName}StatusChange`;
               const alertId = `alert_${ownerId}_${docId}_${cleanAlertType}_${severity}_${alertTimestamp}`;
-              const alertRef = doc(db, 'alerts', alertId);
+              
+              // New nested path: /users/{uid}/devices/{deviceId}/alerts/{date}/alertReadings
+              const dateStr = new Date(timestamp).toISOString().split('T')[0];
+              const alertRef = doc(db, 'users', ownerId, 'devices', docId, 'alerts', dateStr, 'alertReadings', alertId);
+              
               await setDoc(alertRef, {
+                id: alertId,
                 userId: ownerId,
                 deviceId: docId,
-                timestamp: alertTimestamp,
+                timestamp: alertTimestamp * 1000,
                 alertType: `${sensorName} Status Change`,
                 message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
                 severity,
@@ -690,6 +712,53 @@ async function startServer() {
         await checkAndRecordServer('Methane CH4', latestReading.ch4 ?? latestReading.methane ?? 0, 'ch4');
         await checkAndRecordServer('PM2.5 Feed Dust', latestReading.pm2_5 ?? 0, 'pm2.5');
         await checkAndRecordServer('PM10 Coarse Dust', latestReading.pm10 ?? 0, 'pm10');
+
+        // Sync activeAlert flag to the user's device document
+        if (ownerId && ownerId !== 'guest') {
+          const isWarning = (
+            getStatusLabel('temp', latestReading.temperature ?? 0) !== 'Good' ||
+            getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) !== 'Good' ||
+            getStatusLabel('co2', latestReading.co2 ?? 0) !== 'Good' ||
+            getStatusLabel('aqi', latestReading.aqi ?? 0) !== 'Good'
+          );
+
+          const alertType = getStatusLabel('temp', latestReading.temperature ?? 0) !== 'Good' ? 'Temperature' : 
+                           (getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0) !== 'Good' ? 'Ammonia' : 
+                           (getStatusLabel('co2', latestReading.co2 ?? 0) !== 'Good' ? 'CO2' : 
+                           (getStatusLabel('aqi', latestReading.aqi ?? 0) !== 'Good' ? 'Air Quality' : '')));
+
+          const alertValue = alertType === 'Temperature' ? (latestReading.temperature ?? 0) :
+                            (alertType === 'Ammonia' ? (latestReading.nh3 ?? latestReading.ammonia ?? 0) :
+                            (alertType === 'CO2' ? (latestReading.co2 ?? 0) :
+                            (alertType === 'Air Quality' ? (latestReading.aqi ?? 0) : 0)));
+
+          const userDevRef = doc(db, 'users', ownerId, 'devices', docId);
+          await setDoc(userDevRef, {
+            alerts: {
+              activeAlert: isWarning,
+              lastAlertTime: isWarning ? timestamp : 0,
+              lastAlertType: alertType,
+              lastAlertValue: alertValue,
+              lastUpdate: timestamp
+            }
+          }, { merge: true });
+
+          // Also populate the diagnostic alertReadings collection for push notification/UI debugging
+          const dateStr = new Date(timestamp).toISOString().split('T')[0];
+          const diagRef = collection(db, 'users', ownerId, 'devices', docId, 'alerts', dateStr, 'alertReadings');
+          await addDoc(diagRef, {
+            ...latestReading,
+            alerts: {
+              activeAlert: isWarning,
+              lastAlertTime: isWarning ? timestamp : 0,
+              lastAlertType: alertType,
+              lastAlertValue: alertValue
+            },
+            timestamp: timestamp,
+            deviceId: docId,
+            source: 'server_telemetry'
+          });
+        }
       }
     }
   });
@@ -748,11 +817,15 @@ async function startServer() {
               // 4. Create an alert for Device Offline status change! (Deterministic ID)
               const alertTimestamp = Math.floor(now / 1000);
               const alertId = `alert_${ownerId}_${deviceId}_DeviceConnection_Offline_${alertTimestamp}`;
-              const alertDocRef = doc(db, 'alerts', alertId);
+              
+              const dateStr = new Date(now).toISOString().split('T')[0];
+              const alertDocRef = doc(db, 'users', ownerId, 'devices', deviceId, 'alerts', dateStr, 'alertReadings', alertId);
+              
               await setDoc(alertDocRef, {
+                id: alertId,
                 userId: ownerId,
                 deviceId: deviceId,
-                timestamp: alertTimestamp,
+                timestamp: alertTimestamp * 1000,
                 alertType: 'Device Connection Status Change',
                 message: `Device connection status shifted from Online to Offline (No signal received for over 60 seconds)`,
                 severity: 'warning',

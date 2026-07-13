@@ -15,6 +15,7 @@ import {
   getFirestore, 
   initializeFirestore, 
   collection, 
+  collectionGroup,
   addDoc, 
   query, 
   orderBy, 
@@ -408,36 +409,39 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
     callback([]);
     return () => {};
   }
-  const alertsRef = collection(db, 'alerts');
   
-  // Query all alerts for this user to ensure we capture records created when the app was closed, 
-  // including any system or fallback alerts that may have empty or missing deviceId fields.
+  // Use collectionGroup to find all 'alertReadings' for this user across all devices/dates
+  const alertsRef = collectionGroup(db, 'alertReadings');
   const q = query(
     alertsRef, 
-    where('userId', '==', uid)
+    where('userId', '==', uid),
+    orderBy('timestamp', 'desc')
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
-      const alerts = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const rawTime = data.createdAt || data.timestamp;
-        const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
-        return { 
-          id: doc.id, 
-          ...data, 
-          timestamp: ts,
-          resolved: data.resolved === true || data.status === 'resolved' || false
-        } as any;
-      });
-      // Sort client-side descending by timestamp
-      alerts.sort((a, b) => b.timestamp - a.timestamp);
+      const alerts = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          // Only treat as an Alert if it has an alertType field
+          if (!data.alertType) return null;
+          
+          const rawTime = data.createdAt || data.timestamp;
+          const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
+          return { 
+            id: doc.id, 
+            ...data, 
+            timestamp: ts,
+            resolved: data.resolved === true || data.status === 'resolved' || false
+          } as any;
+        })
+        .filter(Boolean) as any[];
       
-      // Filter client-side if a specific deviceId is provided, while keeping alerts that are device-generic (empty/missing deviceId)
+      // Filter client-side if a specific deviceId is provided
       let filteredAlerts = alerts;
       if (deviceId) {
-        filteredAlerts = alerts.filter(a => !a.deviceId || a.deviceId === deviceId);
+        filteredAlerts = alerts.filter(a => a.deviceId === deviceId);
       }
       
       callback(filteredAlerts);
@@ -745,22 +749,56 @@ export const updateDeviceTelemetry = async (
   try {
     if (!userId || !deviceId) return;
     const canonicalId = getCanonicalDeviceId(deviceId);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(Date.now());
     const userDeviceRef = doc(db, 'users', userId, 'devices', deviceId);
     
     // 1. Update the latestReading on the device document
+    const isWarning = (
+      getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ||
+      getSensorStatus('nh3', readings.nh3 ?? 0) !== 'GOOD' ||
+      getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ||
+      getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD'
+    );
+
+    const alertType = getSensorStatus('temp', readings.temperature ?? 0) !== 'GOOD' ? 'Temperature' : 
+                     (getSensorStatus('nh3', readings.nh3 ?? 0) !== 'GOOD' ? 'Ammonia' : 
+                     (getSensorStatus('co2', readings.co2 ?? 0) !== 'GOOD' ? 'CO2' : 
+                     (getSensorStatus('aqi', readings.aqi ?? 0) !== 'GOOD' ? 'Air Quality' : '')));
+
+    const alertValue = alertType === 'Temperature' ? (readings.temperature ?? 0) :
+                      (alertType === 'Ammonia' ? (readings.nh3 ?? 0) :
+                      (alertType === 'CO2' ? (readings.co2 ?? 0) :
+                      (alertType === 'Air Quality' ? (readings.aqi ?? 0) : 0)));
+
+    const alertStatus = {
+      activeAlert: isWarning,
+      lastAlertTime: isWarning ? Date.now() : 0,
+      lastAlertType: alertType,
+      lastAlertValue: alertValue
+    };
+
     await updateDoc(userDeviceRef, {
       latestReading: {
         ...readings,
         timestamp: Date.now()
       },
+      alerts: alertStatus,
       status: 'Online',
       lastSeen: Date.now()
     });
 
-    // 2. Add to history readings subcollection for charts
-    const readingsRef = collection(db, 'users', userId, 'devices', deviceId, 'history', today, 'readings');
-    await addDoc(readingsRef, {
+    // 2. Add to the new diagnostic structure: /users/{uid}/devices/{deviceId}/alerts/{date}/alertReadings
+    const diagnosticReadingsRef = collection(db, 'users', userId, 'devices', deviceId, 'alerts', today, 'alertReadings');
+    await addDoc(diagnosticReadingsRef, {
+      ...readings,
+      alerts: alertStatus,
+      timestamp: Date.now(),
+      deviceId
+    });
+
+    // 3. Add to history readings subcollection for charts
+    const historyReadingsRef = collection(db, 'users', userId, 'devices', deviceId, 'history', today, 'readings');
+    await addDoc(historyReadingsRef, {
       ...readings,
       timestamp: Date.now()
     });
@@ -1662,23 +1700,24 @@ export const addAlertToFirestore = async (
   }
 ) => {
   try {
-    const alertsRef = collection(db, 'alerts');
-    let alertTimestamp = Math.floor(Date.now() / 1000);
-    if (alert.timestamp) {
-      const candidate = alert.timestamp > 30000000000 ? Math.floor(alert.timestamp / 1000) : alert.timestamp;
-      // Ensure candidate represents a modern date after Jan 1, 2025 (1735689600 seconds)
-      if (candidate >= 1735689600) {
-        alertTimestamp = candidate;
-      }
-    }
-    const cleanAlertType = alert.alertType.replace(/\s+/g, '');
-    const cleanSeverity = alert.severity;
     const devId = alert.deviceId || 'node';
-    const alertId = `alert_${userId}_${devId}_${cleanAlertType}_${cleanSeverity}_${alertTimestamp}`;
+    let alertTimestamp = Date.now();
+    if (alert.timestamp) {
+      alertTimestamp = alert.timestamp > 30000000000 ? alert.timestamp : alert.timestamp * 1000;
+    }
+    
+    const today = getLocalDateString(alertTimestamp);
+    // New nested path: /users/{uid}/devices/{deviceId}/alerts/{date}/alertReadings
+    const alertsRef = collection(db, 'users', userId, 'devices', devId, 'alerts', today, 'alertReadings');
+    
+    const cleanAlertType = alert.alertType.replace(/\s+/g, '');
+    const alertId = `alert_${userId}_${devId}_${cleanAlertType}_${alert.severity}_${Math.floor(alertTimestamp / 1000)}`;
     const alertDocRef = doc(alertsRef, alertId);
+    
     await setDoc(alertDocRef, {
+      id: alertId,
       userId,
-      deviceId: alert.deviceId || '',
+      deviceId: devId,
       timestamp: alertTimestamp,
       alertType: alert.alertType,
       message: alert.message,
@@ -1695,8 +1734,15 @@ export const addAlertToFirestore = async (
 
 export const updateAlertResolved = async (alertId: string, resolved: boolean) => {
   try {
-    const alertRef = doc(db, 'alerts', alertId);
-    await updateDoc(alertRef, { resolved });
+    // Find the alert across all possible paths
+    const alertsGroup = collectionGroup(db, 'alertReadings');
+    const q = query(alertsGroup, where('id', '==', alertId));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      const alertRef = snapshot.docs[0].ref;
+      await updateDoc(alertRef, { resolved });
+    }
   } catch (error) {
     console.error('updateAlertResolved failed:', error);
   }
@@ -1704,8 +1750,13 @@ export const updateAlertResolved = async (alertId: string, resolved: boolean) =>
 
 export const deleteAlertFromFirestore = async (alertId: string) => {
   try {
-    const alertRef = doc(db, 'alerts', alertId);
-    await deleteDoc(alertRef);
+    const alertsGroup = collectionGroup(db, 'alertReadings');
+    const q = query(alertsGroup, where('id', '==', alertId));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      await deleteDoc(snapshot.docs[0].ref);
+    }
   } catch (error) {
     console.error('deleteAlertFromFirestore failed:', error);
   }
@@ -1886,7 +1937,7 @@ export const deleteAllStatusHistory = async (deviceId: string, uid?: string) => 
 export const clearResolvedAlerts = async (userId: string) => {
   if (!userId) return 0;
   try {
-    const alertsRef = collection(db, 'alerts');
+    const alertsRef = collectionGroup(db, 'alertReadings');
     const q = query(alertsRef, where('userId', '==', userId));
     const snapshot = await getDocs(q);
     
@@ -1924,7 +1975,7 @@ export const clearResolvedAlerts = async (userId: string) => {
 export const deleteAllAlerts = async (userId: string) => {
   if (!userId) return 0;
   try {
-    const alertsRef = collection(db, 'alerts');
+    const alertsRef = collectionGroup(db, 'alertReadings');
     const q = query(alertsRef, where('userId', '==', userId));
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
@@ -1944,7 +1995,9 @@ export const deleteAllAlerts = async (userId: string) => {
 export const deleteAlertsByDate = async (userId: string, dateStr: string) => {
   if (!userId || !dateStr) return 0;
   try {
-    const alertsRef = collection(db, 'alerts');
+    // With nested structure /alerts/{date}/alertReadings, we could technically target the specific date path
+    // but collectionGroup is safer if we don't know the deviceId.
+    const alertsRef = collectionGroup(db, 'alertReadings');
     const q = query(alertsRef, where('userId', '==', userId));
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
@@ -2024,6 +2077,34 @@ export const deleteSensorReadingsByDate = async (userId: string, deviceId: strin
     console.error('[Firestore] deleteSensorReadingsByDate failed:', error);
     throw error;
   }
+};
+
+export const subscribeToAlertDiagnostics = (
+  uid: string, 
+  deviceId: string, 
+  dateStr: string, 
+  callback: (readings: any[]) => void
+) => {
+  if (!uid || uid === 'guest' || !deviceId || !dateStr) {
+    callback([]);
+    return () => {};
+  }
+  
+  const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'alerts', dateStr, 'alertReadings');
+  const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(100));
+  
+  return onSnapshot(q, (snapshot) => {
+    const readings = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .filter((d: any) => !d.alertType);
+    callback(readings);
+  }, (err) => {
+    console.error('[Firestore] subscribeToAlertDiagnostics failed:', err);
+    callback([]);
+  });
 };
 
 
