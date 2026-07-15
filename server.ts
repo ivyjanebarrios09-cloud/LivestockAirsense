@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc, onSnapshot, deleteDoc, where } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDoc, collection, query, orderBy, limit, getDocs, setDoc, addDoc, onSnapshot, deleteDoc, where, collectionGroup } from 'firebase/firestore';
 import autoConfig from './firebase-config.json';
 import webpush from 'web-push';
 
@@ -458,8 +458,8 @@ async function startServer() {
     }
   });
 
-  // Set up background Firestore 'alerts' collection listener to trigger standard Web Push
-  const alertsCollectionRef = collection(db, 'alerts');
+  // Set up background Firestore 'alertReadings' collectionGroup listener to trigger standard Web Push
+  const alertsCollectionRef = collectionGroup(db, 'alertReadings');
   let isInitialLoad = true;
 
   onSnapshot(alertsCollectionRef, async (snapshot) => {
@@ -772,6 +772,10 @@ async function startServer() {
           const diagRef = collection(db, 'users', ownerId, 'devices', docId, 'alerts', dateStr, 'alertReadings');
           await addDoc(diagRef, {
             ...latestReading,
+            userId: ownerId,
+            alertType: isWarning ? alertType : null, // Add alertType at root for UI
+            severity: isWarning ? 'warning' : 'info',
+            message: isWarning ? `Threshold exceeded for ${alertType}` : '',
             alerts: {
               activeAlert: isWarning,
               lastAlertTime: isWarning ? timestamp : 0,
