@@ -205,7 +205,7 @@ export function AlertsPage() {
                   <p className="text-[10px] uppercase font-bold tracking-tight text-blue-600">Raw Hardware Data & Threshold Logic Inspection</p>
                 </div>
 
-                {deviceData?.alerts && (
+                {(alertDiagnostics[0]?.alerts || alertDiagnostics[0] || deviceData?.alerts) && (
                   <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-2">
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-blue-600" />
@@ -216,15 +216,15 @@ export function AlertsPage() {
                         <span className="text-blue-500/60 text-[9px] uppercase font-bold">activeAlert</span>
                         <span className={cn(
                           "font-bold",
-                          deviceData.alerts.activeAlert ? "text-red-500" : "text-emerald-600"
+                          (alertDiagnostics[0]?.alerts?.activeAlert ?? alertDiagnostics[0]?.activeAlert ?? deviceData?.alerts?.activeAlert) ? "text-red-500" : "text-emerald-600"
                         )}>
-                          {String(deviceData.alerts.activeAlert).toUpperCase()}
+                          {String(alertDiagnostics[0]?.alerts?.activeAlert ?? alertDiagnostics[0]?.activeAlert ?? deviceData?.alerts?.activeAlert ?? false).toUpperCase()}
                         </span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-blue-500/60 text-[9px] uppercase font-bold">Last Alert</span>
                         <span className="text-blue-700">
-                          {deviceData.alerts.lastAlertType || 'None'}
+                          {(alertDiagnostics[0]?.alerts?.lastAlertType || alertDiagnostics[0]?.lastAlertType || deviceData?.alerts?.lastAlertType) || 'None'}
                         </span>
                       </div>
                     </div>

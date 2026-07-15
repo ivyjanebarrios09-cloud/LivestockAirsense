@@ -2089,16 +2089,22 @@ export const deleteSensorReadingsByDate = async (userId: string, deviceId: strin
 export const subscribeToAlertDiagnostics = (
   uid: string, 
   deviceId: string, 
-  dateStr: string, 
+  dateStr: string, // Kept for backwards compatibility but not used for path
   callback: (readings: any[]) => void
 ) => {
-  if (!uid || uid === 'guest' || !deviceId || !dateStr) {
+  if (!uid || uid === 'guest' || !deviceId) {
     callback([]);
     return () => {};
   }
   
-  const readingsRef = collection(db, 'users', uid, 'devices', deviceId, 'alerts', dateStr, 'alertReadings');
-  const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(100));
+  // Use collectionGroup to find all 'alertReadings' regardless of the date folder (e.g. UTC vs local time differences)
+  const readingsRef = collectionGroup(db, 'alertReadings');
+  
+  // We can't filter by deviceId directly without a composite index on deviceId + timestamp,
+  // so we'll just get the most recent ones and filter in memory if needed.
+  // We CAN filter by userId if the documents have it, but diagnostic documents might not have userId.
+  // Instead, we order by timestamp desc and filter by deviceId in memory.
+  const q = query(readingsRef, orderBy('timestamp', 'desc'), limit(200));
   
   return onSnapshot(q, (snapshot) => {
     const readings = snapshot.docs
@@ -2106,7 +2112,7 @@ export const subscribeToAlertDiagnostics = (
         id: doc.id,
         ...doc.data()
       }))
-      .filter((d: any) => !d.alertType);
+      .filter((d: any) => !d.alertType && (d.deviceId === deviceId || d.deviceId === getCanonicalDeviceId(deviceId)));
     callback(readings);
   }, (err) => {
     console.error('[Firestore] subscribeToAlertDiagnostics failed:', err);
