@@ -473,12 +473,22 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
       const unsub = onSnapshot(alertReadingsRef, (snap) => {
         const list = snap.docs.map(doc => {
           const data = doc.data();
-          if (!data.alertType) return null;
-          const rawTime = data.createdAt || data.timestamp;
+          
+          // Accept anything that looks like an alert or has an alertType
+          const hasAlertData = data.alertType || data.alerts?.lastAlertType || data.activeAlert !== undefined || data.alerts?.activeAlert !== undefined || data.severity;
+          if (!hasAlertData && !data.message) return null;
+          
+          const rawTime = data.createdAt || data.timestamp || data.time;
           const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
+          
           return {
             id: doc.id,
             ...data,
+            deviceId: data.deviceId || devId,
+            alertType: data.alertType || data.alerts?.lastAlertType || 'System Alert',
+            severity: data.severity || (data.alerts?.activeAlert ? 'critical' : 'warning'),
+            message: data.message || `Sensor threshold violation detected on device ${data.deviceId || devId}`,
+            location: data.location || `Device ${devId}`,
             timestamp: ts,
             resolved: data.resolved === true || data.status === 'resolved' || false
           } as any;

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2, Calendar, Loader2 } from 'lucide-react';
+import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2, Calendar, Loader2, Download } from 'lucide-react';
 import { cn, parseSafeDate } from '../lib/utils';
+import { formatPHDate } from '../utils/date';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
+import { deleteAlertsByDate } from '../lib/firebase';
 import { toast } from 'sonner';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export function AlertsPage() {
   const { user } = useAuthState();
@@ -27,7 +31,7 @@ export function AlertsPage() {
 
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -55,33 +59,80 @@ export function AlertsPage() {
 
   const severityStyles: Record<string, string> = {
     'critical': 'bg-red-500/10 text-red-600 border-red-500/20 ring-1 ring-red-500/10',
+    'danger': 'bg-red-500/10 text-red-600 border-red-500/20 ring-1 ring-red-500/10',
     'warning': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 ring-1 ring-yellow-500/10',
-    'normal': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 ring-1 ring-emerald-500/10'
+    'poor': 'bg-orange-500/10 text-orange-600 border-orange-500/20 ring-1 ring-orange-500/10',
+    'moderate': 'bg-blue-500/10 text-blue-600 border-blue-500/20 ring-1 ring-blue-500/10',
+    'good': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 ring-1 ring-emerald-500/10',
+    'normal': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 ring-1 ring-emerald-500/10',
+    'unhealthy': 'bg-purple-500/10 text-purple-600 border-purple-500/20 ring-1 ring-purple-500/10',
+    'hazardous': 'bg-rose-500/10 text-rose-600 border-rose-500/20 ring-1 ring-rose-500/10',
   };
 
   const getSeverityLabel = (sev: string) => {
-    if (sev === 'critical') return 'Critical';
-    if (sev === 'warning') return 'Warning';
-    return 'Normal';
+    if (!sev) return 'Normal';
+    const s = sev.toLowerCase();
+    if (s === 'critical') return 'Critical';
+    if (s === 'warning') return 'Warning';
+    if (s === 'normal') return 'Normal';
+    return sev.charAt(0).toUpperCase() + sev.slice(1);
   };
 
   const getIcon = (sev: string) => {
-    switch (sev) {
-      case 'critical': return <ShieldAlert className="w-5 h-5 text-red-500 shrink-0" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />;
-      default: return <Info className="w-5 h-5 text-emerald-500 shrink-0" />;
-    }
+    const s = sev?.toLowerCase() || 'normal';
+    if (s === 'critical' || s === 'danger' || s === 'hazardous') return <ShieldAlert className="w-5 h-5 text-red-500 shrink-0" />;
+    if (s === 'warning' || s === 'poor' || s === 'unhealthy') return <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />;
+    return <Info className="w-5 h-5 text-emerald-500 shrink-0" />;
   };
 
   const filteredAlerts = alertsList.filter((item) => {
-    if (activeTab === 'active') {
-      if (item.resolved) return false;
-    } else if (activeTab === 'resolved') {
-      if (!item.resolved) return false;
-    }
-
-    return true;
+    if (!item.timestamp) return false;
+    // Assuming local date matching
+    const alertDate = new Date(item.timestamp).toISOString().split('T')[0];
+    return alertDate === selectedDate;
   });
+
+  const exportPDF = () => {
+    if (filteredAlerts.length === 0) {
+      toast.error('No alerts to export for this view');
+      return;
+    }
+    try {
+      const doc = new jsPDF();
+      doc.setFont("helvetica", "bold");
+      doc.text("Livestock AirSense: System Alerts Report", 14, 15);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Date: " + selectedDate, 14, 21);
+      doc.text("Exported at: " + new Date().toLocaleString(), 14, 26);
+      doc.setLineWidth(0.5);
+      doc.line(14, 30, 196, 30);
+
+      autoTable(doc, {
+        head: [['Time', 'Type', 'Severity', 'Location', 'Message']],
+        body: filteredAlerts.map(row => [
+          row.time || (row.timestamp ? formatPHDate(row.timestamp) : 'N/A'),
+          row.alertType || 'System Alert',
+          row.severity ? getSeverityLabel(row.severity) : 'Normal',
+          row.location || 'Unknown',
+          row.message || '-'
+        ]),
+        startY: 35,
+        theme: 'grid',
+        styles: { fontSize: 8, font: 'helvetica', cellPadding: 2 },
+        columnStyles: {
+          4: { cellWidth: 80 }
+        },
+        headStyles: { fillColor: [59, 130, 246] }
+      });
+
+      doc.save("airsense_alerts_" + selectedDate + "_" + new Date().getTime() + ".pdf");
+      toast.success('PDF report exported successfully');
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error('Failed to export PDF');
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 relative pb-6">
@@ -145,54 +196,51 @@ export function AlertsPage() {
         <div className="space-y-4">
           
           <div className="bg-system-panel border border-system-border p-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
-              {[
-                { id: 'active', label: 'Active Alerts' },
-                { id: 'resolved', label: 'Resolved History' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={cn(
-                    "px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider transition-all rounded-lg cursor-pointer",
-                    activeTab === tab.id 
-                      ? "bg-system-panel text-system-text shadow-sm" 
-                      : "text-system-muted hover:text-system-text"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                        <div className="flex items-center gap-2 bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
+              <div className="flex items-center pl-2 pr-1 gap-2 text-system-muted">
+                <Calendar className="w-4 h-4" />
+                <input 
+                  type="date" 
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent border-none text-xs font-bold uppercase text-system-text outline-none cursor-pointer"
+                />
+              </div>
             </div>
-
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              {activeTab === 'resolved' && (
-                <button
-                  onClick={async () => {
-                    if (window.confirm('Are you sure you want to permanently delete all resolved alerts?')) {
-                      try {
-                        setIsPurging(true);
-                        const count = purgeResolvedAlerts();
-                        toast.success(`Purged ${count} resolved alerts`);
-                      } catch (err) {
-                        toast.error('Failed to purge resolved alerts');
-                      } finally {
-                        setIsPurging(false);
-                      }
+              <button
+                onClick={exportPDF}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-system-text bg-system-bg border border-system-border hover:bg-system-panel rounded-xl transition-all cursor-pointer"
+                title="Download PDF"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm(`Are you sure you want to permanently delete all alerts for ${selectedDate}?`)) {
+                    try {
+                      setIsPurging(true);
+                      const count = await deleteAlertsByDate(uid, selectedDate);
+                      toast.success(`Deleted ${count} alerts`);
+                    } catch (err) {
+                      toast.error('Failed to delete alerts');
+                    } finally {
+                      setIsPurging(false);
                     }
-                  }}
-                  disabled={isPurging}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-orange-500 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Purge Resolved Alerts"
-                >
-                  {isPurging ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  Purge Resolved
-                </button>
-              )}
+                  }
+                }}
+                disabled={isPurging}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-red-500 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Delete Alerts for Selected Date"
+              >
+                {isPurging ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                Delete
+              </button>
             </div>
           </div>
 
@@ -200,7 +248,7 @@ export function AlertsPage() {
             {filteredAlerts.length === 0 ? (
               <div className="text-center py-12 text-system-muted select-none">
                 <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
-                <p className="text-xs font-mono uppercase tracking-wider leading-none">No {activeTab} anomalies logged</p>
+                <p className="text-xs font-mono uppercase tracking-wider leading-none">No anomalies logged for {selectedDate}</p>
               </div>
             ) : (
               <div className="p-4 md:p-5 max-h-[500px] overflow-y-auto space-y-3">
@@ -209,7 +257,7 @@ export function AlertsPage() {
                     key={log.id}
                     className={cn(
                       "p-4 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
-                      log.resolved ? "opacity-60 border-system-border" : "border-system-text/10 ring-1 ring-system-text/5"
+                      "border-system-text/10 ring-1 ring-system-text/5"
                     )}
                   >
                     <div className="flex items-start gap-3.5 min-w-0 flex-1">
@@ -241,18 +289,7 @@ export function AlertsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {!log.resolved && (
-                          <button
-                            onClick={() => {
-                              resolveAlert(log.id);
-                              toast.success('Alert resolved successfully');
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm cursor-pointer select-none"
-                          >
-                            <CheckSquare className="w-3.5 h-3.5" />
-                            Resolve
-                          </button>
-                        )}
+                        
                       </div>
                     </div>
                   </div>

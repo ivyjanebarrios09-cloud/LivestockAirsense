@@ -665,24 +665,19 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         });
 
         if (uid && uid !== 'guest') {
-          let severity: 'critical' | 'warning' | 'normal' = 'normal';
-          if (currStatus === 'Danger') {
-            severity = 'critical';
-          } else if (currStatus === 'Warning' || currStatus === 'Poor') {
-            severity = 'warning';
-          }
+          const severity = currStatus.toLowerCase(); // Just use the status!
 
           await addAlertToFirestore(uid, {
             alertType: `${sensorName} Status Change`,
             message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
-            severity,
+            severity: severity as any,
             location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
             deviceId: selectedDeviceId,
             reading: currVal,
             timestamp: curr.timestamp || Date.now()
           });
 
-          if (severity === 'critical') {
+          if (currStatus === 'Danger') {
             toast.error(`Critical Alert: ${sensorName}`, {
               description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
               duration: 8000,
