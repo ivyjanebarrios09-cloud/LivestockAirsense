@@ -134,6 +134,14 @@ export function AlertsPage() {
     }
   };
 
+  const summaryCounts = filteredAlerts.reduce((acc, alert) => {
+    const sev = (alert.severity || 'normal').toLowerCase();
+    acc[sev] = (acc[sev] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const sortedSeverities = Object.entries(summaryCounts).sort((a, b) => b[1] - a[1]);
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 relative pb-6">
       
@@ -195,6 +203,19 @@ export function AlertsPage() {
       ) : (
         <div className="space-y-4">
           
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            <div className="bg-system-panel border border-system-border rounded-xl p-4 shadow-sm flex flex-col justify-center items-center">
+              <span className="text-3xl font-black text-system-text font-mono leading-none">{filteredAlerts.length}</span>
+              <span className="text-[10px] font-bold text-system-muted uppercase tracking-wider mt-2">Total Alerts</span>
+            </div>
+            {sortedSeverities.map(([sev, count]) => (
+              <div key={sev} className={cn("rounded-xl p-4 flex flex-col justify-center items-center", severityStyles[sev] || severityStyles['normal'])}>
+                <span className="text-3xl font-black font-mono leading-none">{count}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-2">{getSeverityLabel(sev)}</span>
+              </div>
+            ))}
+          </div>
+          
           <div className="bg-system-panel border border-system-border p-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-2 bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
               <div className="flex items-center pl-2 pr-1 gap-2 text-system-muted">
@@ -244,15 +265,18 @@ export function AlertsPage() {
             </div>
           </div>
 
-          <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-            {filteredAlerts.length === 0 ? (
-              <div className="text-center py-12 text-system-muted select-none">
-                <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
-                <p className="text-xs font-mono uppercase tracking-wider leading-none">No anomalies logged for {selectedDate}</p>
-              </div>
-            ) : (
-              <div className="p-4 md:p-5 max-h-[500px] overflow-y-auto space-y-3">
-                {filteredAlerts.map((log) => (
+          {/* Sensor Alerts Section */}
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold font-mono uppercase text-system-text px-1">Sensor Alerts</h2>
+            <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
+              {filteredAlerts.filter(a => a.reading !== null && a.reading !== undefined).length === 0 ? (
+                <div className="text-center py-8 text-system-muted select-none">
+                  <Wind className="w-6 h-6 mx-auto opacity-35 mb-2" />
+                  <p className="text-xs font-mono uppercase tracking-wider leading-none">No sensor alerts for {selectedDate}</p>
+                </div>
+              ) : (
+                <div className="p-4 md:p-5 max-h-[400px] overflow-y-auto space-y-3">
+                  {filteredAlerts.filter(a => a.reading !== null && a.reading !== undefined).map((log) => (
                   <div 
                     key={log.id}
                     className={cn(
@@ -296,6 +320,60 @@ export function AlertsPage() {
                 ))}
               </div>
             )}
+            </div>
+          </div>
+
+          {/* System Alerts Section */}
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold font-mono uppercase text-system-text px-1">System Alerts</h2>
+            <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
+              {filteredAlerts.filter(a => a.reading === null || a.reading === undefined).length === 0 ? (
+                <div className="text-center py-8 text-system-muted select-none">
+                  <Wind className="w-6 h-6 mx-auto opacity-35 mb-2" />
+                  <p className="text-xs font-mono uppercase tracking-wider leading-none">No system alerts for {selectedDate}</p>
+                </div>
+              ) : (
+                <div className="p-4 md:p-5 max-h-[400px] overflow-y-auto space-y-3">
+                  {filteredAlerts.filter(a => a.reading === null || a.reading === undefined).map((log) => (
+                    <div 
+                      key={log.id}
+                      className={cn(
+                        "p-4 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
+                        "border-system-text/10 ring-1 ring-system-text/5"
+                      )}
+                    >
+                      <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                        <div className="mt-0.5 shrink-0">
+                          {getIcon(log.severity)}
+                        </div>
+                        
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex flex-col gap-1.5 items-start">
+                            <span className="font-bold text-sm tracking-tight text-system-text leading-none">System Alert</span>
+                            <span className={cn(
+                              "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md border shrink-0",
+                              severityStyles[log.severity] || severityStyles['normal']
+                            )}>
+                              {getSeverityLabel(log.severity)}
+                            </span>
+                            <span className="text-[10px] bg-system-panel border border-system-border px-2 py-0.5 rounded-md font-semibold text-system-muted shrink-0">
+                              {log.location}
+                            </span>
+                          </div>
+                          <p className="text-xs text-system-muted leading-relaxed select-text pt-1">{log.message}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
+                        <div className="flex flex-col text-right">
+                          <span className="text-[12px] font-bold text-system-text leading-none">{log.time}</span>
+                          <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
