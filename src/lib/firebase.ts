@@ -426,16 +426,83 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
     if (deviceId) {
       filteredAlerts = filteredAlerts.filter(a => a.deviceId === deviceId);
     }
-    callback(filteredAlerts);
+
+    // Deduplicate near-identical alerts within a 90-second window on the same device
+    const deduplicated: any[] = [];
+    for (const alert of filteredAlerts) {
+      const idx = deduplicated.findIndex(existing => {
+        if (existing.deviceId !== alert.deviceId) return false;
+        
+        // Match close timestamps (within 90 seconds)
+        const timeDiff = Math.abs(existing.timestamp - alert.timestamp);
+        if (timeDiff > 90000) return false;
+        
+        // Match same alert type or message similarity
+        const typeA = (alert.alertType || '').toLowerCase();
+        const typeB = (existing.alertType || '').toLowerCase();
+        
+        if (typeA === typeB) return true;
+        
+        // Match sensor keywords
+        const sensors = ['temp', 'hum', 'co2', 'nh3', 'ammonia', 'ch4', 'methane', 'pm2_5', 'pm2.5', 'pm10', 'aqi', 'connection'];
+        for (const s of sensors) {
+          const textA = `${typeA} ${(alert.message || '').toLowerCase()}`;
+          const textB = `${typeB} ${(existing.message || '').toLowerCase()}`;
+          // Ensure both mention the same sensor
+          if (textA.includes(s) && textB.includes(s)) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (idx !== -1) {
+        // Duplicate found! Keep the better one (more descriptive / not 'System Alert')
+        const existing = deduplicated[idx];
+        const existingIsSystem = (existing.alertType || '') === 'System Alert';
+        const newIsSystem = (alert.alertType || '') === 'System Alert';
+        
+        let replaceWithNew = false;
+        if (existingIsSystem && !newIsSystem) {
+          replaceWithNew = true;
+        } else if (!existingIsSystem && newIsSystem) {
+          replaceWithNew = false;
+        } else {
+          // If both are same category, keep the one with longer/more descriptive message
+          const msgA = alert.message || '';
+          const msgB = existing.message || '';
+          replaceWithNew = msgA.length > msgB.length;
+        }
+        
+        if (replaceWithNew) {
+          deduplicated[idx] = alert;
+        }
+      } else {
+        deduplicated.push(alert);
+      }
+    }
+    
+    callback(deduplicated);
   };
 
   const getRecentDates = () => {
     const dates = [];
-    const now = new Date();
-    // Get dates for the last 14 days to be safe
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(now.getTime() - (i * 24 * 60 * 60 * 1000));
-      dates.push(d.toISOString().split('T')[0]);
+    const now = Date.now();
+    // Get dates from tomorrow (+1 day) down to 21 days ago to handle timezone mismatches & late arrivals
+    for (let i = -1; i < 21; i++) {
+      const d = now - (i * 24 * 60 * 60 * 1000);
+      let dateStr = '';
+      try {
+        if (typeof getLocalDateString === 'function') {
+          dateStr = getLocalDateString(d);
+        }
+      } catch (e) {
+        // Fallback below
+      }
+      if (!dateStr) {
+        dateStr = new Date(d).toISOString().split('T')[0];
+      }
+      dates.push(dateStr);
     }
     return dates;
   };
@@ -474,9 +541,14 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
         const list = snap.docs.map(doc => {
           const data = doc.data();
           
-          // Accept anything that looks like an alert or has an alertType
-          const hasAlertData = data.alertType || data.alerts?.lastAlertType || data.activeAlert !== undefined || data.alerts?.activeAlert !== undefined || data.severity;
-          if (!hasAlertData && !data.message) return null;
+          // Filter out healthy raw diagnostic/telemetry documents.
+          // An actual alert must have a description message, OR represent an active warning status/alert.
+          const isRealAlert = data.message || 
+            data.activeAlert === true || 
+            data.alerts?.activeAlert === true || 
+            ['warning', 'danger', 'critical', 'poor', 'unhealthy', 'hazardous'].includes((data.severity || '').toLowerCase());
+            
+          if (!isRealAlert) return null;
           
           const rawTime = data.createdAt || data.timestamp || data.time;
           const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
@@ -1834,12 +1906,22 @@ export const updateAlertResolved = async (alertId: string, resolved: boolean) =>
   try {
     // Find the alert across all possible paths
     const alertsGroup = collectionGroup(db, 'alertReadings');
-    const q = query(alertsGroup, where('id', '==', alertId));
-    const snapshot = await getDocs(q);
     
-    if (!snapshot.empty) {
-      const alertRef = snapshot.docs[0].ref;
-      await updateDoc(alertRef, { resolved });
+    // First try querying by custom id field
+    const q1 = query(alertsGroup, where('id', '==', alertId));
+    const snapshot1 = await getDocs(q1);
+    if (!snapshot1.empty) {
+      for (const d of snapshot1.docs) {
+        await updateDoc(d.ref, { resolved });
+      }
+      return;
+    }
+
+    // Fallback: If not found, fetch all alerts and filter in memory by document ID to avoid documentId() odd segments query issue
+    const snapshotAll = await getDocs(alertsGroup);
+    const matchedDocs = snapshotAll.docs.filter(d => d.id === alertId);
+    for (const d of matchedDocs) {
+      await updateDoc(d.ref, { resolved });
     }
   } catch (error) {
     console.error('updateAlertResolved failed:', error);
@@ -1874,11 +1956,22 @@ export const resolveAllAlertsInFirestore = async (userId: string) => {
 export const deleteAlertFromFirestore = async (alertId: string) => {
   try {
     const alertsGroup = collectionGroup(db, 'alertReadings');
-    const q = query(alertsGroup, where('id', '==', alertId));
-    const snapshot = await getDocs(q);
     
-    if (!snapshot.empty) {
-      await deleteDoc(snapshot.docs[0].ref);
+    // First try querying by custom id field
+    const q1 = query(alertsGroup, where('id', '==', alertId));
+    const snapshot1 = await getDocs(q1);
+    if (!snapshot1.empty) {
+      for (const d of snapshot1.docs) {
+        await deleteDoc(d.ref);
+      }
+      return;
+    }
+
+    // Fallback: If not found, fetch all alerts and filter in memory by document ID to avoid documentId() odd segments query issue
+    const snapshotAll = await getDocs(alertsGroup);
+    const matchedDocs = snapshotAll.docs.filter(d => d.id === alertId);
+    for (const d of matchedDocs) {
+      await deleteDoc(d.ref);
     }
   } catch (error) {
     console.error('deleteAlertFromFirestore failed:', error);

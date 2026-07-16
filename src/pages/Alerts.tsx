@@ -5,7 +5,7 @@ import { formatPHDate } from '../utils/date';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppContext } from '../hooks/useAppContext';
-import { deleteAlertsByDate } from '../lib/firebase';
+import { deleteAlertsByDate, getLocalDateString } from '../lib/firebase';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -31,7 +31,7 @@ export function AlertsPage() {
 
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString(Date.now()));
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -85,11 +85,26 @@ export function AlertsPage() {
     return <Info className="w-5 h-5 text-emerald-500 shrink-0" />;
   };
 
+  const getIndicatorColor = (sev: string) => {
+    const s = sev?.toLowerCase() || 'normal';
+    if (s === 'critical' || s === 'danger' || s === 'hazardous') return 'bg-red-500';
+    if (s === 'poor') return 'bg-orange-500';
+    if (s === 'warning' || s === 'unhealthy') return 'bg-yellow-500';
+    return 'bg-emerald-500';
+  };
+
   const filteredAlerts = alertsList
     .filter((item) => {
       if (!item.timestamp) return false;
+      
+      const typeLower = (item.alertType || '').toLowerCase();
+      // Keep only high-level status change, connection status, and system level alerts
+      if (!typeLower.includes('change') && !typeLower.includes('connection') && !typeLower.includes('system')) {
+        return false;
+      }
+
       // Assuming local date matching
-      const alertDate = new Date(item.timestamp).toISOString().split('T')[0];
+      const alertDate = getLocalDateString(item.timestamp);
       return alertDate === selectedDate;
     })
     .sort((a, b) => b.timestamp - a.timestamp);
@@ -293,26 +308,25 @@ export function AlertsPage() {
               ) : (
                 <div className="p-4 md:p-5 max-h-[600px] overflow-y-auto space-y-3">
                   {filteredAlerts.map((log) => {
-                    const isSystemAlert = log.reading === null || log.reading === undefined;
                     return (
                       <div 
                         key={log.id}
                         className={cn(
-                          "p-5 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-5 transition-all duration-300 shadow-sm relative overflow-hidden",
+                          "p-5 pl-6 md:pl-7 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-5 transition-all duration-300 shadow-sm relative overflow-hidden",
                           "border-system-text/10 ring-1 ring-system-text/5"
                         )}
                       >
+                        {/* Colored Vertical Indicator Bar */}
+                        <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", getIndicatorColor(log.severity))} />
+
                         <div className="flex items-start gap-4 min-w-0 flex-1">
                           <div className="mt-1 shrink-0">
                             {getIcon(log.severity)}
                           </div>
                           
                           <div className="space-y-2 min-w-0 flex-1">
-                            {/* Category & Title Header */}
+                            {/* Title Header */}
                             <div className="space-y-0.5">
-                              <div className="text-[11px] font-mono uppercase tracking-wider text-system-muted font-bold">
-                                {isSystemAlert ? "System Alert" : "Sensor Alert"}
-                              </div>
                               <h3 className="font-extrabold text-sm tracking-tight text-system-text leading-tight">
                                 {log.alertType || "Threshold Violation"}
                               </h3>

@@ -655,38 +655,21 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       if (currStatus !== prevStatus) {
         console.log(`[Status Change] Sensor ${sensorName} changed from ${prevStatus} to ${currStatus} (Value: ${currVal})`);
         
-        const currentDevice = devices.find(d => d.id === selectedDeviceId);
+        // Disable redundant client-side database writes.
+        // The Express backend (server.ts) serves as the Single Source of Truth
+        // and handles writing transition records and alert documents to Firestore.
+        // The client only needs to trigger local reactive UI toast notifications.
         
-        await recordStatusChange(selectedDeviceId, sensorName, currStatus, currVal, {
-          temp: curr.temperature ?? 0,
-          humidity: curr.humidity ?? 0,
-          co2: curr.co2 ?? 0,
-          ammonia: curr.nh3 ?? curr.ammonia ?? 0,
-          methane: curr.ch4 ?? curr.methane ?? 0,
-          pm1_0: curr.pm1_0 ?? 0,
-          pm2_5: curr.pm2_5 ?? 0,
-          pm10: curr.pm10 ?? 0,
-          aqi: curr.aqi ?? 0,
-          timestamp: curr.timestamp || Date.now()
-        });
-
         if (uid && uid !== 'guest') {
-          const severity = currStatus.toLowerCase(); // Just use the status!
-
-          await addAlertToFirestore(uid, {
-            alertType: `${sensorName} Status Change`,
-            message: `${sensorName} shifted from ${prevStatus} to ${currStatus} (Value: ${currVal})`,
-            severity: severity as any,
-            location: currentDevice?.name || selectedDeviceId || 'ESP32 Main Node',
-            deviceId: selectedDeviceId,
-            reading: currVal,
-            timestamp: curr.timestamp || Date.now()
-          });
-
           if (currStatus === 'Danger') {
             toast.error(`Critical Alert: ${sensorName}`, {
               description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
               duration: 8000,
+            });
+          } else if (currStatus === 'Warning' || currStatus === 'Poor') {
+            toast.warning(`Warning Alert: ${sensorName}`, {
+              description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
+              duration: 5000,
             });
           }
         }
