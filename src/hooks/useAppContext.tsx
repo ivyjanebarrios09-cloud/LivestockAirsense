@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, deleteAlertFromFirestore, subscribeToDeviceStatus, subscribeToSensorData, recordStatusChange, addAlertToFirestore, savePushSubscription, deletePushSubscription, subscribeToAlertDiagnostics, getLocalDateString } from '../lib/firebase';
+import { subscribeToAlerts, getLocations, addLocationToFirestore, deleteLocationFromFirestore, getDevices, addDeviceToFirestore, deleteDeviceFromFirestore, saveUserSettingsToFirestore, db, updateAlertResolved, resolveAllAlertsInFirestore, deleteAlertFromFirestore, subscribeToDeviceStatus, subscribeToSensorData, recordStatusChange, addAlertToFirestore, savePushSubscription, deletePushSubscription, subscribeToAlertDiagnostics, getLocalDateString } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { useAuthState } from './useAuthState';
 import { parseSafeDate, getSensorStatus } from '../lib/utils';
@@ -51,6 +51,7 @@ export interface AppContextType {
   alertsList: Alert[];
   addAlert: (alert: Omit<Alert, 'id' | 'time'>) => void;
   resolveAlert: (id: string) => void;
+  resolveAllAlerts: () => Promise<void>;
   deleteAlert: (id: string) => Promise<void>;
   purgeResolvedAlerts: () => number;
   unreadAlertsCount: number;
@@ -530,6 +531,11 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     await updateAlertResolved(id, true);
   };
 
+  const resolveAllAlerts = async () => {
+    setAlertsList(prev => prev.map(alert => ({ ...alert, resolved: true })));
+    await resolveAllAlertsInFirestore(uid);
+  };
+
   const deleteAlert = async (id: string) => {
     setAlertsList(prev => prev.filter(alert => alert.id !== id));
     await deleteAlertFromFirestore(id);
@@ -754,6 +760,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
       alertsList,
       addAlert,
       resolveAlert,
+      resolveAllAlerts,
       deleteAlert,
       purgeResolvedAlerts,
       unreadAlertsCount,

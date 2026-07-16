@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, thresholds } = useAppContext();
+  const { resolveAlert, resolveAllAlerts, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, thresholds } = useAppContext();
   
   const [isPurging, setIsPurging] = useState(false);
 
@@ -85,12 +85,14 @@ export function AlertsPage() {
     return <Info className="w-5 h-5 text-emerald-500 shrink-0" />;
   };
 
-  const filteredAlerts = alertsList.filter((item) => {
-    if (!item.timestamp) return false;
-    // Assuming local date matching
-    const alertDate = new Date(item.timestamp).toISOString().split('T')[0];
-    return alertDate === selectedDate;
-  });
+  const filteredAlerts = alertsList
+    .filter((item) => {
+      if (!item.timestamp) return false;
+      // Assuming local date matching
+      const alertDate = new Date(item.timestamp).toISOString().split('T')[0];
+      return alertDate === selectedDate;
+    })
+    .sort((a, b) => b.timestamp - a.timestamp);
 
   const exportPDF = () => {
     if (filteredAlerts.length === 0) {
@@ -140,7 +142,7 @@ export function AlertsPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  const sortedSeverities = Object.entries(summaryCounts).sort((a, b) => b[1] - a[1]);
+  const sortedSeverities = Object.entries(summaryCounts).sort((a, b) => Number(b[1]) - Number(a[1]));
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 relative pb-6">
@@ -230,6 +232,20 @@ export function AlertsPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
               <button
+                onClick={async () => {
+                  if (window.confirm("Are you sure you want to resolve all active alerts?")) {
+                    await resolveAllAlerts();
+                    toast.success("All alerts have been marked as resolved");
+                  }
+                }}
+                disabled={filteredAlerts.filter(a => !a.resolved).length === 0}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Mark all alerts as resolved"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Resolve All
+              </button>
+              <button
                 onClick={exportPDF}
                 className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase text-system-text bg-system-bg border border-system-border hover:bg-system-panel rounded-xl transition-all cursor-pointer"
                 title="Download PDF"
@@ -265,112 +281,106 @@ export function AlertsPage() {
             </div>
           </div>
 
-          {/* Sensor Alerts Section */}
+          {/* Alert System History Section */}
           <div className="space-y-2">
-            <h2 className="text-lg font-bold font-mono uppercase text-system-text px-1">Sensor Alerts</h2>
+            <h2 className="text-lg font-bold font-mono uppercase text-system-text px-1">Alert System History</h2>
             <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-              {filteredAlerts.filter(a => a.reading !== null && a.reading !== undefined).length === 0 ? (
-                <div className="text-center py-8 text-system-muted select-none">
-                  <Wind className="w-6 h-6 mx-auto opacity-35 mb-2" />
-                  <p className="text-xs font-mono uppercase tracking-wider leading-none">No sensor alerts for {selectedDate}</p>
+              {filteredAlerts.length === 0 ? (
+                <div className="text-center py-12 text-system-muted select-none">
+                  <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
+                  <p className="text-xs font-mono uppercase tracking-wider leading-none">No alerts for {selectedDate}</p>
                 </div>
               ) : (
-                <div className="p-4 md:p-5 max-h-[400px] overflow-y-auto space-y-3">
-                  {filteredAlerts.filter(a => a.reading !== null && a.reading !== undefined).map((log) => (
-                  <div 
-                    key={log.id}
-                    className={cn(
-                      "p-4 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
-                      "border-system-text/10 ring-1 ring-system-text/5"
-                    )}
-                  >
-                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                      <div className="mt-0.5 shrink-0">
-                        {getIcon(log.severity)}
-                      </div>
-                      
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-sm tracking-tight text-system-text leading-none">{log.alertType}</span>
-                          <span className={cn(
-                            "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md border shrink-0",
-                            severityStyles[log.severity] || severityStyles['normal']
-                          )}>
-                            {getSeverityLabel(log.severity)}
-                          </span>
-                          <span className="text-[10px] bg-system-panel border border-system-border px-2 py-0.5 rounded-md font-semibold text-system-muted shrink-0">
-                            {log.location}
-                          </span>
-                        </div>
-                        <p className="text-xs text-system-muted leading-relaxed select-text">{log.message}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
-                      <div className="flex flex-col text-right">
-                        <span className="text-[12px] font-bold text-system-text leading-none">{log.time}</span>
-                        <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-          </div>
-
-          {/* System Alerts Section */}
-          <div className="space-y-2">
-            <h2 className="text-lg font-bold font-mono uppercase text-system-text px-1">System Alerts</h2>
-            <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-              {filteredAlerts.filter(a => a.reading === null || a.reading === undefined).length === 0 ? (
-                <div className="text-center py-8 text-system-muted select-none">
-                  <Wind className="w-6 h-6 mx-auto opacity-35 mb-2" />
-                  <p className="text-xs font-mono uppercase tracking-wider leading-none">No system alerts for {selectedDate}</p>
-                </div>
-              ) : (
-                <div className="p-4 md:p-5 max-h-[400px] overflow-y-auto space-y-3">
-                  {filteredAlerts.filter(a => a.reading === null || a.reading === undefined).map((log) => (
-                    <div 
-                      key={log.id}
-                      className={cn(
-                        "p-4 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-4 transition-all duration-300 shadow-sm relative overflow-hidden",
-                        "border-system-text/10 ring-1 ring-system-text/5"
-                      )}
-                    >
-                      <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                        <div className="mt-0.5 shrink-0">
-                          {getIcon(log.severity)}
-                        </div>
-                        
-                        <div className="space-y-1.5 min-w-0">
-                          <div className="flex flex-col gap-1.5 items-start">
-                            <span className="font-bold text-sm tracking-tight text-system-text leading-none">System Alert</span>
-                            <span className={cn(
-                              "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md border shrink-0",
-                              severityStyles[log.severity] || severityStyles['normal']
-                            )}>
-                              {getSeverityLabel(log.severity)}
-                            </span>
-                            <span className="text-[10px] bg-system-panel border border-system-border px-2 py-0.5 rounded-md font-semibold text-system-muted shrink-0">
-                              {log.location}
-                            </span>
+                <div className="p-4 md:p-5 max-h-[600px] overflow-y-auto space-y-3">
+                  {filteredAlerts.map((log) => {
+                    const isSystemAlert = log.reading === null || log.reading === undefined;
+                    return (
+                      <div 
+                        key={log.id}
+                        className={cn(
+                          "p-5 rounded-xl border bg-system-bg flex flex-col md:flex-row items-start justify-between gap-5 transition-all duration-300 shadow-sm relative overflow-hidden",
+                          "border-system-text/10 ring-1 ring-system-text/5"
+                        )}
+                      >
+                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                          <div className="mt-1 shrink-0">
+                            {getIcon(log.severity)}
                           </div>
-                          <p className="text-xs text-system-muted leading-relaxed select-text pt-1">{log.message}</p>
+                          
+                          <div className="space-y-2 min-w-0 flex-1">
+                            {/* Category & Title Header */}
+                            <div className="space-y-0.5">
+                              <div className="text-[11px] font-mono uppercase tracking-wider text-system-muted font-bold">
+                                {isSystemAlert ? "System Alert" : "Sensor Alert"}
+                              </div>
+                              <h3 className="font-extrabold text-sm tracking-tight text-system-text leading-tight">
+                                {log.alertType || "Threshold Violation"}
+                              </h3>
+                            </div>
+
+                            {/* Status and Device Info Badge Rows */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={cn(
+                                "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shrink-0",
+                                severityStyles[log.severity] || severityStyles['normal']
+                              )}>
+                                {getSeverityLabel(log.severity)}
+                              </span>
+                              <span className="text-[10px] bg-system-panel border border-system-border px-2.5 py-0.5 rounded-md font-bold text-system-text tracking-wide shrink-0 font-mono">
+                                {log.location && (log.location.startsWith('Device') || log.location.startsWith('device')) ? log.location : `Device ${log.location}`}
+                              </span>
+                            </div>
+
+                            {/* Status Change Description */}
+                            <p className="text-xs text-system-muted leading-relaxed select-text font-medium pt-0.5">
+                              {log.message}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Actions and Timestamp Column */}
+                        <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-system-border/40">
+                          <div className="flex flex-col md:text-right">
+                            <span className="text-[12px] font-bold text-system-text leading-none">{log.time}</span>
+                            <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-1">
+                            {!log.resolved ? (
+                              <button
+                                onClick={() => resolveAlert(log.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-lg transition-all cursor-pointer"
+                              >
+                                <CheckSquare className="w-3.5 h-3.5" />
+                                Resolve
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1 py-1.5 px-1 select-none">
+                                <CheckSquare className="w-3.5 h-3.5" />
+                                Resolved
+                              </span>
+                            )}
+                            <button
+                              onClick={async () => {
+                                if (window.confirm("Are you sure you want to permanently delete this alert?")) {
+                                  try {
+                                    await deleteAlert(log.id);
+                                    toast.success("Alert deleted successfully");
+                                  } catch (err) {
+                                    toast.error("Failed to delete alert");
+                                  }
+                                }
+                              }}
+                              className="flex items-center justify-center p-1.5 text-red-500 hover:text-red-600 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-lg transition-all cursor-pointer"
+                              title="Delete alert"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between md:flex-col md:items-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-system-bg">
-                        <div className="flex flex-col text-right">
-                          <span className="text-[12px] font-bold text-system-text leading-none">{log.time}</span>
-                          <span className="text-[9px] font-mono text-system-muted mt-1 leading-none">Facility Log</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

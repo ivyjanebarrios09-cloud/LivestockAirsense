@@ -481,12 +481,40 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
           const rawTime = data.createdAt || data.timestamp || data.time;
           const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
           
+          let calculatedSeverity = data.severity;
+          if (!calculatedSeverity) {
+            const sensorsToCheck = [
+              { type: 'temp', val: data.temperature ?? data.temp },
+              { type: 'nh3', val: data.nh3 ?? data.ammonia },
+              { type: 'co2', val: data.co2 },
+              { type: 'aqi', val: data.aqi },
+              { type: 'hum', val: data.humidity ?? data.hum },
+              { type: 'pm2.5', val: data.pm2_5 },
+              { type: 'pm10', val: data.pm10 },
+              { type: 'ch4', val: data.ch4 ?? data.methane }
+            ];
+            let highest = 'GOOD';
+            for (const s of sensorsToCheck) {
+              if (s.val !== undefined && s.val !== null) {
+                const status = getSensorStatus(s.type, s.val);
+                if (status === 'DANGER') highest = 'DANGER';
+                else if (status === 'POOR' && highest !== 'DANGER') highest = 'POOR';
+                else if (status === 'WARNING' && highest !== 'DANGER' && highest !== 'POOR') highest = 'WARNING';
+              }
+            }
+            if (highest !== 'GOOD') {
+              calculatedSeverity = highest.toLowerCase();
+            } else {
+              calculatedSeverity = data.alerts?.activeAlert ? 'critical' : 'warning';
+            }
+          }
+
           return {
             id: doc.id,
             ...data,
             deviceId: data.deviceId || devId,
             alertType: data.alertType || data.alerts?.lastAlertType || 'System Alert',
-            severity: data.severity || (data.alerts?.activeAlert ? 'critical' : 'warning'),
+            severity: calculatedSeverity,
             message: data.message || `Sensor threshold violation detected on device ${data.deviceId || devId}`,
             location: data.location || `Device ${devId}`,
             timestamp: ts,
@@ -1815,6 +1843,31 @@ export const updateAlertResolved = async (alertId: string, resolved: boolean) =>
     }
   } catch (error) {
     console.error('updateAlertResolved failed:', error);
+  }
+};
+
+export const resolveAllAlertsInFirestore = async (userId: string) => {
+  if (!userId || userId === 'guest') return 0;
+  try {
+    const alertsRef = collectionGroup(db, 'alertReadings');
+    const q = query(alertsRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    let count = 0;
+    snapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.resolved !== true && data.status !== 'resolved') {
+        batch.update(docSnap.ref, { resolved: true });
+        count++;
+      }
+    });
+    if (count > 0) {
+      await batch.commit();
+    }
+    return count;
+  } catch (error) {
+    console.error('[Firestore] resolveAllAlertsInFirestore failed:', error);
+    throw error;
   }
 };
 

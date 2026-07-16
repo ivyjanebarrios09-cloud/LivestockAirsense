@@ -138,8 +138,12 @@ async function dispatchServerPush(
 
     console.log(`[Direct Push] Dispatching notifications to ${subsSnap.size} endpoints for user: ${userId}`);
 
+    const sevLower = (alertData.severity || '').toLowerCase();
+    const isCritical = ['critical', 'danger', 'hazardous'].includes(sevLower);
+    const titleLabel = alertData.severity ? alertData.severity.charAt(0).toUpperCase() + alertData.severity.slice(1) : 'Warning';
+
     const payload = JSON.stringify({
-      title: alertData.severity === 'critical' ? '🚨 Critical Air Quality Alert' : '⚠️ Air Quality Warning',
+      title: isCritical ? '🚨 Critical Air Quality Alert' : `⚠️ Air Quality Alert: ${titleLabel}`,
       body: `${alertData.location}: ${alertData.message}`,
       icon: '/logo.png',
       badge: '/logo.png',
@@ -387,12 +391,7 @@ async function startServer() {
               });
 
               // Determine severity
-              let severity: 'critical' | 'warning' | 'normal' = 'normal';
-              if (currStatus === 'Danger') {
-                severity = 'critical';
-              } else if (currStatus === 'Warning' || currStatus === 'Poor') {
-                severity = 'warning';
-              }
+              const severity = currStatus.toLowerCase();
 
               const deviceName = registrySnap.data()?.name || registrySnap.data()?.deviceName || deviceId;
 
@@ -416,7 +415,8 @@ async function startServer() {
               });
 
               // Dispatch direct Web Push Notification
-              if (severity === 'critical' || severity === 'warning') {
+              const sevLower = severity.toLowerCase();
+              if (['critical', 'warning', 'poor', 'danger', 'unhealthy', 'hazardous'].includes(sevLower)) {
                 await dispatchServerPush(ownerId, alertId, {
                   severity,
                   location: deviceName,
@@ -476,7 +476,8 @@ async function startServer() {
         
         console.log(`[Server Push] Live alert detected:`, alertId, alertData);
 
-        if (alertData.severity === 'critical' || alertData.severity === 'warning') {
+        const sevLower = (alertData.severity || '').toLowerCase();
+        if (['critical', 'warning', 'poor', 'danger', 'unhealthy', 'hazardous'].includes(sevLower)) {
           const userId = alertData.userId;
           if (!userId || userId === 'guest') continue;
 
@@ -491,8 +492,10 @@ async function startServer() {
 
             console.log(`[Server Push] Dispatching notifications to ${subsSnap.size} endpoints for user: ${userId}`);
 
+            const isCritical = ['critical', 'danger', 'hazardous'].includes(sevLower);
+            const titleLabel = alertData.severity ? alertData.severity.charAt(0).toUpperCase() + alertData.severity.slice(1) : 'Warning';
             const payload = JSON.stringify({
-              title: alertData.severity === 'critical' ? '🚨 Critical Air Quality Alert' : '⚠️ Air Quality Warning',
+              title: isCritical ? `🚨 Critical Air Quality Alert` : `⚠️ Air Quality Alert: ${titleLabel}`,
               body: `${alertData.location}: ${alertData.message}`,
               icon: '/logo.png',
               badge: '/logo.png',
@@ -688,12 +691,7 @@ async function startServer() {
 
             // 2. Add Alert document using deterministic ID to prevent duplicates (only if device has registered owner)
             if (ownerId && ownerId !== 'guest') {
-              let severity: 'critical' | 'warning' | 'normal' = 'normal';
-              if (currStatus === 'Danger') {
-                severity = 'critical';
-              } else if (currStatus === 'Warning' || currStatus === 'Poor') {
-                severity = 'warning';
-              }
+              const severity = currStatus.toLowerCase();
 
               const alertTimestamp = Math.floor(timestamp / 1000);
               const cleanAlertType = `${sensorName}StatusChange`;
