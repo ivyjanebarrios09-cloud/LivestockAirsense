@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2, Calendar, Loader2, Bug, Activity } from 'lucide-react';
+import { AlertTriangle, Info, ShieldAlert, Wind, Bell, BellRing, X, CheckSquare, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { cn, parseSafeDate } from '../lib/utils';
 import { useAuthState } from '../hooks/useAuthState';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, alertDiagnostics, thresholds, deviceData } = useAppContext();
+  const { resolveAlert, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, thresholds } = useAppContext();
   
   const [isPurging, setIsPurging] = useState(false);
 
@@ -27,7 +27,7 @@ export function AlertsPage() {
 
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [popupAlert, setPopupAlert] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'active' | 'resolved' | 'diagnostics'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'resolved'>('active');
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -148,8 +148,7 @@ export function AlertsPage() {
             <div className="flex bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
               {[
                 { id: 'active', label: 'Active Alerts' },
-                { id: 'resolved', label: 'Resolved History' },
-                { id: 'diagnostics', label: 'Diagnostic Logs' }
+                { id: 'resolved', label: 'Resolved History' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -198,98 +197,7 @@ export function AlertsPage() {
           </div>
 
           <div className="bg-system-panel border border-system-border shadow-sm rounded-2xl overflow-hidden">
-            {activeTab === 'diagnostics' ? (
-              <div className="p-4 md:p-5 max-h-[600px] overflow-y-auto space-y-4">
-                <div className="flex items-center gap-2 mb-2 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                  <Bug className="w-4 h-4 text-blue-500" />
-                  <p className="text-[10px] uppercase font-bold tracking-tight text-blue-600">Raw Hardware Data & Threshold Logic Inspection</p>
-                </div>
-
-                {(alertDiagnostics[0]?.alerts || alertDiagnostics[0] || deviceData?.alerts) && (
-                  <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-blue-600" />
-                      <p className="text-[10px] uppercase font-bold tracking-tight text-blue-600">Live Database State (Push Notification Trigger)</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 font-mono text-[11px]">
-                      <div className="flex flex-col">
-                        <span className="text-blue-500/60 text-[9px] uppercase font-bold">activeAlert</span>
-                        <span className={cn(
-                          "font-bold",
-                          (alertDiagnostics[0]?.alerts?.activeAlert ?? alertDiagnostics[0]?.activeAlert ?? deviceData?.alerts?.activeAlert) ? "text-red-500" : "text-emerald-600"
-                        )}>
-                          {String(alertDiagnostics[0]?.alerts?.activeAlert ?? alertDiagnostics[0]?.activeAlert ?? deviceData?.alerts?.activeAlert ?? false).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-blue-500/60 text-[9px] uppercase font-bold">Last Alert</span>
-                        <span className="text-blue-700">
-                          {(alertDiagnostics[0]?.alerts?.lastAlertType || alertDiagnostics[0]?.lastAlertType || deviceData?.alerts?.lastAlertType) || 'None'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {alertDiagnostics.length === 0 ? (
-                  <div className="text-center py-12 text-system-muted">
-                    <Activity className="w-8 h-8 mx-auto opacity-35 mb-2 animate-pulse" />
-                    <p className="text-xs font-mono uppercase tracking-wider leading-none">No diagnostic readings streamed yet today</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {alertDiagnostics.map((log, idx) => {
-                      const activeAlert = log.alerts?.activeAlert ?? log.activeAlert;
-                      return (
-                        <div key={log.id || idx} className="p-4 rounded-xl border border-system-border bg-system-bg space-y-3 font-mono">
-                          <div className="flex items-center justify-between border-b border-system-border/50 pb-2">
-                            <span className="text-[10px] font-bold text-system-text">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'N/A'}</span>
-                            <div className="flex items-center gap-2">
-                              <span className={cn(
-                                "text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                                activeAlert ? "bg-red-500 text-white" : "bg-emerald-500 text-white"
-                              )}>
-                                activeAlert: {String(activeAlert)}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px]">
-                            <div className="space-y-1">
-                              <p className="text-system-muted">Temperature</p>
-                              <p className={cn("font-bold", log.temperature > thresholds.tempMax ? "text-red-500" : "text-system-text")}>
-                                {log.temperature?.toFixed(1)}°C <span className="opacity-40 font-normal">/ {thresholds.tempMax}</span>
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-system-muted">NH3 (Ammonia)</p>
-                              <p className={cn("font-bold", log.nh3 > thresholds.ammoniaMax ? "text-red-500" : "text-system-text")}>
-                                {log.nh3?.toFixed(1)} ppm <span className="opacity-40 font-normal">/ {thresholds.ammoniaMax}</span>
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-system-muted">Humidity</p>
-                              <p className="text-system-text">{log.humidity?.toFixed(1)}%</p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-system-muted">Source</p>
-                              <p className="text-system-text truncate uppercase text-[9px]">{log.source || 'CLIENT'}</p>
-                            </div>
-                          </div>
-
-                          {activeAlert === false && (log.temperature > thresholds.tempMax || log.nh3 > thresholds.ammoniaMax) && (
-                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2">
-                              <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                              <p className="text-[9px] font-bold text-red-600 uppercase">Threshold Violation Detected but activeAlert is FALSE - Verification Required</p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : filteredAlerts.length === 0 ? (
+            {filteredAlerts.length === 0 ? (
               <div className="text-center py-12 text-system-muted select-none">
                 <Wind className="w-8 h-8 mx-auto opacity-35 mb-2" />
                 <p className="text-xs font-mono uppercase tracking-wider leading-none">No {activeTab} anomalies logged</p>
