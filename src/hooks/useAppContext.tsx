@@ -450,12 +450,9 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         isFirstMountRef.current = false;
       } else {
         const storedPush = localStorage.getItem(`las_${uid}_push_enabled`) === 'true' || pushEnabled;
-        const currentStatus = connectionStatusRef.current;
-        const lastSeenMsVal = currentStatus.lastSeen ? parseSafeDate(currentStatus.lastSeen).getTime() : 0;
-        const isStaleVal = lastSeenMsVal > 0 && (Date.now() - lastSeenMsVal > 30000);
-        const isDeviceOnlineVal = currentStatus.status === 'Online' && lastSeenMsVal > 0 && !isStaleVal;
-
-        if (isDeviceOnlineVal && storedPush && 'Notification' in window && Notification.permission === 'granted') {
+        // We don't check if device is online, because ESP32 could have uploaded data while we were closed.
+        // We just trigger notifications for any new unresolved alert that we haven't seen yet.
+        if (storedPush && 'Notification' in window && Notification.permission === 'granted') {
           mappedAlerts.forEach(alert => {
             if (!alert.resolved && !notifiedAlertIdsRef.current.has(alert.id)) {
               const notificationTitle = alert.severity === 'critical'
