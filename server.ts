@@ -643,14 +643,15 @@ async function startServer() {
         if (!prevStatuses) {
           prevStatuses = {};
           lastDeviceStatuses.set(docId, prevStatuses);
-          // Pre-populate with current statuses from getStatusLabel to prevent spurious initial alerts
-          prevStatuses['Temperature'] = getStatusLabel('temp', latestReading.temperature ?? 0);
-          prevStatuses['Humidity'] = getStatusLabel('hum', latestReading.humidity ?? 0);
-          prevStatuses['CO2 Level'] = getStatusLabel('co2', latestReading.co2 ?? 0);
-          prevStatuses['Ammonia NH3'] = getStatusLabel('nh3', latestReading.nh3 ?? latestReading.ammonia ?? 0);
-          prevStatuses['Methane CH4'] = getStatusLabel('ch4', latestReading.ch4 ?? latestReading.methane ?? 0);
-          prevStatuses['PM2.5 Feed Dust'] = getStatusLabel('pm2.5', latestReading.pm2_5 ?? 0);
-          prevStatuses['PM10 Coarse Dust'] = getStatusLabel('pm10', latestReading.pm10 ?? 0);
+          // Set to default 'Good' so that if any sensor starts in a bad status, we get the alert regardless of sequence
+          prevStatuses['Temperature'] = 'Good';
+          prevStatuses['Humidity'] = 'Good';
+          prevStatuses['CO2 Level'] = 'Good';
+          prevStatuses['Ammonia NH3'] = 'Good';
+          prevStatuses['Methane CH4'] = 'Good';
+          prevStatuses['PM2.5 Feed Dust'] = 'Good';
+          prevStatuses['PM10 Coarse Dust'] = 'Good';
+          prevStatuses['Air Quality'] = 'Good';
         }
 
         const checkAndRecordServer = async (sensorName: string, currVal: number, type: string) => {

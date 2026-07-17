@@ -68,8 +68,13 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  
+  if (event.action === 'dismiss') {
+    return;
+  }
+
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((windowClients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         let client = windowClients[i];
         if (client.url.includes('/app/alerts') && 'focus' in client) {
@@ -99,7 +104,14 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/logo.png',
     tag: data.tag || 'critical-alert',
     data: data.data || {},
-    vibrate: [200, 100, 200]
+    vibrate: [300, 100, 400, 100, 500],
+    requireInteraction: true, // Persists on lockscreen/notification tab until explicitly dismissed/clicked
+    renotify: true,
+    silent: false,
+    actions: [
+      { action: 'view', title: '🔍 View Details' },
+      { action: 'dismiss', title: '❌ Dismiss' }
+    ]
   };
 
   event.waitUntil(

@@ -554,24 +554,40 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
           const ts = rawTime ? adjustTimestamp(parseSafeDate(rawTime).getTime()) : 0;
           
           let calculatedSeverity = data.severity;
+          let activeSensorName = '';
+          let activeSensorValue: number | null = null;
+          
+          const sensorsToCheck = [
+            { type: 'temp', val: data.temperature ?? data.temp, name: 'Temperature' },
+            { type: 'nh3', val: data.nh3 ?? data.ammonia, name: 'Ammonia NH3' },
+            { type: 'co2', val: data.co2, name: 'CO2 Level' },
+            { type: 'aqi', val: data.aqi, name: 'Air Quality' },
+            { type: 'hum', val: data.humidity ?? data.hum, name: 'Humidity' },
+            { type: 'pm2.5', val: data.pm2_5, name: 'PM2.5 Feed Dust' },
+            { type: 'pm10', val: data.pm10, name: 'PM10 Coarse Dust' },
+            { type: 'ch4', val: data.ch4 ?? data.methane, name: 'Methane CH4' }
+          ];
+
           if (!calculatedSeverity) {
-            const sensorsToCheck = [
-              { type: 'temp', val: data.temperature ?? data.temp },
-              { type: 'nh3', val: data.nh3 ?? data.ammonia },
-              { type: 'co2', val: data.co2 },
-              { type: 'aqi', val: data.aqi },
-              { type: 'hum', val: data.humidity ?? data.hum },
-              { type: 'pm2.5', val: data.pm2_5 },
-              { type: 'pm10', val: data.pm10 },
-              { type: 'ch4', val: data.ch4 ?? data.methane }
-            ];
             let highest = 'GOOD';
             for (const s of sensorsToCheck) {
               if (s.val !== undefined && s.val !== null) {
                 const status = getSensorStatus(s.type, s.val);
-                if (status === 'DANGER') highest = 'DANGER';
-                else if (status === 'POOR' && highest !== 'DANGER') highest = 'POOR';
-                else if (status === 'WARNING' && highest !== 'DANGER' && highest !== 'POOR') highest = 'WARNING';
+                if (status === 'DANGER') {
+                  highest = 'DANGER';
+                  activeSensorName = s.name;
+                  activeSensorValue = s.val;
+                }
+                else if (status === 'POOR' && highest !== 'DANGER') {
+                  highest = 'POOR';
+                  activeSensorName = s.name;
+                  activeSensorValue = s.val;
+                }
+                else if (status === 'WARNING' && highest !== 'DANGER' && highest !== 'POOR') {
+                  highest = 'WARNING';
+                  activeSensorName = s.name;
+                  activeSensorValue = s.val;
+                }
               }
             }
             if (highest !== 'GOOD') {
@@ -579,18 +595,42 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
             } else {
               calculatedSeverity = data.alerts?.activeAlert ? 'critical' : 'warning';
             }
+          } else {
+            // Find which sensor exceeds limits if severity was already supplied
+            for (const s of sensorsToCheck) {
+              if (s.val !== undefined && s.val !== null) {
+                const status = getSensorStatus(s.type, s.val);
+                if (status !== 'GOOD') {
+                  activeSensorName = s.name;
+                  activeSensorValue = s.val;
+                  break;
+                }
+              }
+            }
+          }
+
+          let resolvedVal = data.reading !== undefined ? data.reading : (data.value !== undefined ? data.value : null);
+          if (resolvedVal === null && activeSensorValue !== null) {
+            resolvedVal = activeSensorValue;
+          }
+          if (resolvedVal === null && data.alerts?.lastAlertValue !== undefined) {
+            resolvedVal = data.alerts.lastAlertValue;
           }
 
           return {
             id: doc.id,
             ...data,
             deviceId: data.deviceId || devId,
-            alertType: data.alertType || data.alerts?.lastAlertType || 'System Alert',
+            alertType: data.alertType || data.alerts?.lastAlertType || (activeSensorName ? `${activeSensorName} Alert` : 'System Alert'),
             severity: calculatedSeverity,
-            message: data.message || `Sensor threshold violation detected on device ${data.deviceId || devId}`,
+            message: data.message || (activeSensorName && activeSensorValue !== null 
+              ? `${activeSensorName} status is ${calculatedSeverity} (Value: ${activeSensorValue})`
+              : `Sensor threshold violation detected on device ${data.deviceId || devId}`),
             location: data.location || `Device ${devId}`,
             timestamp: ts,
-            resolved: data.resolved === true || data.status === 'resolved' || false
+            resolved: data.resolved === true || data.status === 'resolved' || false,
+            reading: resolvedVal,
+            value: resolvedVal
           } as any;
         }).filter(Boolean) as any[];
         

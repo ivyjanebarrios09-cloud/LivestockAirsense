@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 
 export function AlertsPage() {
   const { user } = useAuthState();
-  const { resolveAlert, resolveAllAlerts, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, thresholds } = useAppContext();
+  const { resolveAlert, resolveAllAlerts, deleteAlert, selectedDeviceId, connectionStatus, alertsList, purgeResolvedAlerts, thresholds, savePushEnabled } = useAppContext();
   
   const [isPurging, setIsPurging] = useState(false);
 
@@ -22,6 +22,18 @@ export function AlertsPage() {
     const timer = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(timer);
   }, []);
+
+  const getSensorUnit = (sensorName: string): string => {
+    const name = (sensorName || '').toLowerCase();
+    if (name.includes('temp')) return '°C';
+    if (name.includes('hum')) return '%';
+    if (name.includes('co2')) return ' ppm';
+    if (name.includes('nh3') || name.includes('ammonia')) return ' ppm';
+    if (name.includes('ch4') || name.includes('methane')) return ' ppm';
+    if (name.includes('pm')) return ' µg/m³';
+    if (name.includes('aqi')) return '';
+    return '';
+  };
 
   const lastSeenMs = connectionStatus.lastSeen ? parseSafeDate(connectionStatus.lastSeen).getTime() : 0;
   const isStale = lastSeenMs > 0 && (now - lastSeenMs > 30000);
@@ -50,11 +62,17 @@ export function AlertsPage() {
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {
-      alert('This browser does not support desktop notifications.');
+      toast.error('This browser does not support desktop notifications.');
       return;
     }
     const result = await Notification.requestPermission();
     setPermission(result);
+    if (result === 'granted') {
+      await savePushEnabled(true);
+      toast.success('Push notifications successfully enabled!');
+    } else {
+      toast.error('Notification permission was denied.');
+    }
   };
 
   const severityStyles: Record<string, string> = {
@@ -97,12 +115,6 @@ export function AlertsPage() {
     .filter((item) => {
       if (!item.timestamp) return false;
       
-      const typeLower = (item.alertType || '').toLowerCase();
-      // Keep only high-level status change, connection status, and system level alerts
-      if (!typeLower.includes('change') && !typeLower.includes('connection') && !typeLower.includes('system')) {
-        return false;
-      }
-
       // Assuming local date matching
       const alertDate = getLocalDateString(item.timestamp);
       return alertDate === selectedDate;
@@ -198,10 +210,15 @@ export function AlertsPage() {
         
         {user && (
           <div className="flex items-center gap-2">
-            {permission !== 'granted' && (
+            {permission === 'granted' ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-xl select-none font-mono">
+                <BellRing className="w-3.5 h-3.5 animate-bounce text-emerald-500" />
+                Push Active
+              </div>
+            ) : (
               <button 
                 onClick={requestPermission}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-system-border bg-system-panel rounded-xl hover:bg-system-bg transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-system-border bg-system-panel rounded-xl hover:bg-system-bg transition-colors cursor-pointer text-sky-500 hover:text-sky-600 font-mono"
               >
                 <Bell className="w-4 h-4" />
                 Enable Push
@@ -219,20 +236,6 @@ export function AlertsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            <div className="bg-system-panel border border-system-border rounded-xl p-4 shadow-sm flex flex-col justify-center items-center">
-              <span className="text-3xl font-black text-system-text font-mono leading-none">{filteredAlerts.length}</span>
-              <span className="text-[10px] font-bold text-system-muted uppercase tracking-wider mt-2">Total Alerts</span>
-            </div>
-            {sortedSeverities.map(([sev, count]) => (
-              <div key={sev} className={cn("rounded-xl p-4 flex flex-col justify-center items-center", severityStyles[sev] || severityStyles['normal'])}>
-                <span className="text-3xl font-black font-mono leading-none">{count}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider mt-2">{getSeverityLabel(sev)}</span>
-              </div>
-            ))}
-          </div>
-          
           <div className="bg-system-panel border border-system-border p-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-2 bg-system-bg p-1 rounded-xl border border-system-border select-none self-start md:self-auto">
               <div className="flex items-center pl-2 pr-1 gap-2 text-system-muted">
@@ -343,6 +346,11 @@ export function AlertsPage() {
                               <span className="text-[10px] bg-system-panel border border-system-border px-2.5 py-0.5 rounded-md font-bold text-system-text tracking-wide shrink-0 font-mono">
                                 {log.location && (log.location.startsWith('Device') || log.location.startsWith('device')) ? log.location : `Device ${log.location}`}
                               </span>
+                              {(log.reading !== undefined && log.reading !== null) && (
+                                <span className="text-[10px] bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 px-2.5 py-0.5 rounded-md font-bold tracking-wide shrink-0 font-mono">
+                                  Reading: {typeof log.reading === 'number' ? log.reading.toFixed(1) : log.reading}{getSensorUnit(log.alertType || '')}
+                                </span>
+                              )}
                             </div>
 
                             {/* Status Change Description */}

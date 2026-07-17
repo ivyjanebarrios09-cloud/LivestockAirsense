@@ -441,7 +441,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           message: a.message || '',
           severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
           resolved: a.resolved === true || a.status === 'resolved' || a.resolved === 'true' || false,
-          reading: a.reading !== undefined ? a.reading : null
+          reading: a.reading !== undefined ? a.reading : (a.value !== undefined ? a.value : null),
+          value: a.value !== undefined ? a.value : (a.reading !== undefined ? a.reading : null)
         }));
 
       if (isFirstMountRef.current) {
@@ -470,7 +471,13 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
                       icon: '/logo.png',
                       badge: '/logo.png',
                       tag: alert.id,
-                      vibrate: [200, 100, 200]
+                      vibrate: [300, 100, 400, 100, 500],
+                      requireInteraction: true, // Persist on lockscreen / notification tab
+                      renotify: true,
+                      actions: [
+                        { action: 'view', title: '🔍 View Details' },
+                        { action: 'dismiss', title: '❌ Dismiss' }
+                      ]
                     } as any);
                   } else {
                     new Notification(notificationTitle, {
@@ -677,9 +684,20 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     };
 
     const curr = deviceData;
-    const prev = prevDeviceDataRef.current;
+    const prev = prevDeviceDataRef.current || {
+      temperature: 24,
+      humidity: 50,
+      co2: 400,
+      nh3: 0,
+      ammonia: 0,
+      ch4: 0,
+      methane: 0,
+      pm2_5: 5,
+      pm10: 10,
+      aqi: 20
+    };
 
-    if (prev) {
+    if (curr) {
       const getStatusLabel = (type: string, val: number) => {
         const s = getSensorStatus(type, val);
         switch (s) {
