@@ -441,7 +441,7 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
     for (const s of sensorsToCheck) {
       if (s.val !== undefined && s.val !== null) {
         const status = getSensorStatus(s.type, s.val);
-        const severity = (status === 'GOOD') ? 'normal' : (status === 'WARNING' ? 'warning' : 'critical');
+        const severity = (status === 'GOOD') ? 'normal' : (status === 'WARNING' ? 'warning' : (status === 'POOR' ? 'poor' : 'danger'));
         
         parsedAlerts.push({
           id: `target_${snap.id}_${s.type}`,
@@ -482,12 +482,93 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
   const triggerCallback = () => {
     if (isUnsubscribed) return;
     const allAlerts: any[] = [];
-    alertsBySource.forEach(list => allAlerts.push(...list));
-    
+    alertsBySource.forEach(list => {
+      if (list && Array.isArray(list)) {
+        allAlerts.push(...list);
+      }
+    });
+
+    // Load previously accumulated alerts from localStorage
+    let accumulated: any[] = [];
+    try {
+      if (typeof window !== 'undefined') {
+        accumulated = JSON.parse(localStorage.getItem('las_accumulated_target_alerts') || '[]');
+      }
+    } catch (e) {
+      console.warn('Failed to parse accumulated alerts:', e);
+    }
+
+    // Convert each alert in allAlerts to its unique-ID form and add to accumulated list if not already present
+    let changed = false;
+    for (const alert of allAlerts) {
+      if (!alert) continue;
+      const rawVal = alert.value !== undefined ? alert.value : alert.reading;
+      const valStr = typeof rawVal === 'number' ? rawVal.toFixed(1) : (rawVal !== undefined && rawVal !== null ? rawVal.toString() : '');
+      const valClean = valStr.replace(/[^a-zA-Z0-9]/g, '_');
+      
+      // Generate a unique ID based on base ID + timestamp + value
+      let uniqueId = alert.id;
+      if (uniqueId && !uniqueId.includes('_ts_')) {
+        uniqueId = `${alert.id}_ts_${alert.timestamp || 0}_val_${valClean}`;
+      }
+
+      const alertWithUniqueId = { ...alert, id: uniqueId };
+
+      const exists = accumulated.some(existing => existing.id === uniqueId);
+      if (!exists) {
+        accumulated.push(alertWithUniqueId);
+        changed = true;
+      } else {
+        // Update the existing one if resolved status or other property changed
+        const idx = accumulated.findIndex(existing => existing.id === uniqueId);
+        if (idx !== -1) {
+          if (accumulated[idx].resolved !== alertWithUniqueId.resolved) {
+            accumulated[idx] = { ...accumulated[idx], ...alertWithUniqueId };
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // Save back to localStorage if there are changes
+    if (changed && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('las_accumulated_target_alerts', JSON.stringify(accumulated));
+      } catch (e) {
+        console.warn('Failed to save accumulated alerts:', e);
+      }
+    }
+
+    // Apply resolved/deleted status from localStorage tracking
+    let deletedIds: string[] = [];
+    let resolvedIds: string[] = [];
+    try {
+      if (typeof window !== 'undefined') {
+        deletedIds = JSON.parse(localStorage.getItem('las_deleted_alert_ids') || '[]');
+        resolvedIds = JSON.parse(localStorage.getItem('las_resolved_alert_ids') || '[]');
+      }
+    } catch (e) {}
+
+    const filteredAndMapped = accumulated
+      .filter(item => {
+        if (!item) return false;
+        if (deletedIds.includes(item.id)) return false;
+        const baseId = item.id.split('_ts_')[0];
+        if (deletedIds.includes(baseId)) return false;
+        return true;
+      })
+      .map(item => {
+        const baseId = item.id.split('_ts_')[0];
+        if (resolvedIds.includes(item.id) || resolvedIds.includes(baseId)) {
+          return { ...item, resolved: true };
+        }
+        return item;
+      });
+
     // Sort descending by timestamp
-    allAlerts.sort((a, b) => b.timestamp - a.timestamp);
+    filteredAndMapped.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     
-    let filteredAlerts = allAlerts;
+    let filteredAlerts = filteredAndMapped;
     if (deviceId) {
       filteredAlerts = filteredAlerts.filter(a => a.deviceId === deviceId);
     }
@@ -499,9 +580,14 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
         if (existing.deviceId !== alert.deviceId) return false;
         
         // Match close timestamps (within 90 seconds)
-        const timeDiff = Math.abs(existing.timestamp - alert.timestamp);
+        const timeDiff = Math.abs((existing.timestamp || 0) - (alert.timestamp || 0));
         if (timeDiff > 90000) return false;
         
+        // If values are different, they are NOT duplicates!
+        const valA = alert.value !== undefined ? alert.value : alert.reading;
+        const valB = existing.value !== undefined ? existing.value : existing.reading;
+        if (valA !== valB) return false;
+
         // Match same alert type or message similarity
         const typeA = (alert.alertType || '').toLowerCase();
         const typeB = (existing.alertType || '').toLowerCase();
@@ -522,7 +608,7 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
       });
 
       if (idx !== -1) {
-        // Duplicate found! Keep the better one (more descriptive / not 'System Alert')
+        // Duplicate found! Keep the better one
         const existing = deduplicated[idx];
         const existingIsSystem = (existing.alertType || '') === 'System Alert';
         const newIsSystem = (alert.alertType || '') === 'System Alert';
@@ -533,7 +619,6 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
         } else if (!existingIsSystem && newIsSystem) {
           replaceWithNew = false;
         } else {
-          // If both are same category, keep the one with longer/more descriptive message
           const msgA = alert.message || '';
           const msgB = existing.message || '';
           replaceWithNew = msgA.length > msgB.length;
@@ -2010,6 +2095,33 @@ export const addAlertToFirestore = async (
 
 export const updateAlertResolved = async (alertId: string, resolved: boolean) => {
   try {
+    if (typeof window !== 'undefined') {
+      const resolvedIds = JSON.parse(localStorage.getItem('las_resolved_alert_ids') || '[]');
+      if (resolved && !resolvedIds.includes(alertId)) {
+        resolvedIds.push(alertId);
+        localStorage.setItem('las_resolved_alert_ids', JSON.stringify(resolvedIds));
+      } else if (!resolved) {
+        const idx = resolvedIds.indexOf(alertId);
+        if (idx !== -1) {
+          resolvedIds.splice(idx, 1);
+          localStorage.setItem('las_resolved_alert_ids', JSON.stringify(resolvedIds));
+        }
+      }
+
+      const accumulated = JSON.parse(localStorage.getItem('las_accumulated_target_alerts') || '[]');
+      let changed = false;
+      const updated = accumulated.map((item: any) => {
+        if (item.id === alertId || item.id.split('_ts_')[0] === alertId) {
+          changed = true;
+          return { ...item, resolved };
+        }
+        return item;
+      });
+      if (changed) {
+        localStorage.setItem('las_accumulated_target_alerts', JSON.stringify(updated));
+      }
+    }
+
     // Find the alert across all possible paths
     const alertsGroup = collectionGroup(db, 'alertReadings');
     
@@ -2037,6 +2149,23 @@ export const updateAlertResolved = async (alertId: string, resolved: boolean) =>
 export const resolveAllAlertsInFirestore = async (userId: string) => {
   if (!userId || userId === 'guest') return 0;
   try {
+    if (typeof window !== 'undefined') {
+      const resolvedIds = JSON.parse(localStorage.getItem('las_resolved_alert_ids') || '[]');
+      const accumulated = JSON.parse(localStorage.getItem('las_accumulated_target_alerts') || '[]');
+      let changed = false;
+      accumulated.forEach((item: any) => {
+        if (!resolvedIds.includes(item.id)) {
+          resolvedIds.push(item.id);
+          changed = true;
+        }
+        item.resolved = true;
+      });
+      if (changed) {
+        localStorage.setItem('las_resolved_alert_ids', JSON.stringify(resolvedIds));
+        localStorage.setItem('las_accumulated_target_alerts', JSON.stringify(accumulated));
+      }
+    }
+
     const alertsRef = collectionGroup(db, 'alertReadings');
     const q = query(alertsRef, where('userId', '==', userId));
     const snapshot = await getDocs(q);
@@ -2061,6 +2190,18 @@ export const resolveAllAlertsInFirestore = async (userId: string) => {
 
 export const deleteAlertFromFirestore = async (alertId: string) => {
   try {
+    if (typeof window !== 'undefined') {
+      const deletedIds = JSON.parse(localStorage.getItem('las_deleted_alert_ids') || '[]');
+      if (!deletedIds.includes(alertId)) {
+        deletedIds.push(alertId);
+        localStorage.setItem('las_deleted_alert_ids', JSON.stringify(deletedIds));
+      }
+
+      const accumulated = JSON.parse(localStorage.getItem('las_accumulated_target_alerts') || '[]');
+      const filtered = accumulated.filter((item: any) => item.id !== alertId && item.id.split('_ts_')[0] !== alertId);
+      localStorage.setItem('las_accumulated_target_alerts', JSON.stringify(filtered));
+    }
+
     const alertsGroup = collectionGroup(db, 'alertReadings');
     
     // First try querying by custom id field
@@ -2317,6 +2458,19 @@ export const deleteAllAlerts = async (userId: string) => {
 export const deleteAlertsByDate = async (userId: string, dateStr: string) => {
   if (!userId || !dateStr) return 0;
   try {
+    if (typeof window !== 'undefined') {
+      try {
+        const accumulated = JSON.parse(localStorage.getItem('las_accumulated_target_alerts') || '[]');
+        const filtered = accumulated.filter((item: any) => {
+          const itemDate = getLocalDateString(item.timestamp);
+          return itemDate !== dateStr;
+        });
+        localStorage.setItem('las_accumulated_target_alerts', JSON.stringify(filtered));
+      } catch (err) {
+        console.error('Failed to purge local accumulated alerts for date:', err);
+      }
+    }
+
     // With nested structure /alerts/{date}/alertReadings, we could technically target the specific date path
     // but collectionGroup is safer if we don't know the deviceId.
     const alertsRef = collectionGroup(db, 'alertReadings');
