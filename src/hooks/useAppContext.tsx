@@ -668,17 +668,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
         // The client only needs to trigger local reactive UI toast notifications.
         
         if (uid && uid !== 'guest') {
-          if (currStatus === 'Danger') {
-            toast.error(`Critical Alert: ${sensorName}`, {
-              description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
-              duration: 8000,
-            });
-          } else if (currStatus === 'Warning' || currStatus === 'Poor') {
-            toast.warning(`Warning Alert: ${sensorName}`, {
-              description: `Status shifted to ${currStatus} (Value: ${currVal}).`,
-              duration: 5000,
-            });
-          }
+          // Toast notifications disabled to prevent screen cluttering.
         }
       }
     };

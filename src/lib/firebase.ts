@@ -414,6 +414,71 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
   const activeUnsubs = new Map<string, () => void>();
   const alertsBySource = new Map<string, any[]>();
 
+  const targetDocRef = doc(db, 'users', 'WxdWO7ejVqPzbY5ucyjHOUXfbLI2', 'devices', 'LAS-001', 'alerts', '2026-07-17', 'alertReadings', '20260717_001320');
+  const unsubTarget = onSnapshot(targetDocRef, (snap) => {
+    if (isUnsubscribed) return;
+    if (!snap.exists()) {
+      alertsBySource.set('fixed_target_alert', []);
+      triggerCallback();
+      return;
+    }
+    const data = snap.data();
+    const sensorsToCheck = [
+      { type: 'temp', val: data.temperature ?? data.temp, name: 'Temperature' },
+      { type: 'nh3', val: data.nh3 ?? data.ammonia, name: 'Ammonia NH3' },
+      { type: 'co2', val: data.co2, name: 'CO2 Level' },
+      { type: 'aqi', val: data.aqi, name: 'Air Quality' },
+      { type: 'hum', val: data.humidity ?? data.hum, name: 'Humidity' },
+      { type: 'pm2.5', val: data.pm2_5, name: 'PM2.5 Feed Dust' },
+      { type: 'pm10', val: data.pm10, name: 'PM10 Coarse Dust' },
+      { type: 'ch4', val: data.ch4 ?? data.methane, name: 'Methane CH4' }
+    ];
+
+    const parsedAlerts = [];
+    const rawTime = data.createdAt || data.timestamp || data.time || '2026-07-17T00:13:20';
+    const ts = adjustTimestamp(parseSafeDate(rawTime).getTime());
+
+    for (const s of sensorsToCheck) {
+      if (s.val !== undefined && s.val !== null) {
+        const status = getSensorStatus(s.type, s.val);
+        const severity = (status === 'GOOD') ? 'normal' : (status === 'WARNING' ? 'warning' : 'critical');
+        
+        parsedAlerts.push({
+          id: `target_${snap.id}_${s.type}`,
+          deviceId: 'LAS-001',
+          alertType: `${s.name} Monitor`,
+          severity: severity,
+          message: `${s.name} status is ${status} with a reading of ${s.val}`,
+          location: 'Device LAS-001',
+          timestamp: ts,
+          resolved: status === 'GOOD' || data.resolved === true || data.status === 'resolved',
+          reading: s.val,
+          value: s.val
+        });
+      }
+    }
+
+    // Also include a primary alert showing the general status of LAS-001 from this target path
+    const primarySeverity = (data.severity || 'warning').toLowerCase();
+    parsedAlerts.push({
+      id: `target_${snap.id}_primary`,
+      deviceId: 'LAS-001',
+      alertType: data.alertType || data.alerts?.lastAlertType || 'System Alert',
+      severity: primarySeverity,
+      message: data.message || `System alert reading retrieved from target monitoring path`,
+      location: data.location || 'Device LAS-001',
+      timestamp: ts,
+      resolved: data.resolved === true || data.status === 'resolved' || false,
+      reading: data.reading !== undefined ? data.reading : (data.value !== undefined ? data.value : null),
+      value: data.value !== undefined ? data.value : (data.reading !== undefined ? data.reading : null)
+    });
+
+    alertsBySource.set('fixed_target_alert', parsedAlerts);
+    triggerCallback();
+  }, (err) => {
+    console.warn(`[Firestore] Failed to listen to target alertReadings document:`, err);
+  });
+
   const triggerCallback = () => {
     if (isUnsubscribed) return;
     const allAlerts: any[] = [];
@@ -650,6 +715,7 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
   return () => {
     isUnsubscribed = true;
     unsubDevices();
+    unsubTarget();
     activeUnsubs.forEach(unsub => unsub());
     activeUnsubs.clear();
   };
