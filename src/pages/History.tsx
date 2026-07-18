@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 export function HistoryPage() {
   const { uid, devices, selectedDeviceId, connectionStatus, theme } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
-  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'week'>('all');
 
   const [now, setNow] = useState(Date.now());
   
@@ -136,37 +136,33 @@ export function HistoryPage() {
     if (timeRange === 'all') {
       return { start: new Date(0), end: new Date(32503680000000) }; // wide range covering all timestamps
     }
-    const baseDate = new Date(selectedDate);
+    
+    // Safely parse selectedDate as local date elements
+    const parts = selectedDate.split('-');
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1; // 0-indexed
+    const dayVal = Number(parts[2]);
+
+    const baseDate = new Date(year, month, dayVal);
     if (isNaN(baseDate.getTime())) return { start: new Date(), end: new Date() };
 
-    let start = new Date(baseDate);
-    let end = new Date(baseDate);
+    let startMs = 0;
+    let endMs = 0;
 
     if (timeRange === 'today') {
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      startMs = Date.UTC(year, month, dayVal, 0, 0, 0, 0) - 8 * 60 * 60 * 1000;
+      endMs = Date.UTC(year, month, dayVal, 23, 59, 59, 999) - 8 * 60 * 60 * 1000;
     } else if (timeRange === 'week') {
-      // User likely wants the week containing the selected date
-      // Let's do Monday to Sunday or just 7 days? 
-      // Let's do 7 days ending on selectedDate (or starting? User said "pick what date it is... reflects to pdf")
-      // Actually, standard is usually the week containing the date.
-      const day = baseDate.getDay();
-      const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      start = new Date(baseDate.setDate(diff));
-      start.setHours(0, 0, 0, 0);
+      // User wants the week (Monday to Sunday) containing the selected date
+      const dayOfWeek = baseDate.getDay();
+      const mondayDay = dayVal - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      const sundayDay = mondayDay + 6;
       
-      end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-    } else if (timeRange === 'month') {
-      start = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
-      start.setHours(0, 0, 0, 0);
-      
-      end = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
-      end.setHours(23, 59, 59, 999);
+      startMs = Date.UTC(year, month, mondayDay, 0, 0, 0, 0) - 8 * 60 * 60 * 1000;
+      endMs = Date.UTC(year, month, sundayDay, 23, 59, 59, 999) - 8 * 60 * 60 * 1000;
     }
 
-    return { start, end };
+    return { start: new Date(startMs), end: new Date(endMs) };
   }, [selectedDate, timeRange]);
 
   useEffect(() => {
@@ -254,7 +250,15 @@ export function HistoryPage() {
       'Device ID'
     ];
     
-    const rows = historicalLogs.map(row => {
+    // Filter logs strictly to the computed local dateRange to prevent any data leakage
+    const filteredLogs = historicalLogs.filter(row => {
+      if (timeRange === 'all') return true;
+      const ts = row.rawTimestamp || row.timestamp;
+      const tsNum = typeof ts === 'number' ? ts : (ts ? parseSafeDate(ts).getTime() : 0);
+      return tsNum >= start.getTime() && tsNum <= end.getTime();
+    });
+
+    const rows = filteredLogs.map(row => {
       const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
       const humVal = row.humidity !== undefined ? row.humidity : row.hum;
       const co2Val = row.co2;
@@ -315,9 +319,17 @@ export function HistoryPage() {
     doc.setLineWidth(0.5);
     doc.line(14, 30, 196, 30);
 
+    // Filter logs strictly to the computed local dateRange to prevent any data leakage
+    const filteredLogs = historicalLogs.filter(row => {
+      if (timeRange === 'all') return true;
+      const ts = row.rawTimestamp || row.timestamp;
+      const tsNum = typeof ts === 'number' ? ts : (ts ? parseSafeDate(ts).getTime() : 0);
+      return tsNum >= start.getTime() && tsNum <= end.getTime();
+    });
+
     autoTable(doc, {
       head: [['Timestamp', 'Temp', 'Hum', 'CO2', 'NH3', 'CH4', 'PM2.5', 'PM10', 'AQI']],
-      body: historicalLogs.map(row => {
+      body: filteredLogs.map(row => {
         const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
         const humVal = row.humidity !== undefined ? row.humidity : row.hum;
         const co2Val = row.co2;
@@ -440,7 +452,7 @@ export function HistoryPage() {
 
           {/* Time Range Selector */}
           <div className="flex bg-system-panel border border-system-border rounded-xl p-1 select-none w-full sm:w-auto justify-between sm:justify-start">
-            {(['all', 'today', 'week', 'month'] as const).map(t => (
+            {(['all', 'today', 'week'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTimeRange(t)}

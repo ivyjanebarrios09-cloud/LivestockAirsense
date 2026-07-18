@@ -21,6 +21,11 @@ export interface Alert {
   message: string;
   isRead: boolean;
   currentStatus?: string;
+  reading?: number | string | null;
+  value?: number | string | null;
+  location?: string;
+  time?: string;
+  resolved?: boolean;
 }
 
 export interface SystemSettings {

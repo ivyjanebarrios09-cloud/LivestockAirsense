@@ -138,11 +138,12 @@ export function AlertsPage() {
       doc.line(14, 30, 196, 30);
 
       autoTable(doc, {
-        head: [['Time', 'Type', 'Severity', 'Location', 'Message']],
+        head: [['Time', 'Type', 'Severity/Status', 'Reading', 'Location', 'Message']],
         body: filteredAlerts.map(row => [
           row.time || (row.timestamp ? formatPHDate(row.timestamp) : 'N/A'),
           row.alertType || 'System Alert',
-          row.severity ? getSeverityLabel(row.severity) : 'Normal',
+          row.alertType === 'System Alert' ? (row.currentStatus || 'WARNING') : (row.severity ? getSeverityLabel(row.severity) : 'Normal'),
+          row.reading !== undefined && row.reading !== null ? `${typeof row.reading === 'number' ? row.reading.toFixed(1) : row.reading}${getSensorUnit(row.alertType || '')}` : '-',
           row.location || 'Unknown',
           row.message || '-'
         ]),
@@ -150,7 +151,7 @@ export function AlertsPage() {
         theme: 'grid',
         styles: { fontSize: 8, font: 'helvetica', cellPadding: 2 },
         columnStyles: {
-          4: { cellWidth: 80 }
+          5: { cellWidth: 70 }
         },
         headStyles: { fillColor: [59, 130, 246] }
       });
