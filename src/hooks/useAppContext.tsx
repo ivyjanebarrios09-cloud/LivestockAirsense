@@ -442,7 +442,8 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
           severity: (a.severity as 'critical' | 'warning' | 'normal') || 'normal',
           resolved: a.resolved === true || a.status === 'resolved' || a.resolved === 'true' || false,
           reading: a.reading !== undefined ? a.reading : (a.value !== undefined ? a.value : null),
-          value: a.value !== undefined ? a.value : (a.reading !== undefined ? a.reading : null)
+          value: a.value !== undefined ? a.value : (a.reading !== undefined ? a.reading : null),
+          currentStatus: a.currentStatus || a.status || ''
         }));
 
       if (isFirstMountRef.current) {

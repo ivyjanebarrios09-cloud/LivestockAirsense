@@ -337,12 +337,30 @@ export function AlertsPage() {
 
                             {/* Status and Device Info Badge Rows */}
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className={cn(
-                                "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shrink-0",
-                                severityStyles[log.severity] || severityStyles['normal']
-                              )}>
-                                {getSeverityLabel(log.severity)}
-                              </span>
+                              {log.alertType === "System Alert" ? (
+                                <span className={cn(
+                                  "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shrink-0",
+                                  (() => {
+                                    const statusVal = (log.currentStatus || "WARNING").toLowerCase();
+                                    if (statusVal === 'online' || statusVal === 'good' || statusVal === 'normal' || statusVal === 'active') {
+                                      return severityStyles['good'];
+                                    }
+                                    if (statusVal === 'offline' || statusVal === 'danger' || statusVal === 'critical') {
+                                      return severityStyles['critical'];
+                                    }
+                                    return severityStyles[statusVal] || severityStyles[log.severity?.toLowerCase()] || severityStyles['warning'];
+                                  })()
+                                )}>
+                                  {log.currentStatus || "WARNING"}
+                                </span>
+                              ) : (
+                                <span className={cn(
+                                  "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md border shrink-0",
+                                  severityStyles[log.severity] || severityStyles['normal']
+                                )}>
+                                  {getSeverityLabel(log.severity)}
+                                </span>
+                              )}
                               <span className="text-[10px] bg-system-panel border border-system-border px-2.5 py-0.5 rounded-md font-bold text-system-text tracking-wide shrink-0 font-mono">
                                 {log.location && (log.location.startsWith('Device') || log.location.startsWith('device')) ? log.location : `Device ${log.location}`}
                               </span>

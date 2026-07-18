@@ -453,7 +453,8 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
           timestamp: ts,
           resolved: status === 'GOOD' || data.resolved === true || data.status === 'resolved',
           reading: s.val,
-          value: s.val
+          value: s.val,
+          currentStatus: status
         });
       }
     }
@@ -470,7 +471,8 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
       timestamp: ts,
       resolved: data.resolved === true || data.status === 'resolved' || false,
       reading: data.reading !== undefined ? data.reading : (data.value !== undefined ? data.value : null),
-      value: data.value !== undefined ? data.value : (data.reading !== undefined ? data.reading : null)
+      value: data.value !== undefined ? data.value : (data.reading !== undefined ? data.reading : null),
+      currentStatus: data.currentStatus || data.status || ''
     });
 
     alertsBySource.set('fixed_target_alert', parsedAlerts);
@@ -780,7 +782,8 @@ export const subscribeToAlerts = (uid: string, callback: (alerts: any[]) => void
             timestamp: ts,
             resolved: data.resolved === true || data.status === 'resolved' || false,
             reading: resolvedVal,
-            value: resolvedVal
+            value: resolvedVal,
+            currentStatus: data.currentStatus || data.status || ''
           } as any;
         }).filter(Boolean) as any[];
         

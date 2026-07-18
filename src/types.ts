@@ -20,6 +20,7 @@ export interface Alert {
   severity: AlertSeverity;
   message: string;
   isRead: boolean;
+  currentStatus?: string;
 }
 
 export interface SystemSettings {
