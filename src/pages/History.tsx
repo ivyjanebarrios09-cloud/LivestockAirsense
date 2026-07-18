@@ -153,13 +153,9 @@ export function HistoryPage() {
       startMs = Date.UTC(year, month, dayVal, 0, 0, 0, 0) - 8 * 60 * 60 * 1000;
       endMs = Date.UTC(year, month, dayVal, 23, 59, 59, 999) - 8 * 60 * 60 * 1000;
     } else if (timeRange === 'week') {
-      // User wants the week (Monday to Sunday) containing the selected date
-      const dayOfWeek = baseDate.getDay();
-      const mondayDay = dayVal - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      const sundayDay = mondayDay + 6;
-      
-      startMs = Date.UTC(year, month, mondayDay, 0, 0, 0, 0) - 8 * 60 * 60 * 1000;
-      endMs = Date.UTC(year, month, sundayDay, 23, 59, 59, 999) - 8 * 60 * 60 * 1000;
+      // 7 days ending on the selected date (e.g., July 12 to July 18)
+      startMs = Date.UTC(year, month, dayVal - 6, 0, 0, 0, 0) - 8 * 60 * 60 * 1000;
+      endMs = Date.UTC(year, month, dayVal, 23, 59, 59, 999) - 8 * 60 * 60 * 1000;
     }
 
     return { start: new Date(startMs), end: new Date(endMs) };

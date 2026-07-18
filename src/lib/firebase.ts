@@ -1686,19 +1686,20 @@ export const subscribeToStatusHistory = (
     const derivedDates = getDateStringsInRange(startTime, endTime);
     derivedDates.forEach(dateStr => {
       requiredKeys.add(`user_${dateStr}`);
+      requiredKeys.add(`air_${dateStr}`);
     });
 
     // 2. Also prepare user-specific history paths found dynamically in Firestore listing
     userDates.forEach(dateStr => {
       requiredKeys.add(`user_${dateStr}`);
+      requiredKeys.add(`air_${dateStr}`);
     });
 
-    // 3. Prepare Air Monitoring history paths as fallback if we have zero user dates
-    if (userDates.length === 0 && derivedDates.length === 0) {
-      airDates.forEach(dateStr => {
-        requiredKeys.add(`air_${dateStr}`);
-      });
-    }
+    // 3. Include all found airDates as well
+    airDates.forEach(dateStr => {
+      requiredKeys.add(`user_${dateStr}`);
+      requiredKeys.add(`air_${dateStr}`);
+    });
 
     // Unsubscribe from any listeners no longer needed
     activeUnsubs.forEach((unsub, key) => {
