@@ -1682,24 +1682,26 @@ export const subscribeToStatusHistory = (
 
     const requiredKeys = new Set<string>();
 
-    // 1. Add derived dates from the query range
-    const derivedDates = getDateStringsInRange(startTime, endTime);
-    derivedDates.forEach(dateStr => {
-      requiredKeys.add(`user_${dateStr}`);
-      requiredKeys.add(`air_${dateStr}`);
-    });
+    const isSpecificRange = startTime !== undefined && startTime > 0;
+    const derivedDates = isSpecificRange ? getDateStringsInRange(startTime, endTime) : [];
 
-    // 2. Also prepare user-specific history paths found dynamically in Firestore listing
-    userDates.forEach(dateStr => {
-      requiredKeys.add(`user_${dateStr}`);
-      requiredKeys.add(`air_${dateStr}`);
-    });
-
-    // 3. Include all found airDates as well
-    airDates.forEach(dateStr => {
-      requiredKeys.add(`user_${dateStr}`);
-      requiredKeys.add(`air_${dateStr}`);
-    });
+    if (isSpecificRange) {
+      // For specific ranges (today/week), only subscribe to the requested dates
+      derivedDates.forEach(dateStr => {
+        requiredKeys.add(`user_${dateStr}`);
+        requiredKeys.add(`air_${dateStr}`);
+      });
+    } else {
+      // For 'all' time-range, combine found user and air dates, sort descending, and limit to the 15 most recent days to avoid overwhelming Firestore/browser resources
+      const allAvailableDates = Array.from(new Set([...userDates, ...airDates]));
+      const sortedDates = allAvailableDates.sort((a, b) => b.localeCompare(a));
+      const limitedDates = sortedDates.slice(0, 15);
+      
+      limitedDates.forEach(dateStr => {
+        requiredKeys.add(`user_${dateStr}`);
+        requiredKeys.add(`air_${dateStr}`);
+      });
+    }
 
     // Unsubscribe from any listeners no longer needed
     activeUnsubs.forEach((unsub, key) => {

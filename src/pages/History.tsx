@@ -161,17 +161,20 @@ export function HistoryPage() {
     return { start: new Date(startMs), end: new Date(endMs) };
   }, [selectedDate, timeRange]);
 
+  const startMs = dateRange.start.getTime();
+  const endMs = dateRange.end.getTime();
+  const activeDeviceId = activeDevice?.id;
+
   useEffect(() => {
     setCurrentPage(1);
-    if (!activeDevice) return;
+    if (!activeDeviceId) return;
     
     setIsLoading(true);
-    const { start, end } = dateRange;
     
     const unsubscribe = subscribeToStatusHistory(
-      activeDevice.id,
-      start.getTime(),
-      end.getTime(),
+      activeDeviceId,
+      startMs,
+      endMs,
       (logs) => {
         const formattedLogs = logs.map(log => ({
           ...log,
@@ -186,7 +189,7 @@ export function HistoryPage() {
     );
 
     return () => unsubscribe();
-  }, [dateRange, activeDevice]);
+  }, [startMs, endMs, activeDeviceId, uid]);
 
   const paginatedLogs = useMemo(() => {
     if (rowsPerPage === 'all') {

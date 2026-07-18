@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, Sparkles, RefreshCw } from 'lucide-react';
+import { FileText, DownloadCloud, Printer, Plus, Layers, CheckCircle, Activity, Sparkles, RefreshCw, Loader2 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAppContext } from '../hooks/useAppContext';
@@ -7,11 +7,13 @@ import { cn, getSensorStatus } from '../lib/utils';
 import { formatPHDate } from '../utils/date';
 import { motion } from 'motion/react';
 import { DeviceName } from '../components/DeviceName';
+import { getStatusHistory } from '../lib/firebase';
 
 export function ReportsPage() {
   const { devices, selectedDeviceId } = useAppContext();
   const activeDevice = devices.find(d => d.id === selectedDeviceId) || devices[0];
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const latestReading = activeDevice?.latestReading || {};
   const hasData = Object.keys(latestReading).length > 0 && (latestReading.timestamp || latestReading.aqi !== undefined);
@@ -164,11 +166,189 @@ export function ReportsPage() {
     triggerNotify(`Saved PDF Compliance: ${title}`);
   };
 
-  const handleDownload = (title: string, type: string) => {
-    if (type.includes('CSV')) {
-      downloadCSVReport(title);
+  const downloadWeeklyCSVReport = async (title: string) => {
+    if (!activeDevice) return;
+    setIsGenerating(true);
+    triggerNotify("Fetching 7 days of records...");
+    
+    try {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const records = await getStatusHistory(activeDevice.id, sevenDaysAgo, Date.now());
+      
+      const headers = [
+        'Timestamp', 
+        'Temperature (°C)',
+        'Humidity (%)',
+        'CO2 (ppm)',
+        'Ammonia NH3 (ppm)',
+        'Methane CH4 (ppm)',
+        'PM2.5 (ug/m3)',
+        'PM10 (ug/m3)',
+        'AQI',
+        'Device Name', 
+        'Device ID'
+      ];
+      
+      const rows = records.map(row => {
+        const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+        const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+        const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+        const ch4Val = row.ch4 !== undefined ? row.ch4 : row.methane;
+        const pm25Val = row.pm2_5 !== undefined ? row.pm2_5 : row.pm25;
+        const pm10Val = row.pm10;
+        const aqiVal = row.aqi;
+        
+        const dateDisplay = row.timestamp ? formatPHDate(row.timestamp, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+        return [
+          dateDisplay,
+          tempVal !== undefined ? tempVal.toFixed(1) : '-',
+          humVal !== undefined ? humVal.toFixed(1) : '-',
+          row.co2 !== undefined ? Math.round(row.co2).toString() : '-',
+          nh3Val !== undefined ? nh3Val.toFixed(1) : '-',
+          ch4Val !== undefined ? ch4Val.toFixed(1) : '-',
+          pm25Val !== undefined ? Math.round(pm25Val).toString() : '-',
+          pm10Val !== undefined ? Math.round(pm10Val).toString() : '-',
+          aqiVal !== undefined ? Math.round(aqiVal).toString() : '-',
+          activeDevice.name,
+          activeDevice.id
+        ];
+      });
+      
+      const csvContent = [
+        [`Active Device 7-Day Weekly Report: ${activeDevice.name} (${activeDevice.id})`],
+        headers.join(','),
+        ...rows.map(e => e.map(val => `"${val}"`).join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${activeDevice.id}_weekly_assessment_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      triggerNotify(`Saved 7-Day CSV Assessment`);
+    } catch (error) {
+      console.error('[Reports] Error downloading weekly CSV report:', error);
+      triggerNotify('Failed to generate weekly CSV');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadWeeklyReport = async (title: string) => {
+    if (!activeDevice) return;
+    setIsGenerating(true);
+    triggerNotify("Fetching 7 days of records...");
+    
+    try {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const records = await getStatusHistory(activeDevice.id, sevenDaysAgo, Date.now());
+      
+      if (records.length === 0) {
+        triggerNotify("No historical records found for the past 7 days. Using latest telemetry.");
+      }
+
+      const doc = new jsPDF();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text(`Livestock AirSense: Weekly Assessment`, 14, 20);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Report Level: ${title}`, 14, 26);
+      doc.text(`Monitored Device: ${activeDevice.name} (${activeDevice.id})`, 14, 31);
+      
+      const startRangeStr = formatPHDate(sevenDaysAgo, { year: 'numeric', month: 'numeric', day: 'numeric' });
+      const endRangeStr = formatPHDate(Date.now(), { year: 'numeric', month: 'numeric', day: 'numeric' });
+      doc.text(`Period: ${startRangeStr} to ${endRangeStr} (7-Day Record)`, 14, 36);
+      doc.text(`Generated Date: ${formatPHDate(Date.now(), { year: 'numeric', month: 'numeric', day: 'numeric' })}`, 14, 41);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Weekly Health Summary:", 14, 48);
+      doc.setFont("helvetica", "normal");
+      
+      let summaryText = airQualitySummary;
+      if (records.length > 0) {
+        const temps = records.map(r => r.temperature !== undefined ? r.temperature : r.temp).filter(v => v !== undefined);
+        const hums = records.map(r => r.humidity !== undefined ? r.humidity : r.hum).filter(v => v !== undefined);
+        const co2s = records.map(r => r.co2).filter(v => v !== undefined);
+        const aqis = records.map(r => r.aqi).filter(v => v !== undefined);
+        const nh3s = records.map(r => r.nh3 !== undefined ? r.nh3 : r.ammonia).filter(v => v !== undefined);
+
+        const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : 'N/A';
+        const avgHum = hums.length > 0 ? (hums.reduce((a, b) => a + b, 0) / hums.length).toFixed(1) : 'N/A';
+        const avgCo2 = co2s.length > 0 ? Math.round(co2s.reduce((a, b) => a + b, 0) / co2s.length) : 'N/A';
+        const avgAqi = aqis.length > 0 ? Math.round(aqis.reduce((a, b) => a + b, 0) / aqis.length) : 'N/A';
+        const avgNh3 = nh3s.length > 0 ? (nh3s.reduce((a, b) => a + b, 0) / nh3s.length).toFixed(1) : 'N/A';
+
+        summaryText = `Over the past 7 days, a total of ${records.length} microclimate data points were recorded. Average readings are: Air Quality Index (AQI): ${avgAqi}, Temperature: ${avgTemp}°C, Humidity: ${avgHum}%, CO2 Level: ${avgCo2} ppm, Ammonia (NH3) Level: ${avgNh3} ppm. Overall climate stability scores indicate ${avgAqi !== 'N/A' && Number(avgAqi) < 50 ? 'OPTIMAL environmental conditions with efficient ventilation.' : 'elevated particulate loads or gas concentrations; veterinary oversight/ventilation adjustments recommended.'}`;
+      }
+
+      const splitSummary = doc.splitTextToSize(summaryText, 180);
+      doc.text(splitSummary, 14, 53);
+
+      doc.setLineWidth(0.5);
+      doc.line(14, 72, 196, 72);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("7-Day Historical Records", 14, 78);
+      
+      const tableBody = records.length > 0 
+        ? records.map(row => {
+            const tempVal = row.temperature !== undefined ? row.temperature : row.temp;
+            const humVal = row.humidity !== undefined ? row.humidity : row.hum;
+            const nh3Val = row.nh3 !== undefined ? row.nh3 : row.ammonia;
+            const dateDisplay = row.timestamp ? formatPHDate(row.timestamp, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+            const status = getSensorStatus('aqi', row.aqi ?? 0);
+            
+            return [
+              dateDisplay,
+              row.aqi !== undefined ? Math.round(row.aqi).toString() : '-',
+              tempVal !== undefined ? `${tempVal.toFixed(1)}°C` : '-',
+              humVal !== undefined ? `${humVal.toFixed(1)}%` : '-',
+              row.co2 !== undefined ? `${Math.round(row.co2)} ppm` : '-',
+              nh3Val !== undefined ? `${nh3Val.toFixed(1)} ppm` : '-',
+              status
+            ];
+          })
+        : [
+            ['No records found for the past 7 days.', '-', '-', '-', '-', '-', '-']
+          ];
+
+      autoTable(doc, {
+        head: [['Timestamp', 'AQI', 'Temp', 'Hum', 'CO2', 'NH3', 'Status']],
+        body: tableBody,
+        startY: 83,
+        theme: 'grid',
+        styles: { fontSize: 8, font: 'courier' },
+        headStyles: { fillColor: [79, 70, 229] }
+      });
+
+      doc.save(`${activeDevice.id}_weekly_assessment_${Date.now()}.pdf`);
+      triggerNotify(`Saved 7-Day PDF Assessment`);
+    } catch (error) {
+      console.error('[Reports] Error downloading weekly report:', error);
+      triggerNotify('Failed to generate weekly report');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownload = async (title: string, format: string) => {
+    if (title === 'Weekly Assessment') {
+      if (format === 'CSV') {
+        await downloadWeeklyCSVReport(title);
+      } else {
+        await downloadWeeklyReport(title);
+      }
     } else {
-      downloadPDFReport(title);
+      if (format === 'CSV') {
+        downloadCSVReport(title);
+      } else {
+        downloadPDFReport(title);
+      }
     }
   };
 
@@ -270,12 +450,18 @@ export function ReportsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { title: 'Daily Summary', desc: 'Automatic 24h aggregate report including hazard safety thresholds analysis.', type: 'CSV / PDF' },
-          { title: 'Weekly Assessment', desc: 'Veterinary assessment trends detailing microclimate stability scores.', type: 'PDF' },
+          { title: 'Weekly Assessment', desc: 'Detailed 7-day veterinary compliance audit containing historical records list.', type: 'CSV / PDF' },
           { title: 'Monthly Compliance Audit', desc: 'Regulatory compliance documentation formatted for farming standards checklists.', type: 'PDF' },
         ].map((report, i) => (
           <div 
             key={i} 
-            onClick={() => handleDownload(report.title, report.type)}
+            onClick={() => {
+              if (report.type === 'PDF') {
+                handleDownload(report.title, 'PDF');
+              } else {
+                handleDownload(report.title, 'CSV');
+              }
+            }}
             className="bg-system-panel border border-system-border shadow-sm rounded-2xl p-5 hover:border-system-accent/50 transition-colors group cursor-pointer flex flex-col h-full"
           >
             <div className="w-10 h-10 rounded-xl bg-system-bg border border-system-border flex items-center justify-center text-system-text mb-4 group-hover:text-system-accent transition-colors">
@@ -286,27 +472,49 @@ export function ReportsPage() {
             
             <div className="border-t border-system-border pt-4 mt-auto flex items-center justify-between text-[10px] font-mono leading-none">
               <span className="text-system-muted font-bold uppercase">{report.type}</span>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-system-accent">
-                <button 
-                  title="Download File"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(report.title, report.type);
-                  }}
-                  className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer"
-                >
-                  <DownloadCloud className="w-4 h-4 hover:scale-110" />
-                </button>
-                <button 
-                  title="Print Report"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePrint();
-                  }}
-                  className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer"
-                >
-                  <Printer className="w-4 h-4 hover:scale-110" />
-                </button>
+              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-system-accent">
+                {isGenerating && report.title === 'Weekly Assessment' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    {report.type.includes('CSV') && (
+                      <button 
+                        title="Download CSV"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(report.title, 'CSV');
+                        }}
+                        className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer flex items-center text-emerald-500"
+                      >
+                        <span className="text-[8px] font-black mr-0.5 font-mono">CSV</span>
+                        <DownloadCloud className="w-3.5 h-3.5 hover:scale-110" />
+                      </button>
+                    )}
+                    {report.type.includes('PDF') && (
+                      <button 
+                        title="Download PDF"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(report.title, 'PDF');
+                        }}
+                        className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer flex items-center text-indigo-500"
+                      >
+                        <span className="text-[8px] font-black mr-0.5 font-mono">PDF</span>
+                        <DownloadCloud className="w-3.5 h-3.5 hover:scale-110" />
+                      </button>
+                    )}
+                    <button 
+                      title="Print Report"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrint();
+                      }}
+                      className="p-1 hover:bg-system-bg rounded-lg transition-colors cursor-pointer text-system-muted hover:text-system-text"
+                    >
+                      <Printer className="w-3.5 h-3.5 hover:scale-110" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -292,7 +292,7 @@ export function AppContextProvider({ children, uid }: { children: React.ReactNod
     });
 
     return () => unsubscribeUser();
-  }, [uid]);
+  }, [uid, selectedDeviceId]);
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
